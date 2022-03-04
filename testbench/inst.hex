@@ -1,0 +1,11 @@
+//memory address 0x1000 is initialized to 0x12345678
+00c00093 //addi x1, x0, 12
+00000193 //addi x3, x0, 0
+000011b7 //lui x3, 0x1
+0001a183 //lw x3, 0(x3)
+fff1c193 //xori x3, x3, -1
+00000213 //addi x4, x0, 0
+00001237 //lui x4, 0x1
+00322223 //sw x3, 4(x4)
+00000513 //li a0, 0
+05d00893 //li a7, 93
