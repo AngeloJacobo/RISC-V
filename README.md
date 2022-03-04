@@ -1,10 +1,11 @@
 # ABOUT
-Design implementation of the RISC-V Integer core in Verilog HDL. The core is implemented via FSM. The standard 5 prstages 
-
+Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Register (CSR) yet.
+ 
 ## Hierarchy  
 -> rv32i_core    
    -> rv32i_basereg  
    -> rv32i_decoder  
+
 ## Testbench
 The hex file `inst.hex` contains the test instructions.This hex file initializes the instruction memory regfile using the `readmemh` command. Below are the testcases used. In comments are the equivalent assembly code of each hex instruction and the expected results of each instruction.
 
@@ -35,15 +36,30 @@ Monitor All Changes/Writes to Base Reg and Data Memory
 [BASEREG] address:0x0a   value:0x00000000
 [BASEREG] address:0x11   value:0x0000005d
 ```
-Below is the screenshot of the waveforms for the relevant base registers and memory data accessed in this testbench:
+Below is the screenshot of the waveforms for the relevant base registers and memory data accessed in this testbench:  
 
-![wave](https://user-images.githubusercontent.com/87559347/156799580-2dc78eed-1ef1-4cf0-a64a-b182b0725628.png)
- - `iaddr` is the instruction address (PC value)
- - `base_regfile[][]` is the base register regfile
- - `data_regfile[][]` is the memory data regfile
+![wave](https://user-images.githubusercontent.com/87559347/156799580-2dc78eed-1ef1-4cf0-a64a-b182b0725628.png)  
+ - `iaddr` is the instruction address (PC value)  
+ - `base_regfile[][]` is the base register regfile  
+ - `data_regfile[][]` is the memory data regfile  
 
+## Utilization [Vivado Synthesis Report for Spartan 7 XC7S25]  
+```
++-------------------------+------+-------+------------+-----------+-------+  
+|        Site Type        | Used | Fixed | Prohibited | Available | Util% |  
++-------------------------+------+-------+------------+-----------+-------+  
+| Slice LUTs*             |  725 |     0 |          0 |     14600 |  4.97 |  
+|   LUT as Logic          |  725 |     0 |          0 |     14600 |  4.97 |  
+|   LUT as Memory         |    0 |     0 |          0 |      5000 |  0.00 |  
+| Slice Registers         |  133 |     0 |          0 |     29200 |  0.46 |   
+|   Register as Flip Flop |  101 |     0 |          0 |     29200 |  0.35 |  
+|   Register as Latch     |   32 |     0 |          0 |     29200 |  0.11 |  
+| F7 Muxes                |   33 |     0 |          0 |      7300 |  0.45 |  
+| F8 Muxes                |    0 |     0 |          0 |      3650 |  0.00 |  
++-------------------------+------+-------+------------+-----------+-------+  
+```
 
-# TO DO
+## FUTURE EXPANSIONS
  - Add more testcases for the core testbench  
  - Convert FSM to pipeline   
  - Add CSR
