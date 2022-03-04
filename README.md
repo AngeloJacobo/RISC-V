@@ -63,5 +63,6 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
  - Add more testcases for the core testbench  
  - Convert FSM to pipeline   
  - Add CSR
-
+ - Add RV32 extensions
+ - 
 # [UNDER CONTRUCTION]
