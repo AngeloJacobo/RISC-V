@@ -5,7 +5,7 @@ Design implementation for the RISC-V Integer core in Verilog HDL. The core is FS
 ???????????????????????????????????????????  
 
 ## Testbench
-The hex file `inst.hex` contains the test instructions.This hex file initializes the instruction memory regfile using the `readmemh` command. Below are the testcases used. In comments are the equivalent assembly code of each hex instruction and the expected results of each instruction.
+The hex file `inst.hex` contains the test instructions.This hex file initializes the instruction memory regfile using the `readmemh` command. Below are the testcases used. In comments are the equivalent assembly code of each hex instruction and its expected results.
 
 ```verilog
 //memory address 0x1000 is initialized to 0x12345678
