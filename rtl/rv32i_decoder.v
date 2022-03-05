@@ -1,4 +1,7 @@
 //combinational logic for the decoding of a 32 bit instruction [DECODE STAGE]
+
+`timescale 1ns / 1ps
+
 module rv32i_decoder(
 	input wire[31:0] inst, //32 bit instruction
 	output wire[4:0] rs1_addr,//address for register source 1
