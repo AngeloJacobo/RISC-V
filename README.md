@@ -1,7 +1,7 @@
 # ABOUT
 Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Register (CSR) yet.
  
-## Hierarchy   
+## Interface   
 ???????????????????????????????????????????  
 
 ## Testbench
@@ -21,7 +21,7 @@ fff1c193 //xori x3, x3, -1  (write 0xedcba987 to x3)
 05d00893 //li x17, 93       (write 93(0x5d) to x17)
 ```
 
-The `rv32i_soc_TB.v` testbench monitors all writes on the base register and data memory. It displays the address accessed and its new value. `[BASEREG]` code pertains to changes in base register and `[MEMORY]` code for changes in memory data. After executing all instructions, the register state of the 32 base registers and the relevant memory data are displayed:
+The `rv32i_soc_TB.v` testbench monitors all writes on the base register and data memory. It displays the address accessed and its new value. `[BASEREG]` code pertains to changes in base register and `[MEMORY]` code for changes in memory data. After executing all instructions, the state of the 32 base registers and memory data are displayed:
 ```
 
 Start executing instructions......
@@ -63,9 +63,9 @@ Final Memory State:
 Below is the screenshot of the waveforms for the relevant base registers and memory data accessed in this testbench:  
 
 ![wave](https://user-images.githubusercontent.com/87559347/156799580-2dc78eed-1ef1-4cf0-a64a-b182b0725628.png)  
- - `iaddr` = the instruction address (PC value)  
- - `base_regfile[][]` = the base register regfile  
- - `data_regfile[][]` = the memory data regfile  
+ - `iaddr` = instruction address (PC value)  
+ - `base_regfile[][]` = base register regfile  
+ - `data_regfile[][]` = memory data regfile  
 
 ## Utilization [Vivado Synthesis Report for Spartan 7 XC7S25]  
 ```
@@ -88,5 +88,5 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
  - Convert FSM to pipeline   
  - Add CSR
  - Add RV32 extensions
- - 
+ 
 # [UNDER CONTRUCTION]
