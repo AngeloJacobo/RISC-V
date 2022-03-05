@@ -1,4 +1,7 @@
 //combinational logic for determining the next PC and rd value [WRITEBACK STAGE]
+
+`timescale 1ns / 1ps
+
 module rv32i_writeback(
 	input wire[6:0] opcode, //instruction class type
 	input wire[4:0] rd_addr, //address of destination address
