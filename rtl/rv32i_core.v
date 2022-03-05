@@ -13,22 +13,22 @@ module rv32i_core #(parameter PC_RESET=32'h00_00_00_00) (
 	output reg wr_en //write enable 
 );
 	localparam FETCH = 0,
-		   	   DECODE = 1,
-		   	   EXECUTE = 2,
-		   	   MEMORY = 3,
-		   	   WRITEBACK = 4;
+		  DECODE = 1,
+		 EXECUTE = 2,
+		  MEMORY = 3,
+	       WRITEBACK = 4;
 
 	localparam R_TYPE = 7'b011_0011, //instruction types and its opcode
-		       I_TYPE = 7'b001_0011,
-				 LOAD = 7'b000_0011,
-		        STORE = 7'b010_0011,
-			   BRANCH = 7'b110_0011,
-			      JAL = 7'b110_1111,
-			     JALR = 7'b110_0111,
-			      LUI = 7'b011_0111,
-			    AUIPC = 7'b001_0111,
-		       SYSTEM = 7'b111_0011,
-			    FENCE = 7'b000_1111;
+		   I_TYPE = 7'b001_0011,
+		     LOAD = 7'b000_0011,
+		    STORE = 7'b010_0011,
+		   BRANCH = 7'b110_0011,
+		      JAL = 7'b110_1111,
+		     JALR = 7'b110_0111,
+		      LUI = 7'b011_0111,
+		    AUIPC = 7'b001_0111,
+	       	   SYSTEM = 7'b111_0011,
+		    FENCE = 7'b000_1111;
 
 
 	reg[2:0] stage_q=0,stage_d;//5 stages
@@ -38,8 +38,8 @@ module rv32i_core #(parameter PC_RESET=32'h00_00_00_00) (
 	reg wr_base; //write to base reg
 	wire[31:0] rs1,rs2,rd; //value of source register 1 and 2 and destination register 
 	wire[31:0] data_load; //data to be loaded to base reg
-    wire[31:0] pc_new; //next pc value
-    wire wr_rd; //write to rd if enabled
+    	wire[31:0] pc_new; //next pc value
+    	wire wr_rd; //write to rd if enabled
     
 	//wires for rv32i_decoder
 	wire[31:0] imm; 
@@ -108,7 +108,7 @@ module rv32i_core #(parameter PC_RESET=32'h00_00_00_00) (
 		endcase
 	end
 	
-    //address of memories 
+    	//address of memories 
 	assign iaddr=pc_q; //instruction address
 	assign daddr=y_q; //data address
   
@@ -116,14 +116,14 @@ module rv32i_core #(parameter PC_RESET=32'h00_00_00_00) (
   
 	//module instantiations
 	rv32i_basereg m0( //regfile controller for the 32 integer base registers
-	   .clk(clk),
-	   .rs1_addr(rs1_addr), //source register 1 address
-	   .rs2_addr(rs2_addr), //source register 2 address
-	   .rd_addr(rd_addr), //destination register address
-	   .rd(rd), //data to be written to destination register
-	   .wr(wr_base), //write enable
-	   .rs1(rs1), //source register 1 value
-	   .rs2(rs2) //source register 2 value
+	   	.clk(clk),
+	   	.rs1_addr(rs1_addr), //source register 1 address
+	   	.rs2_addr(rs2_addr), //source register 2 address
+	   	.rd_addr(rd_addr), //destination register address
+	   	.rd(rd), //data to be written to destination register
+	   	.wr(wr_base), //write enable
+	   	.rs1(rs1), //source register 1 value
+	   	.rs2(rs2) //source register 2 value
 	);
 	
 	rv32i_decoder m1( //combinational logic for the decoding of the 32 bit instruction [DECODE STAGE]
@@ -152,20 +152,20 @@ module rv32i_core #(parameter PC_RESET=32'h00_00_00_00) (
 		.data_store(dout), //data to be stored to memory (mask-aligned)
 		.data_load(data_load), //data to be loaded to base reg (z-or-s extended) 
 		.wr_mask(wr_mask) //write mask {byte3,byte2,byte1,byte0}
-    );
+    	);
     
-    rv32i_writeback m4( //combinational logic controller for next PC and rd value [WRITEBACK STAGE]
-	   .opcode(opcode), //instruction class type
-	   .rd_addr(rd_addr), //address of destination address
-	   .alu_out(y_q),//output of ALU
-	   .pc(pc_q), //current PC value
-	   .imm(imm), //immediate value
-	   .rs1(rs1), //source register 1 value
-	   .data_load(data_load), //data to be loaded to base reg
-	   .rd(rd), //value to be written back to destination register
-       .pc_new(pc_new), //new PC value
-       .wr_rd(wr_rd) //write rd to the base reg if enabled
-    );
+    	rv32i_writeback m4( //combinational logic controller for next PC and rd value [WRITEBACK STAGE]
+	  	.opcode(opcode), //instruction class type
+	   	.rd_addr(rd_addr), //address of destination address
+	   	.alu_out(y_q),//output of ALU
+	   	.pc(pc_q), //current PC value
+	   	.imm(imm), //immediate value
+	   	.rs1(rs1), //source register 1 value
+	   	.data_load(data_load), //data to be loaded to base reg
+	   	.rd(rd), //value to be written back to destination register
+       		.pc_new(pc_new), //new PC value
+       		.wr_rd(wr_rd) //write rd to the base reg if enabled
+    	);
     
 endmodule
 
