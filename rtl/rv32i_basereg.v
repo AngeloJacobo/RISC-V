@@ -1,4 +1,7 @@
 //interface for the regfile of the 32 integer base registers
+
+`timescale 1ns / 1ps
+
 module rv32i_basereg
 	(
 		input wire clk,
