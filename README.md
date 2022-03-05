@@ -111,7 +111,7 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
 * Warning! The Final LUT count, after physical optimizations and full implementation, is typically lower. Run opt_design after synthesis, if not already completed, for a more realistic count.
 ```
 
-## FUTURE EXPANSIONS
+## COMING SOON
  - Add more testcases for the core testbench  
  - Convert FSM based core implementation to pipeline   
  - Add CSR
