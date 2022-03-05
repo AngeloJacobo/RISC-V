@@ -1,20 +1,19 @@
 ## ABOUT
 Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Registers (CSR) yet.   
-Inside the `rtl` folder are the following and its correspoding contents:  
+Inside the `rtl` folder are the following:  
  - `rv32i_soc.v` = complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
- - `rv32i_core.v` = FSM controller fo
- - `rv32i_basereg.v` = interface for the regfile of the 32 integer base register 
- - `rv32i_decoder.v`= combinational logic for the decoding of the 32 bit instruction [DECODE STAGE]
+ - `rv32i_core.v` = FSM controller for the fetch, decode, execute, memory access, and writeback process. 
+ - `rv32i_basereg.v` = interface for the regfile of the 32 integer base registers 
+ - `rv32i_decoder.v`= combinational logic for the decoding of a 32 bit instruction [DECODE STAGE]
  - `rv32i_alu.v` =  arithmetic logic unit [EXECUTE STAGE]
- - `rv32i_loadstore.v` = combinational logic for data memory access (load/store) [MEMORY STAGE]
+ - `rv32i_loadstore.v` = combinational logic for data memory access [MEMORY STAGE]
  - `rv32i_writeback.v` = combinational logic for determining the next `PC` and `rd` value [WRITEBACK STAGE]
  
 Inside the `testbench` folder are the following:
- - `rv32i_alu_TB.v`
- - `rv32i_decoder_TB.v`
- - `rv32i_control_TB.v`
- - `rv32i_soc_TB.v`
- - `hexfile` folder which contains the `inst.hex` for the test instructions
+ - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
+ - `rv32i_decoder_TB.v` = testbench for `rv32i_decoder` 
+ - `rv32i_alu_TB.v` = testbench for `rv32i_alu`
+ - `hexfile` folder = contains the `inst.hex` for the test instructions  
  
 ## Interface
 Below is the interface for `rv32i_core`:
