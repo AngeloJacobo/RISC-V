@@ -1,4 +1,7 @@
 //combinational logic for data memory access [MEMORY STAGE]
+
+`timescale 1ns / 1ps
+
 module rv32i_loadstore(
 	input wire[31:0] rs2, //data to be stored to memory is always rs2
 	input wire[31:0] din, //data retrieve from memory 
