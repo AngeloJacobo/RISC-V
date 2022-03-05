@@ -1,7 +1,12 @@
 # ABOUT
 Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Register (CSR) yet.
  
-## Interface   
+## Interface
+Below is the
+<kbd>
+![Screenshot from 2022-03-05 10-54-13](https://user-images.githubusercontent.com/87559347/156865142-bad8dbcf-067a-4ce0-8c9a-283631fba9c1.png)
+</kbd>
+
 ???????????????????????????????????????????  
 
 ## Testbench
