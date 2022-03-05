@@ -48,7 +48,7 @@ The `./testbench/rv32i_soc_TB.v` monitors all write access to base register and 
  - `[BASEREG]` pertains to write access to base register
  - `[MEMORY]` for write access to memory data.  
 
-After executing all instructions, the state of the 32 base registers and memory data are displayed:
+After executing all instructions, the state of the 32 base registers and relevant memory data are displayed:
 ```
 
 Start executing instructions......
