@@ -117,4 +117,4 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
  - Add CSR
  - Add RV32 extensions
  
-# [UNDER CONTRUCTION]
+# [UNDER CONSTRUCTION]
