@@ -28,7 +28,7 @@ And here are the top level blocks for`rv32i_soc`:
 
 
 ## SIMPLE TESTBENCH
-The hex file `./hexfile/inst.hex` contains the test instructions as shown below. This is used to initialize the instruction memory regfile using the `readmemh` command. In comments are the equivalent assembly codes of each hex instruction and its expected results.
+The hex file `./hexfile/inst.hex`, as shown below, contains the test instructions used in the testbench `rv32i_soc_TB.v`. This is used to initialize the instruction memory regfile of the `rv32i_soc.v` module using the `readmemh` command. In comments are the equivalent assembly codes of each hex instruction and its expected results.
 
 ```verilog
 //memory address 0x1000 is initialized to 0x12345678
@@ -44,7 +44,7 @@ fff1c193 //xori x3, x3, -1  (write 0xedcba987 to x3)
 05d00893 //li x17, 93       (write 93(0x5d) to x17)
 ```
 
-The `./testbench/rv32i_soc_TB.v` monitors all write access to base register and data memory of the `rv32i_soc`. It displays the address accessed and its new value.
+The `rv32i_soc_TB.v` monitors all write access to base register and data memory of the `rv32i_soc`. It displays the address accessed and its new value.
  - `[BASEREG]` pertains to write access to base register
  - `[MEMORY]` for write access to memory data.  
 
