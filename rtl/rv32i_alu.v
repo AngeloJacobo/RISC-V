@@ -1,3 +1,4 @@
+//arithmetic logic unit [EXECUTE STAGE]
 module rv32i_alu(
 	input wire[31:0] a, //rs1 or pc
 	input wire[31:0] b, //rs2 or imm 
