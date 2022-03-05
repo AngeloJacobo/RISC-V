@@ -16,7 +16,7 @@ Inside the `testbench` folder are the following:
  - `rv32i_alu_TB.v` = testbench for `rv32i_alu`
  - `hexfile` folder = contains the `inst.hex` for the test instructions  
  
-## Interface
+## INTERFACE
 Below is the interface for `rv32i_core`:
 
 ![interface_1](https://user-images.githubusercontent.com/87559347/156866977-aa026174-e13a-401c-9ef7-0bc02ba8a12c.png)
@@ -27,7 +27,7 @@ And here are the top level blocks for`rv32i_soc`:
 
 
 
-## Simple Testbench
+## SIMPLE TESTBENCH
 The hex file `./hexfile/inst.hex` contains the test instructions.This is used to initialize the instruction memory regfile using the `readmemh` command. Below are the test instructions used. In comments are the equivalent assembly code of each hex instruction and its expected results.
 
 ```verilog
@@ -94,7 +94,7 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
  - `base_regfile[][]` = base register regfile  
  - `data_regfile[][]` = memory data regfile  
 
-## Utilization [Vivado Synthesis Report for Spartan 7 XC7S25]  
+## UTILIZATION [Vivado Synthesis Report for CMOD S7 XC7S25 FPGA Board]  
 ```
 +-------------------------+------+-------+------------+-----------+-------+  
 |        Site Type        | Used | Fixed | Prohibited | Available | Util% |  
@@ -112,7 +112,7 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
 
 ## FUTURE EXPANSIONS
  - Add more testcases for the core testbench  
- - Convert FSM to pipeline   
+ - Convert FSM based core implementation to pipeline   
  - Add CSR
  - Add RV32 extensions
  
