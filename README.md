@@ -5,7 +5,7 @@ Design implementation for the RISC-V Integer core in Verilog HDL. The core is FS
 ???????????????????????????????????????????  
 
 ## Testbench
-The hex file `inst.hex` contains the test instructions.This hex file initializes the instruction memory regfile using the `readmemh` command. Below are the test instructions used. In comments are the equivalent assembly code of each hex instruction and its expected results.
+The hex file `./hexfile/inst.hex` contains the test instructions.This is used to initialize the instruction memory regfile using the `readmemh` command. Below are the test instructions used. In comments are the equivalent assembly code of each hex instruction and its expected results.
 
 ```verilog
 //memory address 0x1000 is initialized to 0x12345678
@@ -21,7 +21,7 @@ fff1c193 //xori x3, x3, -1  (write 0xedcba987 to x3)
 05d00893 //li x17, 93       (write 93(0x5d) to x17)
 ```
 
-The `rv32i_soc_TB.v` testbench monitors all writes to base register and data memory. It displays the address accessed and its new value. `[BASEREG]` code pertains to changes in base register and `[MEMORY]` code for changes in memory data. After executing all instructions, the state of the 32 base registers and memory data are displayed:
+The `./testbench/rv32i_soc_TB.v` monitors all writes to base register and data memory. It displays the address accessed and its new value. `[BASEREG]` code pertains to changes in base register and `[MEMORY]` code for changes in memory data. After executing all instructions, the state of the 32 base registers and memory data are displayed:
 ```
 
 Start executing instructions......
