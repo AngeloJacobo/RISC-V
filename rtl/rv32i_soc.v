@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
-module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_BYTES=1024, RAM_BYTES=1024) (
+//complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
+module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_BYTES=1024, RAM_BYTES=1024) ( 
     input wire clk,
     input wire rst_n
     );
