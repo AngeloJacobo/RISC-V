@@ -4,21 +4,21 @@ module rv32i_alu(
 	input wire[3:0] op, //operation
 	output reg[31:0] y //result of arithmetic operation
 );
-	//operations supported by this ALU
-	localparam ADD = 0, //addition
-               SUB = 1, //subtraction
-               SLT = 2, //set if less than
-              SLTU = 3, //set if less than unsigned
-               XOR = 4, //bitwise xor
-                OR = 5, //bitwise or
-               AND = 6, //bitwise and
-               SLL = 7, //shift left logical
-               SRL = 8, //shift right logical
-               SRA = 9, //shift right arithmetic
-                EQ = 10, //equal
-               NEQ = 11, //not equal
-                GE = 12, //greater than or equal
-               GEU = 13; //greater than or equal unisgned
+    //operations supported by this ALU
+    localparam ADD = 0, //addition
+	       SUB = 1, //subtraction
+	       SLT = 2, //set if less than
+	      SLTU = 3, //set if less than unsigned
+	       XOR = 4, //bitwise xor
+		OR = 5, //bitwise or
+	       AND = 6, //bitwise and
+	       SLL = 7, //shift left logical
+	       SRL = 8, //shift right logical
+	       SRA = 9, //shift right arithmetic
+		EQ = 10, //equal
+	       NEQ = 11, //not equal
+		GE = 12, //greater than or equal
+	       GEU = 13; //greater than or equal unisgned
 
 	//combinational logic for alu   
 	always @* begin
