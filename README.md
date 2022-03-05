@@ -94,20 +94,21 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
  - `base_regfile[][]` = base register regfile  
  - `data_regfile[][]` = memory data regfile  
 
-## UTILIZATION [Vivado Synthesis Report for CMOD S7 XC7S25 FPGA Board]  
+## UTILIZATION [Vivado Synthesis Report]  
 ```
-+-------------------------+------+-------+------------+-----------+-------+  
-|        Site Type        | Used | Fixed | Prohibited | Available | Util% |  
-+-------------------------+------+-------+------------+-----------+-------+  
-| Slice LUTs*             |  725 |     0 |          0 |     14600 |  4.97 |  
-|   LUT as Logic          |  725 |     0 |          0 |     14600 |  4.97 |  
-|   LUT as Memory         |    0 |     0 |          0 |      5000 |  0.00 |  
-| Slice Registers         |  133 |     0 |          0 |     29200 |  0.46 |   
-|   Register as Flip Flop |  101 |     0 |          0 |     29200 |  0.35 |  
-|   Register as Latch     |   32 |     0 |          0 |     29200 |  0.11 |  
-| F7 Muxes                |   33 |     0 |          0 |      7300 |  0.45 |  
-| F8 Muxes                |    0 |     0 |          0 |      3650 |  0.00 |  
-+-------------------------+------+-------+------------+-----------+-------+  
++-------------------------+------+-------+------------+-----------+-------+
+|        Site Type        | Used | Fixed | Prohibited | Available | Util% |
++-------------------------+------+-------+------------+-----------+-------+
+| Slice LUTs*             |  737 |     0 |          0 |     14600 |  5.05 |
+|   LUT as Logic          |  737 |     0 |          0 |     14600 |  5.05 |
+|   LUT as Memory         |    0 |     0 |          0 |      5000 |  0.00 |
+| Slice Registers         |  133 |     0 |          0 |     29200 |  0.46 |
+|   Register as Flip Flop |  101 |     0 |          0 |     29200 |  0.35 |
+|   Register as Latch     |   32 |     0 |          0 |     29200 |  0.11 |
+| F7 Muxes                |   34 |     0 |          0 |      7300 |  0.47 |
+| F8 Muxes                |    1 |     0 |          0 |      3650 |  0.03 |
++-------------------------+------+-------+------------+-----------+-------+
+* Warning! The Final LUT count, after physical optimizations and full implementation, is typically lower. Run opt_design after synthesis, if not already completed, for a more realistic count.
 ```
 
 ## FUTURE EXPANSIONS
