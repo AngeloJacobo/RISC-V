@@ -1,4 +1,7 @@
 //FSM controller for the fetch, decode, execute, memory access, and writeback processes.
+
+`timescale 1ns / 1ps
+
 module rv32i_core #(parameter PC_RESET=32'h00_00_00_00) ( 
 	input wire clk, rst_n,
 	//Instruction Memory Interface (32 bit rom)
