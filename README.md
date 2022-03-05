@@ -44,7 +44,7 @@ fff1c193 //xori x3, x3, -1  (write 0xedcba987 to x3)
 05d00893 //li x17, 93       (write 93(0x5d) to x17)
 ```
 
-The `rv32i_soc_TB.v` monitors all write access to base register and data memory of the `rv32i_soc`. It displays the address accessed and its new value.
+The `rv32i_soc_TB` monitors all write access to base register and data memory of the `rv32i_soc`. It displays the address accessed and its new value.
  - `[BASEREG]` pertains to write access to base register
  - `[MEMORY]` for write access to memory data.  
 
