@@ -44,10 +44,10 @@ fff1c193 //xori x3, x3, -1  (write 0xedcba987 to x3)
 05d00893 //li x17, 93       (write 93(0x5d) to x17)
 ```
 
-The `./testbench/rv32i_soc_TB.v` monitors all writes to base register and data memory on the `rv32i_soc`. It displays the address accessed and its new value.
- - `[BASEREG]` code pertains to changes in base register
- - `[MEMORY]` code for changes in memory data.  
- - 
+The `./testbench/rv32i_soc_TB.v` monitors all write access to base register and data memory of the `rv32i_soc`. It displays the address accessed and its new value.
+ - `[BASEREG]` pertains to write access to base register
+ - `[MEMORY]` for write access to memory data.  
+
 After executing all instructions, the state of the 32 base registers and memory data are displayed:
 ```
 
