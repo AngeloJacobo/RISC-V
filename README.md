@@ -1,10 +1,15 @@
-# ABOUT
+## ABOUT
 Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Register (CSR) yet.
  
 ## Interface
-Below is the interface for `./rtl/rv32i_core`.  
+Below is the interface for `rv32i_core`:
 
-![interface_1](https://user-images.githubusercontent.com/87559347/156865433-e7855f5e-d7f7-4a4c-84c5-562198925460.png)
+![interface_1](https://user-images.githubusercontent.com/87559347/156866977-aa026174-e13a-401c-9ef7-0bc02ba8a12c.png)
+
+And here is the `rv32i_soc` connection:  
+
+![interface_2](https://user-images.githubusercontent.com/87559347/156867151-5674336c-381e-419c-9671-c93d5e3bba22.png)
+
 
 ## Testbench
 The hex file `./hexfile/inst.hex` contains the test instructions.This is used to initialize the instruction memory regfile using the `readmemh` command. Below are the test instructions used. In comments are the equivalent assembly code of each hex instruction and its expected results.
