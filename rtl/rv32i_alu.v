@@ -1,4 +1,7 @@
 //arithmetic logic unit [EXECUTE STAGE]
+
+`timescale 1ns / 1ps
+
 module rv32i_alu(
 	input wire[31:0] a, //rs1 or pc
 	input wire[31:0] b, //rs2 or imm 
