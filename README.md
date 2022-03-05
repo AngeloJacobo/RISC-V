@@ -3,7 +3,7 @@ Design implementation of the RISC-V Integer core in Verilog HDL. The core is FSM
 Inside the `rtl` folder are the following:  
 
  - `rv32i_soc.v` = complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
- - `rv32i_core.v` = FSM controller for the fetch, decode, execute, memory access, and writeback processes. 
+ - `rv32i_core.v` = FSM controller for the fetch, decode, execute, memory access, and writeback processes  
  - `rv32i_basereg.v` = interface for the regfile of the 32 integer base registers 
  - `rv32i_decoder.v`= combinational logic for the decoding of a 32 bit instruction [DECODE STAGE]
  - `rv32i_alu.v` =  arithmetic logic unit [EXECUTE STAGE]
@@ -28,7 +28,7 @@ And here are the top level blocks for`rv32i_soc`:
 
 
 ## SIMPLE TESTBENCH
-The hex file `./hexfile/inst.hex` contains the test instructions.This is used to initialize the instruction memory regfile using the `readmemh` command. Below are the test instructions used. In comments are the equivalent assembly code of each hex instruction and its expected results.
+The hex file `./hexfile/inst.hex` contains the test instructions as shown below. This is used to initialize the instruction memory regfile using the `readmemh` command. In comments are the equivalent assembly codes of each hex instruction and its expected results.
 
 ```verilog
 //memory address 0x1000 is initialized to 0x12345678
