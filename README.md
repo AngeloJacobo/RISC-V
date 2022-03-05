@@ -1,6 +1,7 @@
 ## ABOUT
 Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Registers (CSR) yet.   
 Inside the `rtl` folder are the following:  
+
  - `rv32i_soc.v` = complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
  - `rv32i_core.v` = FSM controller for the fetch, decode, execute, memory access, and writeback process. 
  - `rv32i_basereg.v` = interface for the regfile of the 32 integer base registers 
