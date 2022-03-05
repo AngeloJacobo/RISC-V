@@ -6,12 +6,13 @@ Below is the interface for `rv32i_core`:
 
 ![interface_1](https://user-images.githubusercontent.com/87559347/156866977-aa026174-e13a-401c-9ef7-0bc02ba8a12c.png)
 
-And here is the `rv32i_soc` connection:  
+And here are the top level blocks for`rv32i_soc`:  
 
-![interface_2](https://user-images.githubusercontent.com/87559347/156867151-5674336c-381e-419c-9671-c93d5e3bba22.png)
+![interface_2](https://user-images.githubusercontent.com/87559347/156867346-322be64d-2f1c-4f70-9980-36776bcec9c0.png)
 
 
-## Testbench
+
+## Simple Testbench
 The hex file `./hexfile/inst.hex` contains the test instructions.This is used to initialize the instruction memory regfile using the `readmemh` command. Below are the test instructions used. In comments are the equivalent assembly code of each hex instruction and its expected results.
 
 ```verilog
