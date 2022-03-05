@@ -1,3 +1,4 @@
+//interface for the regfile of the 32 integer base registers
 module rv32i_basereg
 	(
 		input wire clk,
