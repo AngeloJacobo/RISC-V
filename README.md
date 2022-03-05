@@ -1,5 +1,20 @@
 ## ABOUT
-Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Register (CSR) yet.
+Design implementation for the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Registers (CSR) yet.   
+Inside the `rtl` folder are the following and its correspoding contents:  
+ - `rv32i_soc.v` = complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
+ - `rv32i_core.v` = FSM controller fo
+ - `rv32i_basereg.v` = interface for the regfile of the 32 integer base register 
+ - `rv32i_decoder.v`= combinational logic for the decoding of the 32 bit instruction [DECODE STAGE]
+ - `rv32i_alu.v` =  arithmetic logic unit [EXECUTE STAGE]
+ - `rv32i_loadstore.v` = combinational logic for data memory access (load/store) [MEMORY STAGE]
+ - `rv32i_writeback.v` = combinational logic for determining the next `PC` and `rd` value [WRITEBACK STAGE]
+ 
+Inside the `testbench` folder are the following:
+ - `rv32i_alu_TB.v`
+ - `rv32i_decoder_TB.v`
+ - `rv32i_control_TB.v`
+ - `rv32i_soc_TB.v`
+ - `hexfile` folder which contains the `inst.hex` for the test instructions
  
 ## Interface
 Below is the interface for `rv32i_core`:
@@ -29,7 +44,7 @@ fff1c193 //xori x3, x3, -1  (write 0xedcba987 to x3)
 05d00893 //li x17, 93       (write 93(0x5d) to x17)
 ```
 
-The `./testbench/rv32i_soc_TB.v` monitors all writes to base register and data memory. It displays the address accessed and its new value. `[BASEREG]` code pertains to changes in base register and `[MEMORY]` code for changes in memory data. After executing all instructions, the state of the 32 base registers and memory data are displayed:
+The `./testbench/rv32i_soc_TB.v` monitors all writes to base register and data memory on the `rv32i_soc`. It displays the address accessed and its new value. `[BASEREG]` code pertains to changes in base register and `[MEMORY]` code for changes in memory data. After executing all instructions, the state of the 32 base registers and memory data are displayed:
 ```
 
 Start executing instructions......
