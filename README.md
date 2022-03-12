@@ -14,7 +14,8 @@ Inside the `testbench` folder are the following:
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
  - `rv32i_decoder_TB.v` = testbench for `rv32i_decoder` 
  - `rv32i_alu_TB.v` = testbench for `rv32i_alu`
- - `hexfile` folder = contains the `inst.hex` for the test instructions  
+ - `hexfile` folder = contains the `inst.hex` for the test instructions
+ - `scripts` folder = contains scripts for Modelsim simulation
  
 ## INTERFACE
 Below is the interface for `rv32i_core`:
@@ -48,44 +49,49 @@ The `rv32i_soc_TB` monitors all write access to base register and data memory of
  - `[BASEREG]` pertains to write access to base register
  - `[MEMORY]` for write access to memory data.  
 
-After executing all instructions, the state of the 32 base registers and relevant memory data are displayed:
+After executing all instructions, the state of the 32 base registers and relevant memory data are displayed. **To run the simulation via Modelsim, open cmd terminal inside `testbench/scripts/` directory. Run this command: `vsim -do sim.do`**    
+
+Below is the resulting output: 
+
 ```
 
 Start executing instructions......
 
-Monitor All Writes to Base Register and Data Memory
-[BASEREG] address:0x01   value:0x0000000c
-[BASEREG] address:0x03   value:0x00000000
-[BASEREG] address:0x03   value:0x00001000
-[BASEREG] address:0x03   value:0x12345678
-[BASEREG] address:0x03   value:0xedcba987
-[BASEREG] address:0x04   value:0x00000000
-[BASEREG] address:0x04   value:0x00001000
-[MEMORY] address:0x1004   value:0xedcba987 [MASK:1111]
-[BASEREG] address:0x0a   value:0x00000000
-[BASEREG] address:0x11   value:0x0000005d
-
-All instructions executed......
-
-Final Register State:
-0x00: 0x00000000	0x01: 0x0000000c	0x02: 0x00000000	0x03: 0xedcba987	
-0x04: 0x00001000	0x05: 0x00000000	0x06: 0x00000000	0x07: 0x00000000	
-0x08: 0x00000000	0x09: 0x00000000	0x10: 0x00000000	0x11: 0x00000000	
-0x12: 0x00000000	0x13: 0x00000000	0x14: 0x00000000	0x15: 0x00000000	
-0x16: 0x00000000	0x17: 0x0000005d	0x18: 0x00000000	0x19: 0x00000000	
-0x20: 0x00000000	0x21: 0x00000000	0x22: 0x00000000	0x23: 0x00000000	
-0x24: 0x00000000	0x25: 0x00000000	0x26: 0x00000000	0x27: 0x00000000	
-0x28: 0x00000000	0x29: 0x00000000	0x30: 0x00000000	0x31: 0x00000000	
-
-
-Final Memory State:
-0x1000: 0x12345678
-0x1004: 0xedcba987
-0x1008: 0x00000000
-0x100c: 0x00000000
-0x1010: 0x00000000
-0x1014: 0x00000000
-0x1018: 0x00000000
+# Start executing instructions......
+# 
+# Monitor All Writes to Base Register and Data Memory
+# [BASEREG] address:0x01   value:0x0000000c
+# [BASEREG] address:0x03   value:0x00000000
+# [BASEREG] address:0x03   value:0x00001000
+# [BASEREG] address:0x03   value:0x12345678
+# [BASEREG] address:0x03   value:0xedcba987
+# [BASEREG] address:0x04   value:0x00000000
+# [BASEREG] address:0x04   value:0x00001000
+# [MEMORY] address:0x1004   value:0xedcba987 [MASK:1111]
+# [BASEREG] address:0x0a   value:0x00000000
+# [BASEREG] address:0x11   value:0x0000005d
+# 
+# All instructions executed......
+# 
+# Final Register State:
+# 0x 0: 0xxxxxxxxx	0x 1: 0x0000000c	0x 2: 0xxxxxxxxx	0x 3: 0xedcba987	
+# 0x 4: 0x00001000	0x 5: 0xxxxxxxxx	0x 6: 0xxxxxxxxx	0x 7: 0xxxxxxxxx	
+# 0x 8: 0xxxxxxxxx	0x 9: 0xxxxxxxxx	0x10: 0x00000000	0x11: 0xxxxxxxxx	
+# 0x12: 0xxxxxxxxx	0x13: 0xxxxxxxxx	0x14: 0xxxxxxxxx	0x15: 0xxxxxxxxx	
+# 0x16: 0xxxxxxxxx	0x17: 0x0000005d	0x18: 0xxxxxxxxx	0x19: 0xxxxxxxxx	
+# 0x20: 0xxxxxxxxx	0x21: 0xxxxxxxxx	0x22: 0xxxxxxxxx	0x23: 0xxxxxxxxx	
+# 0x24: 0xxxxxxxxx	0x25: 0xxxxxxxxx	0x26: 0xxxxxxxxx	0x27: 0xxxxxxxxx	
+# 0x28: 0xxxxxxxxx	0x29: 0xxxxxxxxx	0x30: 0xxxxxxxxx	0x31: 0xxxxxxxxx	
+# 
+# 
+# Final Memory State:
+# 0x1000: 0x12345678
+# 0x1004: 0xedcba987
+# 0x1008: 0x00000000
+# 0x100c: 0x00000000
+# 0x1010: 0x00000000
+# 0x1014: 0x00000000
+# 0x1018: 0x00000000
 ```
 Below is the screenshot of the waveforms for the relevant base registers and memory data accessed in this testbench:  
 
