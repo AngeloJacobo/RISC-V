@@ -6,7 +6,7 @@ module rv32i_soc_TB;
     integer i,j;
     localparam ROM_DEPTH = 64, //number of bytes of instruction memory
                RAM_DEPTH = 8192, //number of bytes of data memory
-               HEXFILE = ".././hexfile/inst.hex";  //location of directory for test hexfile
+               HEXFILE = ".././hexfile/inst.hex";  //directory for test hexfile
                
     rv32i_soc #(.PC_RESET(32'h00_00_00_00), .ROM_DEPTH(ROM_DEPTH), .RAM_DEPTH(RAM_DEPTH)) uut (
         .clk(clk),
