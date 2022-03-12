@@ -16,7 +16,7 @@ module rv32i_loadstore(
         data_store=0;
         data_load=0;
         wr_mask=0; 
-         
+           
         case(funct3[1:0]) 
             2'b00: begin //byte load/store
                     data_load = {{{24{!funct3[2]}} & {24{din[7]}}},din[7:0]}; //signed and unsigned extension in 1 equation
