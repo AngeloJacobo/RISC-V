@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="snap.wdb" id="1">
+         <top_modules>
+            <top_module name="rv32i_soc_TB" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="0.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="446.501 ns"></ZoomEndTime>
+      <Cursor1Time time="96.000 ns"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="214"></NameColumnWidth>
+      <ValueColumnWidth column_width="97"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="33" />
+   <wvobject type="logic" fp_name="/rv32i_soc_TB/clk">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/rv32i_soc_TB/rst_n">
+      <obj_property name="ElementShortName">rst_n</obj_property>
+      <obj_property name="ObjectShortName">rst_n</obj_property>
+      <obj_property name="CustomSignalColor">#00FF00</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider70" type="divider">
+      <obj_property name="label">Core Interface</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">#FFD700</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/iaddr">
+      <obj_property name="ElementShortName">iaddr[31:0]</obj_property>
+      <obj_property name="ObjectShortName">iaddr[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#FFD700</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/inst">
+      <obj_property name="ElementShortName">inst[31:0]</obj_property>
+      <obj_property name="ObjectShortName">inst[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#FFD700</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+      <obj_property name="Radix">HEXRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/daddr">
+      <obj_property name="ElementShortName">daddr[31:0]</obj_property>
+      <obj_property name="ObjectShortName">daddr[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#FFD700</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/din">
+      <obj_property name="ElementShortName">din[31:0]</obj_property>
+      <obj_property name="ObjectShortName">din[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#FFD700</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/dout">
+      <obj_property name="ElementShortName">dout[31:0]</obj_property>
+      <obj_property name="ObjectShortName">dout[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#FFD700</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/wr_mask">
+      <obj_property name="ElementShortName">wr_mask[3:0]</obj_property>
+      <obj_property name="ObjectShortName">wr_mask[3:0]</obj_property>
+      <obj_property name="CustomSignalColor">#FFD700</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/wr_en">
+      <obj_property name="ElementShortName">wr_en</obj_property>
+      <obj_property name="ObjectShortName">wr_en</obj_property>
+      <obj_property name="CustomSignalColor">#FFD700</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider31" type="divider">
+      <obj_property name="label">Decoded</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">#FFD700</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/stage_q">
+      <obj_property name="ElementShortName">stage_q[2:0]</obj_property>
+      <obj_property name="ObjectShortName">stage_q[2:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/inst_q">
+      <obj_property name="ElementShortName">inst_q[31:0]</obj_property>
+      <obj_property name="ObjectShortName">inst_q[31:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject type="group" fp_name="group46">
+      <obj_property name="label">alu_operation</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_add">
+         <obj_property name="ElementShortName">alu_add</obj_property>
+         <obj_property name="ObjectShortName">alu_add</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_sub">
+         <obj_property name="ElementShortName">alu_sub</obj_property>
+         <obj_property name="ObjectShortName">alu_sub</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_slt">
+         <obj_property name="ElementShortName">alu_slt</obj_property>
+         <obj_property name="ObjectShortName">alu_slt</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_sltu">
+         <obj_property name="ElementShortName">alu_sltu</obj_property>
+         <obj_property name="ObjectShortName">alu_sltu</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_xor">
+         <obj_property name="ElementShortName">alu_xor</obj_property>
+         <obj_property name="ObjectShortName">alu_xor</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_or">
+         <obj_property name="ElementShortName">alu_or</obj_property>
+         <obj_property name="ObjectShortName">alu_or</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_and">
+         <obj_property name="ElementShortName">alu_and</obj_property>
+         <obj_property name="ObjectShortName">alu_and</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_sll">
+         <obj_property name="ElementShortName">alu_sll</obj_property>
+         <obj_property name="ObjectShortName">alu_sll</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_srl">
+         <obj_property name="ElementShortName">alu_srl</obj_property>
+         <obj_property name="ObjectShortName">alu_srl</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_sra">
+         <obj_property name="ElementShortName">alu_sra</obj_property>
+         <obj_property name="ObjectShortName">alu_sra</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_eq">
+         <obj_property name="ElementShortName">alu_eq</obj_property>
+         <obj_property name="ObjectShortName">alu_eq</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_neq">
+         <obj_property name="ElementShortName">alu_neq</obj_property>
+         <obj_property name="ObjectShortName">alu_neq</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_ge">
+         <obj_property name="ElementShortName">alu_ge</obj_property>
+         <obj_property name="ObjectShortName">alu_ge</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/alu_geu">
+         <obj_property name="ElementShortName">alu_geu</obj_property>
+         <obj_property name="ObjectShortName">alu_geu</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject type="group" fp_name="group58">
+      <obj_property name="label">opcode</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_rtype">
+         <obj_property name="ElementShortName">opcode_rtype</obj_property>
+         <obj_property name="ObjectShortName">opcode_rtype</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_itype">
+         <obj_property name="ElementShortName">opcode_itype</obj_property>
+         <obj_property name="ObjectShortName">opcode_itype</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_load">
+         <obj_property name="ElementShortName">opcode_load</obj_property>
+         <obj_property name="ObjectShortName">opcode_load</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_store">
+         <obj_property name="ElementShortName">opcode_store</obj_property>
+         <obj_property name="ObjectShortName">opcode_store</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_branch">
+         <obj_property name="ElementShortName">opcode_branch</obj_property>
+         <obj_property name="ObjectShortName">opcode_branch</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_jal">
+         <obj_property name="ElementShortName">opcode_jal</obj_property>
+         <obj_property name="ObjectShortName">opcode_jal</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_jalr">
+         <obj_property name="ElementShortName">opcode_jalr</obj_property>
+         <obj_property name="ObjectShortName">opcode_jalr</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_lui">
+         <obj_property name="ElementShortName">opcode_lui</obj_property>
+         <obj_property name="ObjectShortName">opcode_lui</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_auipc">
+         <obj_property name="ElementShortName">opcode_auipc</obj_property>
+         <obj_property name="ObjectShortName">opcode_auipc</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_system">
+         <obj_property name="ElementShortName">opcode_system</obj_property>
+         <obj_property name="ObjectShortName">opcode_system</obj_property>
+      </wvobject>
+      <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/opcode_fence">
+         <obj_property name="ElementShortName">opcode_fence</obj_property>
+         <obj_property name="ObjectShortName">opcode_fence</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="divider27" type="divider">
+      <obj_property name="label">WriteBack</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">#FFD700</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/m4/pc">
+      <obj_property name="ElementShortName">pc[31:0]</obj_property>
+      <obj_property name="ObjectShortName">pc[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/m4/rd">
+      <obj_property name="ElementShortName">rd[31:0]</obj_property>
+      <obj_property name="ObjectShortName">rd[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/rv32i_soc_TB/uut/m0/m4/wr_rd">
+      <obj_property name="ElementShortName">wr_rd</obj_property>
+      <obj_property name="ObjectShortName">wr_rd</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider71" type="divider">
+      <obj_property name="label">ALU</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">#FFD700</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/a">
+      <obj_property name="ElementShortName">a[31:0]</obj_property>
+      <obj_property name="ObjectShortName">a[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/b">
+      <obj_property name="ElementShortName">b[31:0]</obj_property>
+      <obj_property name="ObjectShortName">b[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/y">
+      <obj_property name="ElementShortName">y[31:0]</obj_property>
+      <obj_property name="ObjectShortName">y[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/rs1_addr">
+      <obj_property name="ElementShortName">rs1_addr[4:0]</obj_property>
+      <obj_property name="ObjectShortName">rs1_addr[4:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/rs1">
+      <obj_property name="ElementShortName">rs1[31:0]</obj_property>
+      <obj_property name="ObjectShortName">rs1[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/rs2_addr">
+      <obj_property name="ElementShortName">rs2_addr[4:0]</obj_property>
+      <obj_property name="ObjectShortName">rs2_addr[4:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/rs2">
+      <obj_property name="ElementShortName">rs2[31:0]</obj_property>
+      <obj_property name="ObjectShortName">rs2[31:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/imm">
+      <obj_property name="ElementShortName">imm[31:0]</obj_property>
+      <obj_property name="ObjectShortName">imm[31:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/rd_addr">
+      <obj_property name="ElementShortName">rd_addr[4:0]</obj_property>
+      <obj_property name="ObjectShortName">rd_addr[4:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider66" type="divider">
+      <obj_property name="label">Basereg and Memory</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">#FFD700</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m1/inst_regfile">
+      <obj_property name="ElementShortName">inst_regfile[15:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">inst_regfile[15:0][31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m0/m0/base_regfile">
+      <obj_property name="ElementShortName">base_regfile[31:1][31:0]</obj_property>
+      <obj_property name="ObjectShortName">base_regfile[31:1][31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/rv32i_soc_TB/uut/m2/data_regfile">
+      <obj_property name="ElementShortName">data_regfile[2047:0][31:0]</obj_property>
+      <obj_property name="ObjectShortName">data_regfile[2047:0][31:0]</obj_property>
+   </wvobject>
+</wave_config>
