@@ -4,6 +4,7 @@
 
 module rv32i_alu(
     input clk,rst_n,
+    input alu, //update y output iff stage is currently on EXECUTE (ALU stage)
     input wire[31:0] a, //rs1 or pc
     input wire[31:0] b, //rs2 or imm 
     output reg[31:0] y, //result of arithmetic operation
@@ -29,7 +30,7 @@ module rv32i_alu(
     //register the output of ALU
     always @(posedge clk, negedge rst_n) begin
         if(!rst_n) y <= 0;
-        else y <= y_d;
+        else y <= alu ? y_d:y; //update y output iff stage is currently on EXECUTE (ALU stage)
     end 
 
     //ALU core (run in parallel instead of priority logic for less
