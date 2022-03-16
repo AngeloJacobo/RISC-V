@@ -1,16 +1,19 @@
-//combinational logic for data memory access [MEMORY STAGE]
-
+ //logic controller for data memory access (load/store) [MEMORY STAGE]
+ 
 `timescale 1ns / 1ps
 
-module rv32i_loadstore(
+module rv32i_memoryaccess(
     input wire clk, rst_n,
+    input wire memoryaccess, //enable wr_mem iff stage is currently on MEMORYACCESS
     input wire[31:0] rs2, //data to be stored to memory is always rs2
     input wire[31:0] din, //data retrieve from memory 
     input wire[1:0] addr_2, //last 2 bits of address of data to be stored or loaded (always comes from ALU)
     input wire[2:0] funct3, //byte,half-word,word
+    input wire opcode_store, //determines if data_store will be to stored to data memory
     output reg[31:0] data_store, //data to be stored to memory (mask-aligned)
     output reg[31:0] data_load, //data to be loaded to base reg (z-or-s extended) 
-    output reg[3:0] wr_mask //write mask {byte3,byte2,byte1,byte0}
+    output reg[3:0] wr_mask, //write mask {byte3,byte2,byte1,byte0}
+    output reg wr_mem //write to data memory if enabled
 );
     reg[31:0] data_store_d;
     reg[31:0] data_load_d;
@@ -22,11 +25,13 @@ module rv32i_loadstore(
             data_store <= 0;
             data_load <= 0;
             wr_mask <= 0;
+            wr_mem <= 0;
         end
         else begin
             data_store <= data_store_d;
             data_load <= data_load_d;
             wr_mask <= wr_mask_d;
+            wr_mem <= opcode_store && memoryaccess; 
         end
     end 
 
