@@ -1,13 +1,13 @@
-//combinational logic for the decoding of a 32 bit instruction [DECODE STAGE]
+//logic for the decoding of a 32 bit instruction [DECODE STAGE]
 
 `timescale 1ns / 1ps
 
 module rv32i_decoder(
     input clk,rst_n,
     input wire[31:0] inst, //32 bit instruction
-    output reg[4:0] rs1_addr,//address for register source 1
-    output reg[4:0] rs2_addr, //address for register source 2
-    output reg[4:0] rd_addr, //address for destination address
+    output wire[4:0] rs1_addr,//address for register source 1
+    output wire[4:0] rs2_addr, //address for register source 2
+    output wire[4:0] rd_addr, //address for destination address
     output reg[31:0] imm, //extended value for immediate
     output reg[2:0] funct3, //function type
     /// ALU Operations ///
@@ -66,10 +66,11 @@ module rv32i_decoder(
                LTU  = 3'b110,
                GEU  = 3'b111;
 
-    wire[4:0] rs2_addr_d = inst[24:20];
-    wire[4:0] rs1_addr_d = inst[19:15];
+    assign rs2_addr = inst[24:20];//rs1_addr,rs2_addr, and rd_addr are not registered 
+    assign rs1_addr = inst[19:15];   //since rv32i_basereg do the registering itself
+    assign rd_addr = inst[11:7];
+
     wire[2:0] funct3_d = inst[14:12];
-    wire[4:0] rd_addr_d = inst[11:7];
     wire[6:0] opcode = inst[6:0];
 
     reg[31:0] imm_d;
@@ -91,9 +92,6 @@ module rv32i_decoder(
     //register the outputs of this decoder module for shorter combinational timing paths
     always @(posedge clk, negedge rst_n) begin
         if(!rst_n) begin
-            rs1_addr <= 0;
-            rs2_addr <= 0;
-            rd_addr  <= 0;
             funct3   <= 0;
             imm      <= 0; 
             /// ALU Operation ///
@@ -125,9 +123,6 @@ module rv32i_decoder(
             opcode_fence  <= 0;
         end
         else begin
-            rs1_addr <= rs1_addr_d;
-            rs2_addr <= rs2_addr_d;
-            rd_addr  <= rd_addr_d;
             funct3   <= funct3_d;
             imm      <= imm_d;
             /// ALU Operations ////
