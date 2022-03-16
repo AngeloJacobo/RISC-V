@@ -2,12 +2,16 @@
 
 module rv32i_soc_TB;
 
-    reg clk,rst_n;
-    integer i,j;
+    /******************************* MODIFY ****************************************/
     localparam ROM_DEPTH = 64, //number of bytes of instruction memory
                RAM_DEPTH = 8192, //number of bytes of data memory
                HEXFILE = ".././hexfile/inst.hex";  //directory for test hexfile
+    /*******************************************************************************/
+    
+    
                
+    reg clk,rst_n;
+    integer i,j;          
     rv32i_soc #(.PC_RESET(32'h00_00_00_00), .ROM_DEPTH(ROM_DEPTH), .RAM_DEPTH(RAM_DEPTH)) uut (
         .clk(clk),
         .rst_n(rst_n)
