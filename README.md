@@ -1,21 +1,19 @@
 ## ABOUT
-Design implementation of the RISC-V Integer core in Verilog HDL. The core is FSM-based (no pipelining) and no Control Status Registers (CSR) yet.   
+Design implementation of the RISC-V Integer core in Verilog HDL. The core is currently FSM-based (no pipelining) and no Control Status Registers (CSR) yet.   
 Inside the `rtl` folder are the following:  
 
  - `rv32i_soc.v` = complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory)  
  - `rv32i_core.v` = FSM controller for the fetch, decode, execute, memory access, and writeback processes  
  - `rv32i_basereg.v` = interface for the regfile of the 32 integer base registers 
- - `rv32i_decoder.v`= combinational logic for the decoding of a 32 bit instruction [DECODE STAGE]
+ - `rv32i_decoder.v`= logic for the decoding of a 32 bit instruction [DECODE STAGE]
  - `rv32i_alu.v` =  arithmetic logic unit [EXECUTE STAGE]
- - `rv32i_loadstore.v` = combinational logic for data memory access [MEMORY STAGE]
- - `rv32i_writeback.v` = combinational logic for determining the next `PC` and `rd` value [WRITEBACK STAGE]
+ - `rv32i_memoryaccess.v` = logic controller for data memory access [MEMORYACCESS STAGE]
+ - `rv32i_writeback.v` = logic controller for determining the next `PC` and `rd` value [WRITEBACK STAGE]
  
 Inside the `testbench` folder are the following:
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
- - `rv32i_decoder_TB.v` = testbench for `rv32i_decoder` 
- - `rv32i_alu_TB.v` = testbench for `rv32i_alu`
  - `hexfile` folder = contains the `inst.hex` for the test instructions
- - `scripts` folder = contains scripts for Modelsim simulation
+ - `scripts` folder = contains scripts for Modelsim and Vivado simulation
  
 ## INTERFACE
 Below is the interface for `rv32i_core`:
@@ -49,9 +47,11 @@ The `rv32i_soc_TB` monitors all write access to base register and data memory of
  - `[BASEREG]` pertains to write access to base register
  - `[MEMORY]` for write access to memory data.  
 
-After executing all instructions, the state of the 32 base registers and relevant memory data are displayed. **To run the simulation via Modelsim, open cmd terminal inside `testbench/scripts/` directory. Run this command: `vsim -do sim.do`**    
-
-Below is the resulting output: 
+After executing all instructions, the state of the 32 base registers and relevant memory data are displayed.  
+ - **To run the simulation via Modelsim, open cmd terminal inside `testbench/scripts/` directory. Run this command: `vsim -do sim.do`**      
+ - **To run the simulation via Vivado, open cmd terminal inside `testbench/scripts/` directory. Run this command: `./sim.sh gui`**      
+ 
+Below is the resulting output of this `rv32i_soc_TB` testbench: 
 
 ```
 
@@ -105,14 +105,14 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
 +-------------------------+------+-------+------------+-----------+-------+
 |        Site Type        | Used | Fixed | Prohibited | Available | Util% |
 +-------------------------+------+-------+------------+-----------+-------+
-| Slice LUTs*             |  737 |     0 |          0 |     14600 |  5.05 |
-|   LUT as Logic          |  737 |     0 |          0 |     14600 |  5.05 |
+| Slice LUTs*             |  727 |     0 |          0 |     14600 |  4.98 |
+|   LUT as Logic          |  727 |     0 |          0 |     14600 |  4.98 |
 |   LUT as Memory         |    0 |     0 |          0 |      5000 |  0.00 |
-| Slice Registers         |  133 |     0 |          0 |     29200 |  0.46 |
-|   Register as Flip Flop |  101 |     0 |          0 |     29200 |  0.35 |
-|   Register as Latch     |   32 |     0 |          0 |     29200 |  0.11 |
-| F7 Muxes                |   34 |     0 |          0 |      7300 |  0.47 |
-| F8 Muxes                |    1 |     0 |          0 |      3650 |  0.03 |
+| Slice Registers         |  270 |     0 |          0 |     29200 |  0.92 |
+|   Register as Flip Flop |  270 |     0 |          0 |     29200 |  0.92 |
+|   Register as Latch     |    0 |     0 |          0 |     29200 |  0.00 |
+| F7 Muxes                |    0 |     0 |          0 |      7300 |  0.00 |
+| F8 Muxes                |    0 |     0 |          0 |      3650 |  0.00 |
 +-------------------------+------+-------+------------+-----------+-------+
 * Warning! The Final LUT count, after physical optimizations and full implementation, is typically lower. Run opt_design after synthesis, if not already completed, for a more realistic count.
 ```
