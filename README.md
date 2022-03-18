@@ -3,7 +3,8 @@ Design implementation of the RISC-V Integer core in Verilog HDL. The core is cur
 Inside the `rtl` folder are the following:  
 
  - `rv32i_soc.v` = complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory)  
- - `rv32i_core.v` = FSM controller for the fetch, decode, execute, memory access, and writeback processes  
+ - `rv32i_core.v` = top module for the RV32I core  
+ - `rv32i_fsm.v` = FSM controller for the fetch, decode, execute, memory access, and writeback processes
  - `rv32i_basereg.v` = interface for the regfile of the 32 integer base registers 
  - `rv32i_decoder.v`= logic for the decoding of a 32 bit instruction [DECODE STAGE]
  - `rv32i_alu.v` =  arithmetic logic unit [EXECUTE STAGE]
