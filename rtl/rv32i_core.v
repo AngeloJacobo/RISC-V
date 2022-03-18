@@ -1,4 +1,4 @@
-//FSM controller for the fetch, decode, execute, memory access, and writeback processes.
+//topmodule for the rv32i core
 
 `timescale 1ns / 1ps
 
@@ -15,19 +15,9 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     output wire wr_en //write enable 
 );
 
-    localparam  FETCH = 0,
-                DECODE = 1,
-                EXECUTE = 2,
-                MEMORYACCESS = 3,
-                WRITEBACK = 4;
-
-    reg[2:0] stage_q = 0, stage_d;//5 stages 
-    reg[31:0] inst_q = 0, inst_d; //instruction
+    //wires for basereg
     wire[31:0] rs1, rs2, rd; //value of source register 1 and 2 and destination register 
-    wire[31:0] data_load; //data to be loaded to base reg
-    wire[31:0] pc; //program counter (PC) value
-    wire wr_rd; //write to rd if enabled
-    
+
     //wires for rv32i_decoder
     wire[31:0] imm; 
     wire[4:0] rs1_addr, rs2_addr;
@@ -60,56 +50,27 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     wire opcode_fence; 
 
     //wires for rv32i_alu
-    reg[31:0] a,b;
+    wire[31:0] a,b;
     wire[31:0] y;
-    
 
-    //register operation
-    always @(posedge clk, negedge rst_n) begin
-        if(!rst_n) begin
-            stage_q <= FETCH;
-            inst_q <= 0;
-        end
-        else begin
-            stage_q <= stage_d;
-            inst_q <= inst_d;
-        end
-    end
-    
-    //5 stage processor unpipelined (FSM)   
-    always @* begin
-        stage_d = stage_q;
-        inst_d = inst_q;
-        a = 0;
-        b = 0; 
-        
-        case(stage_q)
-           FETCH: begin //fetch the instruction
-                     inst_d = inst; 
-                     stage_d = DECODE;
-                  end
+    //wires for rv32i_writeback
+    wire[31:0] data_load; //data to be loaded to base reg
+    wire[31:0] pc; //program counter (PC) value
+    wire wr_rd; //write to rd if enabled
 
-          DECODE: stage_d = EXECUTE; //retrieve rs1,rs2, and immediate values (output is registered so 1 clk delay is needed)
-
-         EXECUTE: begin //ALU operation
-                      a = (opcode_jal || opcode_auipc)? pc:rs1; 
-                      b = (opcode_rtype || opcode_branch)? rs2:imm; 
-                      stage_d = MEMORYACCESS;
-                  end
-                  
-    MEMORYACCESS: stage_d = WRITEBACK;  //load/store to data memory if needed (output is registered so 1 clk delay is needed)
-
-       WRITEBACK: stage_d = FETCH; //update pc value and writeback to rd if needed
-
-         default: stage_d = FETCH;
-        endcase
-    end
+    //wires for rv32i_fsm
+    wire[31:0] inst_q;
+    wire[2:0] stage_q;
+    wire alu_stage;
+    wire memoryaccess_stage;
+    wire writeback_stage; 
     
     //address of memories 
     assign iaddr = pc; //instruction address
     assign daddr = y; //data address
   
   
+
   
     //module instantiations (all outputs are registered)
     rv32i_basereg m0( //regfile controller for the 32 integer base registers
@@ -164,7 +125,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     rv32i_alu m2( //ALU combinational logic [EXECUTE STAGE]
         .clk(clk),
         .rst_n(rst_n),
-        .alu(stage_q == EXECUTE), //update y output iff stage is currently on EXECUTE (ALU stage)
+        .alu(alu_stage), //update y output iff stage is currently on EXECUTE (ALU stage)
         .a(a), //rs1 or pc
         .b(b), //rs2 or imm 
         .y(y), //result of arithmetic operation
@@ -188,7 +149,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     rv32i_memoryaccess m3( //logic controller for data memory access (load/store) [MEMORY STAGE]
         .clk(clk),
         .rst_n(rst_n),
-        .memoryaccess(stage_q == MEMORYACCESS), //enable wr_mem iff stage is currently on LOADSTORE
+        .memoryaccess(memoryaccess_stage), //enable wr_mem iff stage is currently on LOADSTORE
         .rs2(rs2), //data to be stored to memory is always rs2
         .din(din), //data retrieve from memory 
         .addr_2(y[1:0]), //last 2 bits of address of data to be stored or loaded (always comes from ALU)
@@ -203,7 +164,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     rv32i_writeback #(.PC_RESET(PC_RESET)) m4( //logic controller for the next PC and rd value [WRITEBACK STAGE]
         .clk(clk),
         .rst_n(rst_n),
-        .writeback(stage_q == WRITEBACK), //enable wr_rd iff stage is currently on WRITEBACK
+        .writeback(writeback_stage), //enable wr_rd iff stage is currently on WRITEBACK
         .alu_out(y), //output of ALU
         .imm(imm), //immediate value
         .rs1(rs1), //source register 1 value
@@ -223,6 +184,28 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
         .opcode_auipc(opcode_auipc),
         .opcode_system(opcode_system),
         .opcode_fence(opcode_fence) 
+    );
+
+    rv32i_fsm m5( //FSM controller for the fetch, decode, execute, memory access, and writeback processes.
+        .clk(clk),
+        .rst_n(rst_n),
+        .inst(inst), //instruction
+        .pc(pc), //Program Counter
+        .rs1(rs1), ////Source register 1 value
+        .rs2(rs2), //Source Register 2 value
+        .imm(imm), //Immediate value
+        /// Opcode Type ///
+        .opcode_jal(opcode_jal),
+        .opcode_auipc(opcode_auipc),
+        .opcode_rtype(opcode_rtype),
+        .opcode_branch(opcode_branch),
+        .inst_q(inst_q), //registered instruction
+        .stage_q(stage_q), //current stage
+        .a(a), //value of a in ALU
+        .b(b), //value of b in ALU
+        .alu_stage(alu_stage),//high if stage is on EXECUTE
+        .memoryaccess_stage(memoryaccess_stage),//high if stage is on MEMORYACCESS
+        .writeback_stage(writeback_stage) //high if stage is on WRITEBACK
     );
       
 endmodule
