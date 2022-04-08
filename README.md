@@ -14,7 +14,12 @@ Inside the `rtl` folder are the following:
 Inside the `testbench` folder are the following:
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
  - `hexfile` folder = contains the `inst.hex` for the test instructions
- - `scripts` folder = contains scripts for Modelsim and Vivado simulation
+ - `scripts/` folder = contains scripts for Modelsim and Vivado simulation   
+ 
+ Other files at the top directory:
+ - `test.sh` = script for automated testing with an ISS
+ - `rv_asm.bat` = batch file used by `test.sh` for compilation of assembly files
+ - `testbank/` folder = contains the assembly files used as testcases for the ISS
  
 ## INTERFACE
 Below is the interface for `rv32i_core`:
@@ -100,6 +105,16 @@ Below is the screenshot of the waveforms for the relevant base registers and mem
  - `iaddr` = instruction address (PC value)  
  - `base_regfile[][]` = base register regfile  
  - `data_regfile[][]` = memory data regfile  
+
+## Automated Tests with ISS (Instruction Set Simulator)
+The RISCV toolchain `riscv64-unknown-elf-` must be added to PATH. The ISS used here is from https://github.com/wyvernSemi/riscV . The ISS executable file `rv32.exe` must be moved at the top directory of this repository.  
+
+Run the script `test.sh`. Below is the expected output:   
+
+![shelloutput](https://user-images.githubusercontent.com/87559347/162359061-16b70a0b-7856-4230-9fdc-3840c359e3fa.png)
+
+
+
 
 ## UTILIZATION [Vivado Synthesis Report]  
 ```
