@@ -43,14 +43,21 @@ module rv32i_memoryaccess(
            
         case(funct3[1:0]) 
             2'b00: begin //byte load/store
-                    data_load_d = {{{24{!funct3[2]}} & {24{din[7]}}},din[7:0]}; //signed and unsigned extension in 1 equation
+                    case(addr_2)  //choose which of the 4 byte will be loaded to basereg
+                        2'b00: data_load_d = din[7:0];
+                        2'b01: data_load_d = din[15:8];
+                        2'b10: data_load_d = din[23:16];
+                        2'b11: data_load_d = din[31:24];
+                    endcase
+                    data_load_d = {{{24{!funct3[2]}} & {24{data_load_d[7]}}} , data_load_d[7:0]}; //signed and unsigned extension in 1 equation
                     wr_mask_d = 4'b0001<<addr_2; //mask 1 of the 4 bytes
                     data_store_d = rs2<<{addr_2,3'b000}; //rs2<<(addr_2*8) , align data to mask
                    end
             2'b01: begin //halfword load/store
-                    data_load_d = {{{16{!funct3[2]}} & {16{din[15]}}},din[15:0]}; //signed and unsigned extension in 1 equation
+                    data_load_d = addr_2[1]? din[31:16]: din[15:0]; //choose which of the 2 halfwords will be loaded to basereg
+                    data_load_d = {{{16{!funct3[2]}} & {16{data_load_d[15]}}},data_load_d[15:0]}; //signed and unsigned extension in 1 equation
                     wr_mask_d = 4'b0011<<{addr_2[1],1'b0}; //mask either the upper or lower half-word
-                    data_store_d = rs2<<{addr_2[1],3'b0}; //rs2<<(addr_2[1]*16) , align data to mask
+                    data_store_d = rs2<<{addr_2[1],4'b0000}; //rs2<<(addr_2[1]*16) , align data to mask
                    end
             2'b10: begin //word load/store
                     data_load_d = din;
