@@ -48,7 +48,7 @@ module rv32i_alu(
         if(alu_and) y_d = a & b;
         if(alu_sll) y_d = a << b[4:0];
         if(alu_srl) y_d = a >> b[4:0];
-        if(alu_sra) y_d = a >>> b[4:0];
+        if(alu_sra) y_d = $signed(a) >>> b[4:0];
         if(alu_eq || alu_neq) begin
             y_d = a == b;
             if(alu_neq) y_d = !y_d;
