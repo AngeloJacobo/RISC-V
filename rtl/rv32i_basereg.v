@@ -18,7 +18,7 @@ module rv32i_basereg
     reg[4:0] rs1_addr_q = 0,rs2_addr_q = 0;
     reg[31:0] base_regfile[31:1]; //base register file (base_regfile[0] is hardwired to zero)
         
-    initial begin //initialize instruction memory to zero
+    initial begin //initialize all basereg to zero
         for(i=0 ; i<32 ; i=i+1) base_regfile[i]=0; 
     end
     
