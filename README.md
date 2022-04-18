@@ -13,9 +13,9 @@ Inside the `rtl` folder are the following:
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
  
  Other files at the top directory:
- - `test.sh` = script for the automated testbench
+ - `test.sh` = script for automating the testbench
  - `sections.py` = python script used by `test.sh` to extract the text and data sections from the binary file output of the compiler
- - `testbank/` folder = contains the assembly files to be used as testcases by the testbench
+ - `testbank/` folder = assembly testfiles for all 37 basic instructions with RISC-V International's riscv-tests pass/fail criteria
  
 ## INTERFACE
 Here are the top level blocks for`rv32i_soc`:  
