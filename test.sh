@@ -81,7 +81,8 @@ then
     printf "\n"
     for testfile in $testfiles      #iterate through all testfiles
     do
-        printf "PROCESSING: $testfile\n"
+        countfile=$((countfile+1))  # increment number of total testfile
+        printf "${countfile}: PROCESSING: $testfile\n"
         if [ -f $testfile ]         # true if testfile exists
         then   
             ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
@@ -129,7 +130,7 @@ then
             countmissing=$((countmissing+1))        # increment number of missing testfile
             missinglist="$missinglist \"$testfile\""    # add name of missing testfile
         fi
-        countfile=$((countfile+1))  # increment number of total testfile
+        
     done
 
     printf "\n%s\n" "--------------------------SUMMARY--------------------------"
