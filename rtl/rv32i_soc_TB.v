@@ -81,7 +81,7 @@ module rv32i_soc_TB #(parameter TEXTFILE, DATAFILE, DATA_STARTADDR);
                 $display("\nFAIL: exit code = 0x%h",uut.m0.m0.base_regfile[10]>>1);
             end
         end
-        else $display("\nUNKNOWN: regfile[17] = 0x%h (must be 0x0000005d)",uut.m0.m0.base_regfile[17]);
+        else $display("\nUNKNOWN: basereg[17] = 0x%h (must be 0x0000005d)",uut.m0.m0.base_regfile[17]);
         $stop;
     end
 endmodule
