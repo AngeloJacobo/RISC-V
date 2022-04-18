@@ -30,7 +30,8 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
     reg[31:0] rd_d;
     reg[31:0] pc_d;
     reg wr_rd_d;
-    reg[31:0] a,sum;
+    reg[31:0] a;
+    wire[31:0] sum;
 
     // register outputs of this module for shorter combinational timing paths
     always @(posedge clk,negedge rst_n) begin
@@ -53,7 +54,6 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
         pc_d = pc + 32'd4;
         wr_rd_d = 0;
         a = pc;
-        sum = 0;
           
         if(opcode_rtype || opcode_itype) rd_d = alu_out;
         if(opcode_load) rd_d = data_load;
@@ -67,9 +67,9 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
         if(opcode_lui) rd_d = imm;
         if(opcode_auipc) rd_d = sum;
         if(opcode_branch || opcode_store || opcode_system) wr_rd_d = 0;
-        else wr_rd_d = 1; //always write to the destination reg except when instruction is BRANCH or STORE or SYSTEM
-        
-        sum = a + imm; //share adder for all addition operation for less resource utilization   
+        else wr_rd_d = 1; //always write to the destination reg except when instruction is BRANCH or STORE or SYSTEM  
         
     end
+    
+    assign sum = a + imm; //share adder for all addition operation for less resource utilization
 endmodule
