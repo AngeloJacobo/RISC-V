@@ -75,7 +75,7 @@ module data_mem #(parameter RAM_DEPTH=1024) ( //RAM_DEPTH = number of BYTES (sin
     
     
     integer i;
-    initial begin //initialize instruction memory to zero
+    initial begin //initialize data memory to zero
         for(i=0 ; i<RAM_DEPTH ; i=i+1) data_regfile[i]=0; 
     end
   
