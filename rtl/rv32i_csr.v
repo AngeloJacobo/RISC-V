@@ -394,7 +394,11 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                  o_csr_out <= csr_data;
               end
         end
-        else mcycle <= mcountinhibit_cy? mcycle : mcycle + 1; //increments mcycle every clock cycle
+        else begin
+            // this CSR will always be updated
+            mcycle <= mcountinhibit_cy? mcycle : mcycle + 1; //increments mcycle every clock cycle
+            minstret <= mcountinhibit_ir? minstret : minstret + (i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q); //increment minstret every instruction
+        end
     end
 
    always @* begin
