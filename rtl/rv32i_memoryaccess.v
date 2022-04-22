@@ -67,6 +67,7 @@ module rv32i_memoryaccess(
             end
             if(i_flush && !stall_bit) begin //flush this stage so clock-enable of next stage is disabled at next clock cycle
                 o_ce <= 0;
+                o_wr_mem <= 0;
             end
             else if(!stall_bit) begin //clock-enable will change only when not stalled
                 o_ce <= i_ce;
