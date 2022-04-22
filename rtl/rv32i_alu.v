@@ -152,20 +152,21 @@ module rv32i_alu(
         o_next_pc = 0;
         wr_rd_d = 0;
         a_pc = i_pc;
-
-        if(opcode_rtype || opcode_itype) rd_d = y_d;
-        if(opcode_branch && y_d[0]) begin
-                o_next_pc = sum; //branch iff value of ALU is 1(true)
+        if(!i_flush) begin
+            if(opcode_rtype || opcode_itype) rd_d = y_d;
+            if(opcode_branch && y_d[0]) begin
+                    o_next_pc = sum; //branch iff value of ALU is 1(true)
+                    o_change_pc = i_ce; //change PC when ce of this stage is high (o_change_pc is valid)
+                    o_flush = i_ce;
+            end
+            if(opcode_jal || opcode_jalr) begin
+                if(opcode_jalr) a_pc = i_rs1;
+                o_next_pc = sum; //jump to new PC
                 o_change_pc = i_ce; //change PC when ce of this stage is high (o_change_pc is valid)
                 o_flush = i_ce;
+                rd_d = i_pc + 4; //register the next pc value to destination register
+            end 
         end
-        if(opcode_jal || opcode_jalr) begin
-            if(opcode_jalr) a_pc = i_rs1;
-            o_next_pc = sum; //jump to new PC
-            o_change_pc = i_ce; //change PC when ce of this stage is high (o_change_pc is valid)
-            o_flush = i_ce;
-            rd_d = i_pc + 4; //register the next pc value to destination register
-        end 
         if(opcode_lui) rd_d = i_imm;
         if(opcode_auipc) rd_d = sum;
 
@@ -181,4 +182,26 @@ module rv32i_alu(
         
     assign sum = a_pc + i_imm; //share adder for all addition operation for less resource utilization
 
+    `ifdef FORMAL
+        // assumption on inputs(not more than one opcode and alu operation is high)
+        wire[4:0] f_alu=i_alu[`ADD]+i_alu[`SUB]+i_alu[`SLT]+i_alu[`SLTU]+i_alu[`XOR]+i_alu[`OR]+i_alu[`AND]+i_alu[`SLL]+i_alu[`SRL]+i_alu[`SRA]+i_alu[`EQ]+i_alu[`NEQ]+i_alu[`GE]+i_alu[`GEU]+0;
+        wire[4:0] f_opcode=i_opcode[`RTYPE]+i_opcode[`ITYPE]+i_opcode[`LOAD]+i_opcode[`STORE]+i_opcode[`BRANCH]+i_opcode[`JAL]+i_opcode[`JALR]+i_opcode[`LUI]+i_opcode[`AUIPC]+i_opcode[`SYSTEM]+i_opcode[`FENCE];
+
+        always @* begin
+            assume(f_alu <= 1);
+            assume(f_opcode <= 1);
+        end
+
+        // verify all operations with $signed/$unsigned distinctions
+        always @* begin 
+            if(i_alu[`SLTU]) assert(y_d[0] == $unsigned(a) < $unsigned(b));
+            if(i_alu[`SLT]) assert(y_d[0] == $signed(a) < $signed(b));
+            if(i_alu[`SLL]) assert($unsigned(y_d) == $unsigned(a) << $unsigned(b[4:0]));
+            if(i_alu[`SRL]) assert($unsigned(y_d) == $unsigned(a) >> $unsigned(b[4:0]));
+            if(i_alu[`SRA]) assert($signed(y_d) == ($signed(a) >>> $unsigned(b[4:0])));
+            if(i_alu[`GEU]) assert(y_d[0] == ($unsigned(a) >= $unsigned(b)));
+            if(i_alu[`GE]) assert(y_d[0] == ($signed(a) >= $signed(b)));
+        end
+        
+    `endif
 endmodule
