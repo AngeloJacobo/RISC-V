@@ -1,7 +1,6 @@
 //FSM controller for the fetch, decode, execute, memory access, and writeback processes.
 
 `timescale 1ns / 1ps
-`default_nettype none
 
 module rv32i_fsm (
     input wire clk,rst_n,
