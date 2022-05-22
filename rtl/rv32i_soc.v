@@ -1,9 +1,17 @@
 `timescale 1ns / 1ps
 
 //complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
-module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_DEPTH=1024, RAM_DEPTH=1024) ( 
+module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_DEPTH=1024, RAM_DEPTH=1024, CLK_FREQ_MHZ=100, TRAP_ADDRESS=0) ( 
     input wire clk,
-    input wire rst_n
+    input wire rst_n,
+    //Interrupts
+    input wire external_interrupt, //interrupt from external source
+    input wire software_interrupt, //interrupt from software
+    // Timer Interrupt
+    input wire mtime_wr, //write to mtime
+    input wire mtimecmp_wr,  //write to mtimecmp
+    input wire[63:0] mtime_din, //data to be written to mtime
+    input wire[63:0] mtimecmp_din //data to be written to mtimecmp
     );
     
     //Instruction Memory Interface
@@ -16,7 +24,7 @@ module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_DEPTH=1024, RAM_DEPTH
     wire[3:0] wr_mask; //write mask control
     wire wr_en; //write enable 
         
-    rv32i_core #(.PC_RESET(32'h00_00_00_00)) m0( //main RV32I core
+    rv32i_core #(.PC_RESET(PC_RESET),.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m0( //main RV32I core
         .clk(clk),
         .rst_n(rst_n),
         //Instruction Memory Interface
@@ -27,7 +35,15 @@ module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_DEPTH=1024, RAM_DEPTH
         .dout(dout), //data to be stored to memory
         .daddr(daddr), //address of data memory for store/load
         .wr_mask(wr_mask), //write mask control
-        .wr_en(wr_en) //write enable 
+        .wr_en(wr_en), //write enable 
+        //Interrupts
+        .external_interrupt(external_interrupt), //interrupt from external source
+        .software_interrupt(software_interrupt), //interrupt from software
+        // Timer Interrupt
+        .mtime_wr(mtime_wr), //write to mtime
+        .mtimecmp_wr(mtimecmp_wr),  //write to mtimecmp
+        .mtime_din(mtime_din), //data to be written to mtime
+        .mtimecmp_din(mtimecmp_din) //data to be written to mtimecmp
      );
         
      inst_mem #(.ROM_DEPTH(ROM_DEPTH)) m1( //byte addressable instruction memory, 32 bit aligned
