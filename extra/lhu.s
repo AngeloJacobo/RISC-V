@@ -16,7 +16,8 @@ _start: .global _start
 main:
         ### TEST CODE STARTS HERE ###
         # load halfword unsigned with zero imm
-        li  x1, 0x1008          # set x1 to 0x1008 
+        lla  x1, data            # set x1 to data
+        addi x1,x1, 8           # set x1 to data + 8 
         lhu  x2, 0(x1)          # load halfword from address 0x1008 to x2, x2=0x00005577
         
         # load halfword unsigned with positive imm
