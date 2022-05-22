@@ -1,4 +1,4 @@
-## ABOUT
+## About
 Design implementation of the RISC-V Integer core in Verilog HDL. The core is currently FSM-based (no pipelining) and supports the Zicsr (Control Status Registers) extension. This core is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests)
 
 Inside the `rtl` folder are the following:  
@@ -29,8 +29,8 @@ Inside the `rtl` folder are the following:
 
 
 
-## AUTOMATED TESTBENCH
-The RISCV toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and `vlog` must be callable from PATH. Run script either:
+## Regression Tests
+The RISCV toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and `vlog` must be callable from PATH. Run regression tests either with:
  - `$ ./test.sh` = run regression tests for both `riscv-tests/isa/rv32ui/` and `riscv-tests/isa/rv32mi/`
  - `$ ./test.sh compile` = compile-only the rtl files
  - `$ ./test.sh rv32ui` = run regression tests only for the `riscv-tests/isa/rv32ui/`
@@ -46,7 +46,7 @@ Below is the expected output after running `$ ./test.sh`:
 ## Goal Checklist
  :white_check_mark: Add more testcases for the testbench    
  :white_check_mark: Automate the testbench   
- :white_check_mark: Add CSR    
+ :white_check_mark: Add Zicsr extension   
  :white_check_mark: Pass the Official RISC-V International Tests   
  :black_square_button: Convert FSM based core implementation to pipeline       
  :black_square_button: Add RV32 extensions    
