@@ -14,6 +14,7 @@ rtlfiles="./rtl/rv32i_alu.v
           ./rtl/rv32i_decoder.v 
           ./rtl/rv32i_memoryaccess.v 
           ./rtl/rv32i_writeback.v
+          ./rtl/rv32i_csr.v
           ./rtl/rv32i_fsm.v
           ./rtl/rv32i_core.v
           ./rtl/rv32i_soc.v
@@ -63,7 +64,11 @@ testfiles="$TESTDIR/add.s
             $TESTDIR/jalr.s
             
             $TESTDIR/lui.s
-            $TESTDIR/auipc.s"
+            $TESTDIR/auipc.s
+            
+            $TESTDIR/csr_op.s
+            $TESTDIR/exceptions.s
+            $TESTDIR/interrupts.s"
   
 
             
@@ -106,7 +111,19 @@ then
            
             ################################################### TESTBENCH SIMULATION ###################################################
             printf "\tsimulating with Modelsim....."
-            vlog -quiet ${rtlfiles}
+            
+            if [ -d "./work/" ]  # check first if work library exists
+            then
+                vdel -all -lib work # delete old library folder
+            fi
+            vlib work
+            if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile has word "exception" then that testfile will not halt on ebreak/ecall
+            then
+                vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
+            else
+                vlog -quiet ${rtlfiles} # current testfile will halt on ebreak/ecall only
+            fi
+            
             a=$(vsim -quiet -batch -G TEXTFILE="./text.bin" -G DATAFILE="./data.bin" -G DATA_STARTADDR=32\'h${DATAADDR} rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
             if (( $(grep "PASS:" -c <<< $a) != 0 ))
             then
@@ -158,6 +175,14 @@ then
     fi
     printf "\n%s\n\n" "-----------------------------------------------------------"
 
+elif [ "$1" == "compile" ] # only compile the rtl files 
+then
+    if [ -d "./work/" ]  # check first if work library exists
+    then
+        vdel -all -lib work # delete old library folder
+    fi
+    vlib work
+    vlog ${rtlfiles}
 
 
 
@@ -190,7 +215,17 @@ else    # argument is given (assembly file to be tested and debugged)
         ################################################### TESTBENCH SIMULATION ###################################################
         printf "\tsimulating with Modelsim.....\n"
         printf "\n##############################################################\n"
-        vlog ${rtlfiles}
+        if [ -d "./work/" ]  # check first if work library exists
+        then
+            vdel -all -lib work # delete old library folder
+        fi
+        vlib work
+        if (( $(grep "exception" -c <<< $1) != 0 ))
+        then
+            vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
+        else
+            vlog -quiet ${rtlfiles} # current testfile will halt only on ebreak/ecall 
+        fi
         vsim $2 -G TEXTFILE="./text.bin" -G DATAFILE="./data.bin" -G DATA_STARTADDR=32\'h${DATAADDR} rv32i_soc_TB -do "do wave.do;run -all"
         a=$(vsim -batch -G TEXTFILE="./text.bin" -G DATAFILE="./data.bin" -G DATA_STARTADDR=32\'h${DATAADDR} rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
         printf "##############################################################\n"
