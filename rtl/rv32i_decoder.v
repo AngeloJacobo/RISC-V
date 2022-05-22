@@ -41,7 +41,6 @@ module rv32i_decoder(
     output reg opcode_fence,  
     /// Exceptions ///
     output reg is_inst_illegal, //illegal instruction
-    output reg is_inst_addr_misaligned, //instruction address misaligned
     output reg is_ecall, //ecall instruction
     output reg is_ebreak, //ebreak instruction
     output reg is_mret //mret (return from trap) instruction
@@ -110,7 +109,8 @@ module rv32i_decoder(
     reg opcode_fence_d;
             
     reg system_noncsr = 0;
-    
+    reg valid_opcode = 0;
+    reg illegal_shift = 0;
     //register the outputs of this decoder module for shorter combinational timing paths
     always @(posedge clk, negedge rst_n) begin
         if(!rst_n) begin
@@ -145,7 +145,6 @@ module rv32i_decoder(
             opcode_fence  <= 0;
             /// Exceptions ///
             is_inst_illegal <= 0;
-            is_inst_addr_misaligned <= 0;
             is_ecall <= 0;
             is_ebreak <= 0;
             is_mret <= 0;
@@ -198,11 +197,10 @@ module rv32i_decoder(
             /*********************** decode possible exceptions ***********************/
             system_noncsr = opcode == SYSTEM && funct3_d == 0 ; //system instruction but not CSR operation
             
-            // Check if instruction is illegal
-            is_inst_illegal <= (!(opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d) || inst[1:0]==2'b00)? 1:0;
-            
-            // Check if instruction addr is misaligned
-            is_inst_addr_misaligned <= (pc[1:0] != 2'b00)? 1:0;
+            // Check if instruction is illegal    
+            valid_opcode = (opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d);
+            illegal_shift = (opcode_itype_d && (alu_sll || alu_srl || alu_sra)) && inst[25];
+            is_inst_illegal <= !valid_opcode || illegal_shift;
 
             // Check if ECALL
             is_ecall <= (system_noncsr && inst[21:20]==2'b00)? 1:0;
