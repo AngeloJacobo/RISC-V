@@ -1,12 +1,40 @@
 #! /bin/bash
 
-TESTDIR=./testbank  #directory of testcases
+# Configurables
+# INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+TESTENVDIR=./riscv-test-env       # directory of test environment
 
 # Compilation parameters for RISC-V toolchain
 PREFIX=riscv64-unknown-elf-
-ONAME=test
-TEXTADDR=0
-DATAADDR=1000 # Assumed to be 0x1000 to pass all my testcases
+ONAME=test          # executable file name (xxxx.bin)
+MEMORY=memory.mem   # memory file name (extracted text and data sections from the executable file)
+#Note: Starting address of TEXT section is always zero. Starting address of DATA section depends on the testfile assembly
+
+# define assembly testfiles (REGRESSION TESTS)
+if [ "$1" == "rv32ui" ] 
+then
+    testfiles="./riscv-tests/isa/rv32ui/*.S" # RV32 user-level, integer only [All basic RISCV instructions]
+    
+elif [ "$1" == "rv32mi" ]
+then
+    testfiles="./riscv-tests/isa/rv32mi/*.S"  # RV32 machine-level, integer only [CSRs,system instructions, and exception handling] 
+    
+elif [ "$1" == "extra" ]
+then
+    testfiles="./extra/*.s" # My own tests [basic instructions, CSRs, system instructions, exception and interrupt handling]
+ 
+elif [ "$1" == "all" ]
+then
+    testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S ./extra/*.s" # Combination of rv32ui, rv32mi, and mytest
+    
+elif [ "$1" == "" ]
+then
+    testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S" # Combination of rv32ui and rv32mi tests
+fi
+
+###########################################################################################################################################################
+
 
 # verilog rtl files of the RISC-V core
 rtlfiles="./rtl/rv32i_alu.v 
@@ -20,57 +48,6 @@ rtlfiles="./rtl/rv32i_alu.v
           ./rtl/rv32i_soc.v
           ./rtl/rv32i_soc_TB.v"
 
-
-# assembly testfiles
-testfiles="$TESTDIR/add.s 
-            $TESTDIR/sub.s
-            $TESTDIR/slt.s
-            $TESTDIR/sltu.s
-            $TESTDIR/xor.s
-            $TESTDIR/or.s
-            $TESTDIR/and.s
-            $TESTDIR/sll.s
-            $TESTDIR/srl.s
-            $TESTDIR/sra.s
-            
-            $TESTDIR/addi.s
-            $TESTDIR/slti.s
-            $TESTDIR/sltiu.s
-            $TESTDIR/xori.s
-            $TESTDIR/ori.s
-            $TESTDIR/andi.s
-            $TESTDIR/slli.s
-            $TESTDIR/srli.s
-            $TESTDIR/srai.s
-            
-            $TESTDIR/lb.s
-            $TESTDIR/lh.s
-            $TESTDIR/lw.s
-            $TESTDIR/lbu.s
-            $TESTDIR/lhu.s
-            
-            $TESTDIR/sb.s
-            $TESTDIR/sh.s
-            $TESTDIR/sw.s
-            
-            $TESTDIR/beq.s
-            $TESTDIR/bne.s
-            $TESTDIR/blt.s
-            $TESTDIR/bge.s
-            $TESTDIR/bltu.s
-            $TESTDIR/bgeu.s
-            
-            $TESTDIR/jal.s
-            $TESTDIR/jalr.s
-            
-            $TESTDIR/lui.s
-            $TESTDIR/auipc.s
-            
-            $TESTDIR/csr_op.s
-            $TESTDIR/exceptions.s
-            $TESTDIR/interrupts.s"
-  
-
             
 countfile=0     # stores total number of testfiles
 countpassed=0   # stores total number of PASSED
@@ -81,7 +58,18 @@ failedlist=""   # stores lists of testfiles that FAILED
 unknownlist=""  # stores lists of testfiles that has UNKNOWN output
 missinglist=""  # stores list of testfiles that are missing
 
-if [ "$1" == "" ] # if no argument is given
+
+if [ "$1" == "compile" ] # compile-only the rtl files 
+then
+    if [ -d "./work/" ]  # check first if work library exists
+    then
+        vdel -all -lib work # delete old library folder
+    fi
+    vlib work
+    vlog ${rtlfiles}
+    
+    
+elif [ "$1" == "rv32ui" ] || [ "$1" == "rv32mi" ] || [ "$1" == "extra" ] || [ "$1" == "all" ] || [ "$1" == "" ] # regression tests
 then
     printf "\n"
     for testfile in $testfiles      #iterate through all testfiles
@@ -92,15 +80,20 @@ then
         then   
             ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
             printf "\tcompiling assembly file....."
-            ${PREFIX}as -fpic -march=rv32i -aghlms=${TESTDIR}/${ONAME}.list -o ${TESTDIR}/${ONAME}.o ${testfile}
-            ${PREFIX}ld ${TESTDIR}/${ONAME}.o -Ttext ${TEXTADDR} -Tdata ${DATAADDR} -melf32lriscv -o ${ONAME}.bin
+            
+            ${PREFIX}gcc -c -g -march=rv32g -mabi=ilp32 \
+            -I${TESTENVDIR}/p -Iriscv-tests/isa/macros/scalar \
+            ${testfile} -o ${ONAME}.o
+
+            riscv64-unknown-elf-ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin
+            
             printf "DONE!\n"
             ############################################################################################################################
             
             
             ####################################### EXTRACT TEXT AND DATA SECTIONS FROM BIN FILE #######################################
             printf "\textracting text and data sections....."
-            if (( $(python sections.py ${ONAME}.bin | grep DONE -c) != 0 )) # extract text section and data section from bin file
+            if (( $(python sections.py ${ONAME}.bin ${MEMORY}| grep DONE -c) != 0 )) # extract text section and data section from bin file
             then
                 printf "DONE!\n"
             else
@@ -117,14 +110,17 @@ then
                 vdel -all -lib work # delete old library folder
             fi
             vlib work
-            if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile has word "exception" then that testfile will not halt on ebreak/ecall
+            if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile name has word "exception" then that testfile will not halt on ebreak/ecall
             then
                 vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
+            elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
+            then
+                vlog -quiet +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
             else
-                vlog -quiet ${rtlfiles} # current testfile will halt on ebreak/ecall only
+                vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
             fi
             
-            a=$(vsim -quiet -batch -G TEXTFILE="./text.bin" -G DATAFILE="./data.bin" -G DATA_STARTADDR=32\'h${DATAADDR} rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
+            a=$(vsim -quiet -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
             if (( $(grep "PASS:" -c <<< $a) != 0 ))
             then
                 printf "PASS!\n\n"
@@ -152,6 +148,23 @@ then
 
     printf "\n%s\n" "--------------------------SUMMARY--------------------------"
     printf "$countfile TESTFILES"
+    if [ "$1" == "rv32ui" ] 
+    then
+        printf " [rv32ui] "
+    elif [ "$1" == "rv32mi" ] 
+    then
+        printf " [rv32mi] "
+    elif [ "$1" == "extra" ] 
+    then
+        printf " [extra] "
+    elif [ "$1" == "all" ] 
+    then
+        printf " [rv32ui][rv32mi][extra] "
+    elif [ "$1" == "" ]
+    then
+        printf " [rv32ui][rv32mi] "
+    fi
+    
     if (($countpassed == $countfile))     # print names of testfiles that FAILED if > 0
     then
         printf " \e[32m(ALL PASSED)\e[0m"
@@ -175,32 +188,30 @@ then
     fi
     printf "\n%s\n\n" "-----------------------------------------------------------"
 
-elif [ "$1" == "compile" ] # only compile the rtl files 
-then
-    if [ -d "./work/" ]  # check first if work library exists
-    then
-        vdel -all -lib work # delete old library folder
-    fi
-    vlib work
-    vlog ${rtlfiles}
 
 
-
-else    # argument is given (assembly file to be tested and debugged)
+else    # DEBUG MODE: first argument given is the assembly file to be tested and debugged
     printf "\nPROCESSING: $1\n"
-    if [ -f $1 ]         # true if testfile (first argument) exists
+    if [ -f "${INDIVIDUAL_TESTDIR}/${1}" ]   # true if testfile (first argument) exists
     then   
         ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
         printf "\tcompiling assembly file....."
-        ${PREFIX}as -fpic -march=rv32i -aghlms=${TESTDIR}/${ONAME}.list -o ${TESTDIR}/${ONAME}.o $1
-        ${PREFIX}ld ${TESTDIR}/${ONAME}.o -Ttext ${TEXTADDR} -Tdata ${DATAADDR} -melf32lriscv -o ${ONAME}.bin
+        
+        ${PREFIX}gcc -c -g -march=rv32g -mabi=ilp32 \
+        -I${TESTENVDIR}/p -Iriscv-tests/isa/macros/scalar \
+        ${INDIVIDUAL_TESTDIR}/${1} -o ${ONAME}.o
+
+        riscv64-unknown-elf-ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin
+
         printf "DONE!\n"
+        
+        
         ############################################################################################################################
         
         
         ####################################### EXTRACT TEXT AND DATA SECTIONS FROM BIN FILE #######################################
         printf "\textracting text and data sections....."
-        if (( $(python sections.py ${ONAME}.bin | grep DONE -c) != 0 )) # extract text section and data section from bin file
+        if (( $(python sections.py ${ONAME}.bin ${MEMORY} | grep DONE -c) != 0 )) # extract text section and data section from bin file
         then
             printf "DONE!\n"
         else
@@ -220,14 +231,18 @@ else    # argument is given (assembly file to be tested and debugged)
             vdel -all -lib work # delete old library folder
         fi
         vlib work
+        
         if (( $(grep "exception" -c <<< $1) != 0 ))
         then
-            vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
+            vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only      
+        elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
+        then
+            vlog -quiet +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
         else
-            vlog -quiet ${rtlfiles} # current testfile will halt only on ebreak/ecall 
+            vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
         fi
-        vsim $2 -G TEXTFILE="./text.bin" -G DATAFILE="./data.bin" -G DATA_STARTADDR=32\'h${DATAADDR} rv32i_soc_TB -do "do wave.do;run -all"
-        a=$(vsim -batch -G TEXTFILE="./text.bin" -G DATAFILE="./data.bin" -G DATA_STARTADDR=32\'h${DATAADDR} rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
+        vsim $2 -G MEMORY="${MEMORY}" rv32i_soc_TB -do "do wave.do;run -all"
+        a=$(vsim -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
         printf "##############################################################\n"
         if (( $(grep "PASS:" -c <<< $a) != 0 ))
         then
@@ -248,8 +263,14 @@ fi
 
 
 # HOW TO USE
-# $ ./test.sh = test all testcases
-# $ ./test.sh ./testbank/add.s = test and debug testfile "./testbank/add.s" 
-# $ ./test.sh ./testbank/add.s -gui = test and debug testfile "./testbank/add" and open Modelsim to visualize wave
+# $ ./test.sh = use the official tests from RISCV [rv32ui and rv32mi]
 # $ ./test.sh compile = compile-only the rtl files
+# $ ./test.sh rv32ui = test only the rv32ui official test
+# $ ./test.sh rv32mi = test only the rv32mi official test
+# $ ./test.sh extra = test only the assembly files inside extra folder [contains tests for interrupts which the official tests don't have]
+# $ ./test.sh all = test rv32ui, rv32mi, and mytest
+# $ ./test.sh ./testbank/add.S = test and debug testfile "add.S" which is located at INDIVIDUAL_TESTDIR
+# $ ./test.sh ./testbank/add.S -gui = test and debug testfile "add.S" and open wave in Modelsim
+
+
 
