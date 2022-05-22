@@ -1,10 +1,11 @@
 //arithmetic logic unit [EXECUTE STAGE]
 
 `timescale 1ns / 1ps
+`default_nettype none
 
 module rv32i_alu(
-    input clk,rst_n,
-    input alu, //update y output iff stage is currently on EXECUTE (ALU stage)
+    input wire clk,rst_n,
+    input wire alu, //update y output iff stage is currently on EXECUTE (ALU stage)
     input wire[31:0] a, //rs1 or pc
     input wire[31:0] b, //rs2 or imm 
     output reg[31:0] y, //result of arithmetic operation
@@ -24,9 +25,12 @@ module rv32i_alu(
     input wire alu_ge, //greater than or equal
     input wire alu_geu //greater than or equal unisgned
 );
+    initial begin
+        y = 0;
+    end
     
     reg[31:0] y_d;
-    
+
     //register the output of ALU
     always @(posedge clk, negedge rst_n) begin
         if(!rst_n) y <= 0;
