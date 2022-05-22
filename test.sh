@@ -269,8 +269,8 @@ fi
 # $ ./test.sh rv32mi = test only the rv32mi official test
 # $ ./test.sh extra = test only the assembly files inside extra folder [contains tests for interrupts which the official tests don't have]
 # $ ./test.sh all = test rv32ui, rv32mi, and mytest
-# $ ./test.sh ./testbank/add.S = test and debug testfile "add.S" which is located at INDIVIDUAL_TESTDIR
-# $ ./test.sh ./testbank/add.S -gui = test and debug testfile "add.S" and open wave in Modelsim
+# $ ./test.sh add.S = test and debug testfile "add.S" which is located at INDIVIDUAL_TESTDIR
+# $ ./test.sh add.S -gui = test and debug testfile "add.S" and open wave in Modelsim
 
 
 
