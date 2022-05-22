@@ -47,7 +47,7 @@ Below is the expected output after running `$ ./test.sh`:
  :white_check_mark: Add more testcases for the testbench    
  :white_check_mark: Automate the testbench   
  :white_check_mark: Add CSR    
- :white_check_mark: Pass the Official RISC International Tests   
+ :white_check_mark: Pass the Official RISCV International Tests   
  :black_square_button: Convert FSM based core implementation to pipeline       
  :black_square_button: Add RV32 extensions    
  
