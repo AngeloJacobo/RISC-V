@@ -1,9 +1,10 @@
-# extract the text section and data section from binary file output of the compiler (RISC-V toolchain) and save the hexfile to text.bin and data.bin
+# extract the text section and data section from binary file output of the compiler (RISC-V toolchain) and save the hexfile to memory.bin
 
 import subprocess
 import sys
 
-binfile=sys.argv[1] # Second argument of caller (first argument is the script name)
+binfile=sys.argv[1] # Second argument of caller is the executable file
+memoryfile_output = sys.argv[2] # Third argument of caller is the memory file output where the text and data sections will be stored
 objdump_cmd=f"riscv64-unknown-elf-objdump -M numeric -D {binfile} -h" # Objectdump command for RISC-V toolchain to display addresses of text and data sections
 
 
@@ -50,36 +51,43 @@ subprocess.run(f"rm -f text.bin data.bin".split()) # delete existing occurence o
 
 
 
-################################## STORE TEXT SECTION in text.bin ################################## 
+############################# STORE TEXT and DATA SECTION in memory.bin ############################# 
 if(text_size != None):
     bin_whole=open(binfile,'rb') # read in binary format
-    bin_text=open('text.bin','w') # write in text format (readable)
-
-    bin_whole.read(text_start) # read binary file from start to text_start (do nothing)
+    bin_memory=open(memoryfile_output,'w') # write in text format (readable)
+    
+    # Store Text Section
+    bin_whole.read(text_start) # read binary file from start (zero) to text_start (do nothing)
     text=(bin_whole.read(text_size)).hex() # read binary file from text_start until the end of text section then store it (in hex format)
+        
     for index in range(0,len(text),8): # group into eights (8 hex = 32 bits)
         instruction = text[index+6] + text[index+7] + text[index+4] + text[index+5] + text[index+2] + text[index+3] + text[index+0] + text[index+1] # order the digits to be read by "readmemh" from right to left
-        bin_text.write(instruction)
-        bin_text.write('\n')
-#################################################################################################### 
+        bin_memory.write(instruction)
+        bin_memory.write('\n')
  
  
- 
- ################################## STORE DATA SECTION in data.bin ################################## 
-if(data_size != None):
-    bin_whole=open(binfile,'rb') # read in binary format
-    bin_data=open('data.bin','w') # write in text format (readable)
-    
-    bin_whole.read(data_start) # read binary file from start to data_start (do nothing)
-    data=(bin_whole.read(data_size)).hex() # read binary file from data_start until the end of data section then store it (in hex format)
+    # Store Data Section
+    if(data_size != None):
+        blanks = data_start-(text_start + text_size) # Number of bytes between end of text section and start of data section in executable file
+        bin_whole.read(blanks) # read all blanks (do nothing)  
+        for index in range(0,int((blanks+text_start)/4)): # Write blanks between text and data section
+            bin_memory.write('00000000')
+            bin_memory.write('\n')
+        data=(bin_whole.read(data_size)).hex() # read binary file from data_start until the end of data section then store it (in hex format)
 
-    if(len(data)%8 != 0): # data must be 8-hex-aligned (32bits)
-        data += '0'*(8 - len(data)%8) # append zeroes to make data 8-hex-aligned (32 bits)
-        
-    for index in range(0,len(data),8): # group into eights (8 hex = 32 bits)
-        dataval = data[index+6] + data[index+7] + data[index+4] + data[index+5] + data[index+2] + data[index+3] + data[index+0] + data[index+1] # order the digits to be read by "readmemh" from right to left
-        bin_data.write(dataval)
-        bin_data.write('\n')
+        if(len(data)%8 != 0): # data must be 8-hex-aligned (32bits)
+            data += '0'*(8 - len(data)%8) # append zeroes to make data 8-hex-aligned (32 bits)
+            
+        for index in range(0,len(data),8): # group into eights (8 hex = 32 bits)
+            dataval = data[index+6] + data[index+7] + data[index+4] + data[index+5] + data[index+2] + data[index+3] + data[index+0] + data[index+1] # order the digits to be read by "readmemh" from right to left
+            bin_memory.write(dataval)
+            bin_memory.write('\n')
+   
 #################################################################################################### 
+
 
 print("\nDONE\n")
+
+# HOW TO USE
+# python sections.py <binfile> <memory_output>
+# python sections.py test.bin memory.mem
