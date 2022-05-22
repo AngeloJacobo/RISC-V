@@ -1,6 +1,7 @@
 //FSM controller for the fetch, decode, execute, memory access, and writeback processes.
 
 `timescale 1ns / 1ps
+`default_nettype none
 
 module rv32i_fsm (
     input wire clk,rst_n,
@@ -20,7 +21,9 @@ module rv32i_fsm (
     output reg[31:0] b, //value of b in ALU
     output wire alu_stage, //high if stage is on EXECUTE
     output wire memoryaccess_stage, //high if stage is on MEMORYACCESS
-    output wire writeback_stage //high if stage is on WRITEBACK
+    output wire writeback_stage, //high if stage is on WRITEBACK
+    output wire csr_stage, //high if stage is on EXECUTE
+    output wire done_tick //high for one clock cycle at the end of every instruction
 );
 
     localparam  FETCH = 0,
@@ -81,5 +84,6 @@ module rv32i_fsm (
     assign alu_stage = stage_q == EXECUTE;
     assign memoryaccess_stage = stage_q == MEMORYACCESS;
     assign writeback_stage = stage_q == WRITEBACK;
-    
+    assign csr_stage = stage_q == MEMORYACCESS;
+    assign done_tick = stage_d == FETCH && stage_q == WRITEBACK; //one instruction is executed
 endmodule
