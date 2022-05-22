@@ -1,7 +1,7 @@
  //logic controller for data memory access (load/store) [MEMORY STAGE]
  
 `timescale 1ns / 1ps
-
+`default_nettype none
 module rv32i_memoryaccess(
     input wire clk, rst_n,
     input wire memoryaccess, //enable wr_mem iff stage is currently on MEMORYACCESS
