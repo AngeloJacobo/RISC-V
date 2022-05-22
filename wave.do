@@ -1,4 +1,6 @@
 onerror {resume}
+quietly virtual function -install /rv32i_soc_TB/uut/m0/m6 -env /rv32i_soc_TB/uut/m0/m6 { &{/rv32i_soc_TB/uut/m0/m6/is_inst_illegal, /rv32i_soc_TB/uut/m0/m6/is_inst_addr_misaligned, /rv32i_soc_TB/uut/m0/m6/is_ecall, /rv32i_soc_TB/uut/m0/m6/is_ebreak, /rv32i_soc_TB/uut/m0/m6/is_load_addr_misaligned, /rv32i_soc_TB/uut/m0/m6/is_store_addr_misaligned }} EXCEPTIONS
+quietly virtual function -install /rv32i_soc_TB/uut/m0/m6 -env /rv32i_soc_TB/uut/m0/m6 { &{/rv32i_soc_TB/uut/m0/m6/external_interrupt_pending, /rv32i_soc_TB/uut/m0/m6/software_interrupt_pending, /rv32i_soc_TB/uut/m0/m6/timer_interrupt_pending }} INTERRUPTS
 quietly WaveActivateNextPane {} 0
 add wave -noupdate /rv32i_soc_TB/clk
 add wave -noupdate /rv32i_soc_TB/rst_n
@@ -11,7 +13,7 @@ add wave -noupdate /rv32i_soc_TB/uut/m0/dout
 add wave -noupdate -radix binary /rv32i_soc_TB/uut/m0/wr_mask
 add wave -noupdate /rv32i_soc_TB/uut/m0/wr_en
 add wave -noupdate -divider {Core Registers}
-add wave -noupdate -radix hexadecimal /rv32i_soc_TB/uut/m0/stage_q
+add wave -noupdate -label {stage_q [FeDeExMeWr]} -radix hexadecimal -childformat {{{/rv32i_soc_TB/uut/m0/stage_q[2]} -radix hexadecimal} {{/rv32i_soc_TB/uut/m0/stage_q[1]} -radix hexadecimal} {{/rv32i_soc_TB/uut/m0/stage_q[0]} -radix hexadecimal}} -subitemconfig {{/rv32i_soc_TB/uut/m0/stage_q[2]} {-height 15 -radix hexadecimal} {/rv32i_soc_TB/uut/m0/stage_q[1]} {-height 15 -radix hexadecimal} {/rv32i_soc_TB/uut/m0/stage_q[0]} {-height 15 -radix hexadecimal}} /rv32i_soc_TB/uut/m0/stage_q
 add wave -noupdate /rv32i_soc_TB/uut/m0/inst_q
 add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_auipc
 add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_branch
@@ -46,19 +48,58 @@ add wave -noupdate /rv32i_soc_TB/uut/m0/rs2
 add wave -noupdate /rv32i_soc_TB/uut/m0/imm
 add wave -noupdate /rv32i_soc_TB/uut/m0/rd_addr
 add wave -noupdate -divider ALU
-add wave -noupdate -radix decimal /rv32i_soc_TB/uut/m0/a
-add wave -noupdate -radix decimal /rv32i_soc_TB/uut/m0/b
-add wave -noupdate -radix decimal /rv32i_soc_TB/uut/m0/y
+add wave -noupdate -radix hexadecimal /rv32i_soc_TB/uut/m0/a
+add wave -noupdate -radix hexadecimal /rv32i_soc_TB/uut/m0/b
+add wave -noupdate -radix hexadecimal /rv32i_soc_TB/uut/m0/y
 add wave -noupdate -divider WriteBack
 add wave -noupdate /rv32i_soc_TB/uut/m0/m4/pc
 add wave -noupdate /rv32i_soc_TB/uut/m0/m4/rd
 add wave -noupdate /rv32i_soc_TB/uut/m0/m4/wr_rd
+add wave -noupdate -divider CSR
+add wave -noupdate /rv32i_soc_TB/uut/m0/m6/is_trap
+add wave -noupdate /rv32i_soc_TB/uut/m0/m6/is_exception
+add wave -noupdate /rv32i_soc_TB/uut/m0/m6/EXCEPTIONS
+add wave -noupdate /rv32i_soc_TB/uut/m0/m6/is_interrupt
+add wave -noupdate /rv32i_soc_TB/uut/m0/m6/INTERRUPTS
+add wave -noupdate /rv32i_soc_TB/uut/m0/m6/go_to_trap_q
+add wave -noupdate /rv32i_soc_TB/uut/m0/m6/return_from_trap_q
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/CSRRW
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/CSRRS
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/CSRRC
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/CSRRWI
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/CSRRSI
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/CSRRCI
+add wave -noupdate -group CSR_operation -divider {CSR registers}
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mcause_code
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mcause_intbit
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mcountinhibit_cy
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mcountinhibit_ir
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mcycle
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mepc
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mie_meie
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mie_msie
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mie_mtie
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/minstret
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/minstret_inc
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mip_meip
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mip_msip
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mip_mtip
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mscratch
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mstatus_mie
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mstatus_mpie
+add wave -noupdate -group CSR_operation -color Blue -radix decimal /rv32i_soc_TB/uut/m0/m6/MILLISEC_WRAP
+add wave -noupdate -group CSR_operation -color Blue -radix decimal /rv32i_soc_TB/uut/m0/m6/millisec
+add wave -noupdate -group CSR_operation -radix decimal /rv32i_soc_TB/uut/m0/m6/mtime
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtimecmp
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtval
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtvec_base
+add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtvec_mode
 add wave -noupdate -divider {Basereg and Memory}
 add wave -noupdate /rv32i_soc_TB/uut/m0/m0/base_regfile
 add wave -noupdate /rv32i_soc_TB/uut/m2/data_regfile
 add wave -noupdate /rv32i_soc_TB/uut/m1/inst_regfile
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {182248 ps} 0}
+WaveRestoreCursors {{Cursor 1} {734358 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 243
 configure wave -valuecolwidth 100
@@ -74,4 +115,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ps} {433823 ps}
+WaveRestoreZoom {547869 ps} {981692 ps}
