@@ -16,18 +16,20 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire[63:0] mtimecmp_din, //data to be written to mtimecmp
     /// Exceptions ///
     input wire is_inst_illegal, //illegal instruction
-    input wire is_inst_addr_misaligned, //instruction address misaligned
     input wire is_ecall, //ecall instruction
     input wire is_ebreak, //ebreak instruction
     input wire is_mret, //mret (return from trap) instruction
-    /// Load/Store Misaligned Exception///
+    /// Instruction/Load/Store Misaligned Exception///
     input wire opcode_store,
     input wire opcode_load,
-    input wire[31:0] load_store_address, //address used in load/store to data memory
+    input wire opcode_branch,
+    input wire opcode_jal,
+    input wire opcode_jalr,
+    input wire[31:0] alu_sum, //sum from ALU (address used in load/store/jump/branch)
     /// CSR instruction ///
     input wire opcode_system,
     input wire[2:0] funct3, // CSR instruction operation
-    input wire[11:0] csr_index, //12 bit CSR address
+    input wire[11:0] csr_index, // immediate value from decoder
     input wire[31:0] imm, //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
     input wire[31:0] rs1, //Source register 1 value (new value to be stored to CSR)
     output reg[31:0] csr_out, //CSR value to be loaded to basereg
@@ -98,10 +100,12 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     reg[31:0] csr_in; //value to be stored to CSR
     reg[31:0] csr_data; //value at current CSR address
     wire csr_enable = opcode_system && funct3!=0 && csr_stage; //csr operation is enabled only at this conditions
+    reg[1:0] new_pc = 0; //last two bits of PC that will be used in taken branch and jumps
     reg go_to_trap; //high before going to trap (if exception/interrupt detected)
     reg return_from_trap; //high before returning from trap (via mret)
     reg is_load_addr_misaligned; 
     reg is_store_addr_misaligned;
+    reg is_inst_addr_misaligned;
     reg timer_interrupt;
     reg external_interrupt_pending; 
     reg software_interrupt_pending;
@@ -113,6 +117,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     // CSR register bits
     reg mstatus_mie = 0; //Machine Interrupt Enable
     reg mstatus_mpie = 0; //Machine Previous Interrupt Enable
+    reg[1:0] mstatus_mpp = 2'b11; //MPP
     reg mie_meie = 0; //machine external interrupt enable
     reg mie_mtie = 0; //machine timer interrupt enable
     reg mie_msie = 0; //machine software interrupt enable
@@ -134,18 +139,35 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     reg mcountinhibit_cy = 0; //controls increment of mcycle
     reg mcountinhibit_ir = 0; //controls increment of minstret
     
-    //logic for load/store misaligned exception
+    //logic for load/store/instruction misaligned exception
     always @* begin
         is_load_addr_misaligned = 0;
         is_store_addr_misaligned = 0;
-        if(funct3 == 2'b01) begin //halfword load/store
-            is_load_addr_misaligned = opcode_load? load_store_address[0] : 0;
-            is_store_addr_misaligned = opcode_store? load_store_address[0] : 0;
+        is_inst_addr_misaligned = 0;
+        new_pc = 0;
+        
+        // Misaligned Load/Store Address
+        if(funct3[1:0] == 2'b01) begin //halfword load/store
+            is_load_addr_misaligned = opcode_load? alu_sum[0] : 0;
+            is_store_addr_misaligned = opcode_store? alu_sum[0] : 0;
         end
-        if(funct3 == 2'b10) begin //word load/store
-            is_load_addr_misaligned = opcode_load? load_store_address[1:0]!=2'b00 : 0;
-            is_store_addr_misaligned = opcode_store? load_store_address[1:0]!=2'b00 : 0;
+        if(funct3[1:0] == 2'b10) begin //word load/store
+            is_load_addr_misaligned = opcode_load? alu_sum[1:0]!=2'b00 : 0;
+            is_store_addr_misaligned = opcode_store? alu_sum[1:0]!=2'b00 : 0;
         end
+        
+        // Misaligned Instruction Address
+        /* Volume 1 pg. 15: Instructions are 32 bits in length and must be aligned on a four-byte boundary in memory.
+        An instruction-address-misaligned exception is generated on a taken branch or unconditional jump
+        if the target address is not four-byte aligned. This exception is reported on the branch or jump
+        instruction, not on the target instruction. No instruction-address-misaligned exception is generated
+        for a conditional branch that is not taken. */
+        if((opcode_branch && alu_sum[0]) || opcode_jal || opcode_jalr) begin // branch or jump to new instruction
+            new_pc = pc[1:0] + csr_index[1:0];
+            if(opcode_jalr) new_pc = rs1[1:0] +  csr_index[1:0];
+            is_inst_addr_misaligned = (new_pc == 2'b00)? 1'b0:1'b1; //PC (instruction address) must always be four bytes aligned
+        end
+        
     end
     
     //control logic for all CSRs
@@ -153,6 +175,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         if(!rst_n) begin
             mstatus_mie <= 0;
             mstatus_mpie <= 0;
+            mstatus_mpp <= 2'b11;
             mie_meie <= 0;
             mie_mtie <= 0;
             mie_msie <= 0;
@@ -227,7 +250,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
               MSTATUS: begin //MSTATUS (controls hart's current operating state (mie and mpie are the only configurable bits))
                         csr_data[3] = mstatus_mie;
                         csr_data[7] = mstatus_mpie;
-                        csr_data[12:11] = 2'b11; //MPP
+                        csr_data[12:11] = mstatus_mpp; //MPP
                        end
                        
                  MISA: begin //MISA (control and monitor hart's current operating state)
@@ -324,6 +347,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         if(csr_index == MSTATUS && csr_enable) begin 
             mstatus_mie <= csr_in[3];
             mstatus_mpie <= csr_in[7];
+            //mstatus_mpp <= csr_in[12:11];
         end
         else begin
             if(go_to_trap) begin
@@ -332,6 +356,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                 x IE is set to 0; and xPP is set to y. */
                 mstatus_mie <= 0; 
                 mstatus_mpie <= mstatus_mie; 
+                mstatus_mpp <= 2'b11;
             end
             else if(return_from_trap) begin
                 /* Volume 2 pg. 21: An MRET or SRET instruction is used to return from a trap in M-mode or S-mode respectively. 
@@ -339,6 +364,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                 privilege mode is changed to y; xPIE is set to 1; */
                 mstatus_mie <= mstatus_mpie; 
                 mstatus_mpie <= 1;
+                mstatus_mpp <= 2'b11;
             end
         end
  
@@ -394,11 +420,11 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                 mcause_intbit <= 1;
             end
             else if(is_inst_illegal) begin
-                mcause_code <= ILLEGAL_INSTRUCTION;
+                mcause_code <= INSTRUCTION_ADDRESS_MISALIGNED;
                 mcause_intbit <= 0;
             end
-            else if(is_inst_addr_misaligned) begin
-                mcause_code <= INSTRUCTION_ADDRESS_MISALIGNED;
+            else if(is_inst_addr_misaligned) begin 
+                mcause_code <= ILLEGAL_INSTRUCTION;
                 mcause_intbit <= 0 ;
             end
             else if(is_ecall) begin 
@@ -428,7 +454,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         page-fault exception occurs on an instruction fetch, load, or store, then mtval will contain the
         faulting virtual address.*/
         if(go_to_trap) begin
-            if(is_load_addr_misaligned || is_store_addr_misaligned) mtval <= load_store_address;
+            if(is_load_addr_misaligned || is_store_addr_misaligned) mtval <= alu_sum;
         end           
         
         
