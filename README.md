@@ -9,8 +9,8 @@ Inside the `rtl` folder are the following:
  - `rv32i_decoder.v`= logic for the decoding of a 32 bit instruction [DECODE STAGE]
  - `rv32i_alu.v` =  arithmetic logic unit [EXECUTE STAGE]
  - `rv32i_memoryaccess.v` = logic controller for data memory access [MEMORYACCESS STAGE]
+ - `rv32i_csr.v` = Zicsr extension module [executes parallel to MEMORYACCESS STAGE]
  - `rv32i_writeback.v` = logic controller for determining the next `PC` and `rd` value [WRITEBACK STAGE]
- - `rv32i_csr.v` = Zicsr extension module for all relevant CSRs [executes parallel to MEMORYACCESS STAGE]
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
  
  Other files at the top directory:
