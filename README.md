@@ -19,10 +19,10 @@ Inside the `rtl` folder are the following:
  - `testbank/` folder = assembly testfiles for all basic instructions and system instructions (CSRs, interrupts, exceptions)  with RISC-V International's riscv-tests pass/fail criteria
  
 ## Supported Features of Zicsr Extension Module
- - **CSR instructions**: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
- - **Machine level CSRs**:
+ - **CSR instructions**: `CSRRW`, `CSRRS`, `CSRRC`, `CSRRWI`, `CSRRSI`, `CSRRCI`
  - **Interrupts**: `External Interrupt`, `Timer Interrupt`, `Software Interrupt`
  - **Exceptions**: `Illegal Instruction`, `Instruction Address Misaligned`, `Ecall`, `Ebreak`, `Load/Store Address Misaligned`
+ - **All relevant machine level CSRs**
 
 
 
