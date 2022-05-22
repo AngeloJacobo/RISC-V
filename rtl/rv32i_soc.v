@@ -1,7 +1,8 @@
 `timescale 1ns / 1ps
+`default_nettype none
 
 //complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
-module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_DEPTH=1024, RAM_DEPTH=1024, CLK_FREQ_MHZ=100, TRAP_ADDRESS=0) ( 
+module rv32i_soc #(parameter CLK_FREQ_MHZ=100, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, MEMORY_DEPTH=1024) ( 
     input wire clk,
     input wire rst_n,
     //Interrupts
@@ -46,65 +47,57 @@ module rv32i_soc #(parameter PC_RESET=32'h00_00_00_00, ROM_DEPTH=1024, RAM_DEPTH
         .mtimecmp_din(mtimecmp_din) //data to be written to mtimecmp
      );
         
-     inst_mem #(.ROM_DEPTH(ROM_DEPTH)) m1( //byte addressable instruction memory, 32 bit aligned
-        .addr(iaddr[$clog2(ROM_DEPTH)-1:0]),
-        .inst(inst)
-     );
-     
-     data_mem #(.RAM_DEPTH(RAM_DEPTH)) m2( //byte addressable data memory, 32 bit aligned
+     main_memory #(.MEMORY_DEPTH(MEMORY_DEPTH)) m1(
+        .clk(clk),
+        // READ INSTRUCTION
+        .inst_addr(iaddr[$clog2(MEMORY_DEPTH)-1:0]),
+        .inst_out(inst),
+        // READ AND WRITE DATA
+        .data_addr(daddr[$clog2(MEMORY_DEPTH)-1:0]),
         .data_in(dout),
-        .addr(daddr[$clog2(RAM_DEPTH)-1:0]),
         .wr_mask(wr_mask),
         .wr_en(wr_en),
-        .data_out(din)
-     );
+        .data_out(din) 
+    );
 
 endmodule
 
 
 
-/******************** RAM and ROM modules for the Instruction and Data Memory********************/
+/******************** RAM module for the Instruction and Data Memory ********************/
 
-module inst_mem #(parameter ROM_DEPTH=1024) ( //ROM_DEPTH = number of BYTES (since this is byte-addressable)
-    input wire[$clog2(ROM_DEPTH)-1:0] addr,
-    output wire[31:0] inst
-);
-    
-    reg[31:0] inst_regfile[ROM_DEPTH/4 - 1:0];
-    integer i;
-    initial begin //initialize instruction memory to zero
-        for(i=0 ; i<ROM_DEPTH ; i=i+1) inst_regfile[i]=0; 
-    end
-    assign inst=inst_regfile[addr[$clog2(ROM_DEPTH)-1:2]];
-
-endmodule
-
-
-module data_mem #(parameter RAM_DEPTH=1024) ( //RAM_DEPTH = number of BYTES (since this is byte-addressable)
+module main_memory #(parameter MEMORY_DEPTH=1024) (
+    input wire clk,
+    // READ INSTRUCTION
+    input wire[$clog2(MEMORY_DEPTH)-1:0] inst_addr,
+    output wire[31:0] inst_out,
+    // READ AND WRITE DATA
+    input wire[$clog2(MEMORY_DEPTH)-1:0] data_addr,
     input wire[31:0] data_in,
-    input wire[$clog2(RAM_DEPTH)-1:0] addr,
     input wire[3:0] wr_mask,
-    input wire wr_en ,
+    input wire wr_en,
     output wire[31:0] data_out 
 );
-    reg[31:0] data_regfile[RAM_DEPTH/4 - 1:0];
-    
-    
+    reg[31:0] memory_regfile[MEMORY_DEPTH/4 - 1:0];
     integer i;
-    initial begin //initialize data memory to zero
-        for(i=0 ; i<RAM_DEPTH ; i=i+1) data_regfile[i]=0; 
+    
+    initial begin //initialize memory to zero
+        for(i=0 ; i < MEMORY_DEPTH/4 -1 ; i=i+1) memory_regfile[i]=0; 
     end
-  
-    always @* begin
+    
+    assign inst_out = memory_regfile[{inst_addr>>2}]; //read instruction
+    assign data_out = memory_regfile[data_addr[$clog2(MEMORY_DEPTH)-1:2]]; //read data
+    
+    // write data
+    always @(posedge clk) begin
         if(wr_en) begin
-            if(wr_mask[0]) data_regfile[addr[$clog2(RAM_DEPTH)-1:2]][7:0] = data_in[7:0]; 
-            if(wr_mask[1]) data_regfile[addr[$clog2(RAM_DEPTH)-1:2]][15:8] = data_in[15:8];
-            if(wr_mask[2]) data_regfile[addr[$clog2(RAM_DEPTH)-1:2]][23:16] = data_in[23:16];
-            if(wr_mask[3]) data_regfile[addr[$clog2(RAM_DEPTH)-1:2]][31:24] = data_in[31:24];
+            if(wr_mask[0]) memory_regfile[data_addr[$clog2(MEMORY_DEPTH)-1:2]][7:0] <= data_in[7:0]; 
+            if(wr_mask[1]) memory_regfile[data_addr[$clog2(MEMORY_DEPTH)-1:2]][15:8] <= data_in[15:8];
+            if(wr_mask[2]) memory_regfile[data_addr[$clog2(MEMORY_DEPTH)-1:2]][23:16] <= data_in[23:16];
+            if(wr_mask[3]) memory_regfile[data_addr[$clog2(MEMORY_DEPTH)-1:2]][31:24] <= data_in[31:24];
         end        
     end
     
-    assign data_out = data_regfile[addr[$clog2(RAM_DEPTH)-1:2]]; 
 endmodule
 
 /**********************************************************************************************************/
