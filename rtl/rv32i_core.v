@@ -57,11 +57,12 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire opcode_auipc;
     wire opcode_system;
     wire opcode_fence; 
-    wire is_inst_illegal; 
+    wire is_inst_illegal;
     wire is_inst_addr_misaligned; 
     wire is_ecall;
     wire is_ebreak;
     wire is_mret;
+    
     
     //wires for rv32i_alu
     wire[31:0] a,b;
@@ -147,7 +148,6 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .opcode_fence(opcode_fence),  
         /// Exceptions ///
         .is_inst_illegal(is_inst_illegal), //illegal instruction
-        .is_inst_addr_misaligned(is_inst_addr_misaligned), //instruction address misaligned
         .is_ecall(is_ecall), //ecall instruction
         .is_ebreak(is_ebreak), //ebreak instruction
         .is_mret(is_mret) //mret (return from trap) instruction
@@ -262,18 +262,20 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .mtimecmp_din(mtimecmp_din), //data to be written to mtimecmp
         /// Exceptions ///
         .is_inst_illegal(is_inst_illegal), //illegal instruction
-        .is_inst_addr_misaligned(is_inst_addr_misaligned), //instruction address misaligned
         .is_ecall(is_ecall), //ecall instruction
         .is_ebreak(is_ebreak), //ebreak instruction
         .is_mret(is_mret), //mret (return from trap) instruction
         /// Load/Store Misaligned Exception///
         .opcode_store(opcode_store), 
         .opcode_load(opcode_load),
-        .load_store_address(y), //address used in load/store to data memory
+        .opcode_branch(opcode_branch),
+        .opcode_jal(opcode_jal),
+        .opcode_jalr(opcode_jalr),
+        .alu_sum(y), //sum from ALU (address used in load/store/jump/branch)
         /// CSR instruction ///
         .opcode_system(opcode_system),
         .funct3(funct3), // CSR instruction operation
-        .csr_index(imm[11:0]), //12 bit CSR address
+        .csr_index(imm[11:0]), //immediate value decoded by decoder
         .imm({27'b0,rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
         .rs1(rs1), //Source register 1 value (new value to be stored to CSR)
         .csr_out(csr_out), //CSR value to be loaded to basereg
