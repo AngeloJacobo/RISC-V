@@ -16,11 +16,12 @@ _start: .global _start
 main:
         ### TEST CODE STARTS HERE ###
         # load byte with zero imm
-        li  x1, 0x1008          # set x1 to 0x1008 
-        lb  x2, 0(x1)           # load byte from address 0x1008 to x2, x2=0x00000077
+        lla  x1, data            # set x1 to data
+        addi x1,x1, 8           # set x1 to data + 8
+        lb  x2, 0(x1)           # load byte from address data + 8 to x2, x2=0x00000077
         
         # load byte with positive imm
-        lb x3, 11(x1)           # load byte from address 0x1013 to x3, x3=0xFFFFFFAB
+        lb x3, 11(x1)           # load byte from address to x3, x3=0xFFFFFFAB
         
         # load byte with negative imm
         lb x4, -6(x1)           # load byte from address 0x1002 to x4, x4=0x00000034

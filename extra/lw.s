@@ -16,8 +16,9 @@ _start: .global _start
 main:
         ### TEST CODE STARTS HERE ###
         # load word with zero imm
-        li  x1, 0x1008          # set x1 to 0x1008 
-        lw  x2, 0(x1)           # load word from address 0x1008 to x2, x2=0x11335577
+        lla  x1, data            # set x1 to data
+        addi x1,x1, 8           # set x1 to data + 8
+        lw  x2, 0(x1)           # load word from address data to x2, x2=0x11335577
         
         # load word with positive imm
         lw x3, 8(x1)           # load word from address 0x1010 to x3, x3=0xABCDEF19
@@ -72,8 +73,8 @@ main:
         .data
  data: 
         # Data section
-        .word 0x12345678    #1000
-        .word 0             #1004
-        .word 0x11335577    #1008
-        .word 0             #100C
-        .word 0xABCDEF19    #1010
+        .word 0x12345678    
+        .word 0             
+        .word 0x11335577    
+        .word 0             
+        .word 0xABCDEF19    
