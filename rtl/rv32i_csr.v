@@ -420,12 +420,12 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                 mcause_intbit <= 1;
             end
             else if(is_inst_illegal) begin
-                mcause_code <= INSTRUCTION_ADDRESS_MISALIGNED;
-                mcause_intbit <= 0;
-            end
-            else if(is_inst_addr_misaligned) begin 
                 mcause_code <= ILLEGAL_INSTRUCTION;
                 mcause_intbit <= 0 ;
+            end
+            else if(is_inst_addr_misaligned) begin
+                mcause_code <= INSTRUCTION_ADDRESS_MISALIGNED;
+                mcause_intbit <= 0;
             end
             else if(is_ecall) begin 
                 mcause_code <= ECALL;
