@@ -1,8 +1,9 @@
 //topmodule for the rv32i core
 
 `timescale 1ns / 1ps
+`default_nettype none
 
-module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) ( 
+module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) ( 
     input wire clk, rst_n,
     //Instruction Memory Interface (32 bit rom)
     input wire[31:0] inst, //32-bit instruction
@@ -12,7 +13,15 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     output wire[31:0] dout, //data to be stored to memory
     output wire[31:0] daddr, //address of data memory for store/load
     output wire[3:0] wr_mask, //write mask control
-    output wire wr_en //write enable 
+    output wire wr_en, //write enable 
+    //Interrupts
+    input wire external_interrupt, //interrupt from external source
+    input wire software_interrupt, //interrupt from software
+    // Timer Interrupt
+    input wire mtime_wr, //write to mtime
+    input wire mtimecmp_wr,  //write to mtimecmp
+    input wire[63:0] mtime_din, //data to be written to mtime
+    input wire[63:0] mtimecmp_din //data to be written to mtimecmp
 );
 
     //wires for basereg
@@ -48,7 +57,12 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     wire opcode_auipc;
     wire opcode_system;
     wire opcode_fence; 
-
+    wire is_inst_illegal; 
+    wire is_inst_addr_misaligned; 
+    wire is_ecall;
+    wire is_ebreak;
+    wire is_mret;
+    
     //wires for rv32i_alu
     wire[31:0] a,b;
     wire[31:0] y;
@@ -64,13 +78,23 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     wire alu_stage;
     wire memoryaccess_stage;
     wire writeback_stage; 
+    wire csr_stage;
+    wire done_tick;
     
-    //address of memories 
+    //wires for rv32i_csr
+    wire[31:0] csr_out; //CSR value to be stored to basereg
+    wire[31:0] return_address; //mepc CSR
+    wire[31:0] trap_address; //mtvec CSR
+    wire go_to_trap; //high before going to trap (if exception/interrupt detected)
+    wire return_from_trap; //high before returning from trap (via mret)
+    
+    //wires for rv32i_memoryaccess
+    wire wr_mem;
+    
     assign iaddr = pc; //instruction address
     assign daddr = y; //data address
+    assign wr_en = wr_mem && !go_to_trap; //only write to data memory if there is no trap
   
-  
-
   
     //module instantiations (all outputs are registered)
     rv32i_basereg m0( //regfile controller for the 32 integer base registers
@@ -87,6 +111,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
     rv32i_decoder m1( //logic for the decoding of the 32 bit instruction [DECODE STAGE]
         .clk(clk),
         .rst_n(rst_n),
+        .pc(pc),
         .inst(inst_q), //32 bit instruction
         .rs1_addr(rs1_addr),//address for register source 1
         .rs2_addr(rs2_addr), //address for register source 2
@@ -119,7 +144,13 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
         .opcode_lui(opcode_lui),
         .opcode_auipc(opcode_auipc),
         .opcode_system(opcode_system),
-        .opcode_fence(opcode_fence)  
+        .opcode_fence(opcode_fence),  
+        /// Exceptions ///
+        .is_inst_illegal(is_inst_illegal), //illegal instruction
+        .is_inst_addr_misaligned(is_inst_addr_misaligned), //instruction address misaligned
+        .is_ecall(is_ecall), //ecall instruction
+        .is_ebreak(is_ebreak), //ebreak instruction
+        .is_mret(is_mret) //mret (return from trap) instruction
     );
 
     rv32i_alu m2( //ALU combinational logic [EXECUTE STAGE]
@@ -143,7 +174,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
         .alu_eq(alu_eq),  //equal
         .alu_neq(alu_neq), //not equal
         .alu_ge(alu_ge),  //greater than or equal
-        .alu_geu(alu_geu) //greater than or equal unisgned
+        .alu_geu(alu_geu) //greater than or equal unsigned
     );
     
     rv32i_memoryaccess m3( //logic controller for data memory access (load/store) [MEMORY STAGE]
@@ -158,20 +189,27 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
         .data_store(dout), //data to be stored to memory (mask-aligned)
         .data_load(data_load), //data to be loaded to base reg (z-or-s extended) 
         .wr_mask(wr_mask), //write mask {byte3,byte2,byte1,byte0}
-        .wr_mem(wr_en) //write to data memory if enabled
+        .wr_mem(wr_mem) //write to data memory if enabled
     );
     
     rv32i_writeback #(.PC_RESET(PC_RESET)) m4( //logic controller for the next PC and rd value [WRITEBACK STAGE]
         .clk(clk),
         .rst_n(rst_n),
         .writeback(writeback_stage), //enable wr_rd iff stage is currently on WRITEBACK
+        .funct3(funct3), //function type
         .alu_out(y), //output of ALU
         .imm(imm), //immediate value
         .rs1(rs1), //source register 1 value
         .data_load(data_load), //data to be loaded to base reg
+        .csr_out(csr_out), //CSR value to be loaded to basereg
         .rd(rd), //value to be written back to destination register
         .pc(pc), //new PC value
         .wr_rd(wr_rd), //write rd to the base reg if enabled
+        // Trap-Handler
+        .go_to_trap(go_to_trap), //high before going to trap (if exception/interrupt detected)
+        .return_from_trap(return_from_trap), //high before returning from trap (via mret)
+        .return_address(return_address), //mepc CSR
+        .trap_address(trap_address), //mtvec CSR
          //// Opcode Type ////
         .opcode_rtype(opcode_rtype),
         .opcode_itype(opcode_itype),
@@ -191,7 +229,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
         .rst_n(rst_n),
         .inst(inst), //instruction
         .pc(pc), //Program Counter
-        .rs1(rs1), ////Source register 1 value
+        .rs1(rs1), //Source register 1 value
         .rs2(rs2), //Source Register 2 value
         .imm(imm), //Immediate value
         /// Opcode Type ///
@@ -205,7 +243,48 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00) (
         .b(b), //value of b in ALU
         .alu_stage(alu_stage),//high if stage is on EXECUTE
         .memoryaccess_stage(memoryaccess_stage),//high if stage is on MEMORYACCESS
-        .writeback_stage(writeback_stage) //high if stage is on WRITEBACK
+        .writeback_stage(writeback_stage), //high if stage is on WRITEBACK
+        .csr_stage(csr_stage), //high if stage is on EXECUTE
+        .done_tick(done_tick) //high for one clock cycle at the end of every instruction
+    );
+    
+    rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6(// control logic for Control and Status Registers (CSR)
+        .clk(clk),
+        .rst_n(rst_n),
+        .csr_stage(csr_stage), //enable csr read/write iff stage is currently on MEMORYACCESS
+        // Interrupts
+        .external_interrupt(external_interrupt), //interrupt from external source
+        .software_interrupt(software_interrupt), //interrupt from software
+        // Timer Interrupt
+        .mtime_wr(mtime_wr), //write to mtime
+        .mtimecmp_wr(mtimecmp_wr), //write to mtimecmp
+        .mtime_din(mtime_din), //data to be written to mtime
+        .mtimecmp_din(mtimecmp_din), //data to be written to mtimecmp
+        /// Exceptions ///
+        .is_inst_illegal(is_inst_illegal), //illegal instruction
+        .is_inst_addr_misaligned(is_inst_addr_misaligned), //instruction address misaligned
+        .is_ecall(is_ecall), //ecall instruction
+        .is_ebreak(is_ebreak), //ebreak instruction
+        .is_mret(is_mret), //mret (return from trap) instruction
+        /// Load/Store Misaligned Exception///
+        .opcode_store(opcode_store), 
+        .opcode_load(opcode_load),
+        .load_store_address(y), //address used in load/store to data memory
+        /// CSR instruction ///
+        .opcode_system(opcode_system),
+        .funct3(funct3), // CSR instruction operation
+        .csr_index(imm[11:0]), //12 bit CSR address
+        .imm({27'b0,rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
+        .rs1(rs1), //Source register 1 value (new value to be stored to CSR)
+        .csr_out(csr_out), //CSR value to be loaded to basereg
+        // Trap-Handler 
+        .pc(pc), //Program Counter 
+        .return_address(return_address), //mepc CSR
+        .trap_address(trap_address), //mtvec CSR
+        .go_to_trap_q(go_to_trap), //high before going to trap (if exception/interrupt detected)
+        .return_from_trap_q(return_from_trap), //high before returning from trap (via mret)
+        
+        .minstret_inc(done_tick)
     );
       
 endmodule
