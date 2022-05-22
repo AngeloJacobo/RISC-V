@@ -251,3 +251,5 @@ fi
 # $ ./test.sh = test all testcases
 # $ ./test.sh ./testbank/add.s = test and debug testfile "./testbank/add.s" 
 # $ ./test.sh ./testbank/add.s -gui = test and debug testfile "./testbank/add" and open Modelsim to visualize wave
+# $ ./test.sh compile = compile-only the rtl files
+
