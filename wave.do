@@ -87,19 +87,29 @@ add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mip_mtip
 add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mscratch
 add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mstatus_mie
 add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mstatus_mpie
-add wave -noupdate -group CSR_operation -color Blue -radix decimal /rv32i_soc_TB/uut/m0/m6/MILLISEC_WRAP
-add wave -noupdate -group CSR_operation -color Blue -radix decimal /rv32i_soc_TB/uut/m0/m6/millisec
+add wave -noupdate -group CSR_operation -radix decimal /rv32i_soc_TB/uut/m0/m6/MILLISEC_WRAP
+add wave -noupdate -group CSR_operation -radix decimal /rv32i_soc_TB/uut/m0/m6/millisec
 add wave -noupdate -group CSR_operation -radix decimal /rv32i_soc_TB/uut/m0/m6/mtime
 add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtimecmp
 add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtval
 add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtvec_base
 add wave -noupdate -group CSR_operation /rv32i_soc_TB/uut/m0/m6/mtvec_mode
+add wave -noupdate -divider MEMORY
+add wave -noupdate /rv32i_soc_TB/uut/m1/MEMORY_DEPTH
+add wave -noupdate /rv32i_soc_TB/uut/m1/data_addr
+add wave -noupdate /rv32i_soc_TB/uut/m1/data_in
+add wave -noupdate /rv32i_soc_TB/uut/m1/data_out
+add wave -noupdate /rv32i_soc_TB/uut/m1/i
+add wave -noupdate /rv32i_soc_TB/uut/m1/inst_addr
+add wave -noupdate /rv32i_soc_TB/uut/m1/inst_out
+add wave -noupdate /rv32i_soc_TB/uut/m1/memory_regfile
+add wave -noupdate /rv32i_soc_TB/uut/m1/wr_en
+add wave -noupdate /rv32i_soc_TB/uut/m1/wr_mask
 add wave -noupdate -divider {Basereg and Memory}
 add wave -noupdate /rv32i_soc_TB/uut/m0/m0/base_regfile
-add wave -noupdate /rv32i_soc_TB/uut/m2/data_regfile
-add wave -noupdate /rv32i_soc_TB/uut/m1/inst_regfile
+add wave -noupdate /rv32i_soc_TB/uut/m1/memory_regfile
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {734358 ps} 0}
+WaveRestoreCursors {{Cursor 1} {4999809 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 243
 configure wave -valuecolwidth 100
@@ -115,4 +125,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {547869 ps} {981692 ps}
+WaveRestoreZoom {4947869 ps} {5381692 ps}
