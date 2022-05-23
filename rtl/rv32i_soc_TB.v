@@ -18,16 +18,16 @@ module rv32i_soc_TB #(parameter MEMORY);
     reg HALT_CONDITION = 0;
     integer i,j;          
     rv32i_soc #(.PC_RESET(32'h00_00_00_00), .MEMORY_DEPTH(MEMORY_DEPTH), .CLK_FREQ_MHZ(100), .TRAP_ADDRESS(32'h00000004)) uut (
-        .clk(clk),
-        .rst_n(rst_n),
+        .i_clk(clk),
+        .i_rst_n(rst_n),
         //Interrupts
-        .external_interrupt(external_interrupt), //interrupt from external source
-        .software_interrupt(software_interrupt), //interrupt from software
+        .i_external_interrupt(external_interrupt), //interrupt from external source
+        .i_software_interrupt(software_interrupt), //interrupt from software
         // Timer Interrupt
-        .mtime_wr(mtime_wr), //write to mtime
-        .mtimecmp_wr(mtimecmp_wr),  //write to mtimecmp
-        .mtime_din(mtime_din), //data to be written to mtime
-        .mtimecmp_din(mtimecmp_din) //data to be written to mtimecmp
+        .i_mtime_wr(mtime_wr), //write to mtime
+        .i_mtimecmp_wr(mtimecmp_wr),  //write to mtimecmp
+        .i_mtime_din(mtime_din), //data to be written to mtime
+        .i_mtimecmp_din(mtimecmp_din) //data to be written to mtimecmp
         );
     
     always #5 clk=!clk;
@@ -56,7 +56,7 @@ module rv32i_soc_TB #(parameter MEMORY);
 
             
         while(  `ifdef HALT_ON_ILLEGAL_INSTRUCTION
-                    uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.m6.is_inst_illegal && uut.m0.m6.csr_stage) //exception testing (halt core only when instruction is illegal)
+                    uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.m6.i_is_inst_illegal && uut.m0.m6.i_csr_stage) //exception testing (halt core only when instruction is illegal)
                 `elsif HALT_ON_EBREAK
                     uut.m0.inst_q != 32'h00100073 //ebreak test (halt core on ebreak)
                 `elsif HALT_ON_ECALL
@@ -69,18 +69,18 @@ module rv32i_soc_TB #(parameter MEMORY);
             @(negedge clk);
             #1;
             if(uut.m0.alu_stage) begin
-                if(uut.m0.opcode_rtype) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"RTYPE"); //Display PC and instruction 
-                else if(uut.m0.opcode_itype) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"ITYPE"); //Display PC and instruction          
-                else if(uut.m0.opcode_load) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"LOAD"); //Display PC and instruction 
-                else if(uut.m0.opcode_store) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"STORE"); //Display PC and instruction 
-                else if(uut.m0.opcode_branch) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"BRANCH"); //Display PC and instruction 
-                else if(uut.m0.opcode_jal) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"JAL"); //Display PC and instruction 
-                else if(uut.m0.opcode_jalr) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"JALR"); //Display PC and instruction 
-                else if(uut.m0.opcode_lui) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"LUI"); //Display PC and instruction 
-                else if(uut.m0.opcode_auipc) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"AUIPC"); //Display PC and instruction 
-                else if(uut.m0.opcode_system) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"SYSTEM"); //Display PC and instruction 
-                else if(uut.m0.opcode_fence) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"FENCE"); //Display PC and instruction 
-                else $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.inst,"UNKNOWN INSTRUCTION"); //Display PC and instruction 
+                if(uut.m0.opcode_rtype) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"RTYPE"); //Display PC and instruction 
+                else if(uut.m0.opcode_itype) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"ITYPE"); //Display PC and instruction          
+                else if(uut.m0.opcode_load) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"LOAD"); //Display PC and instruction 
+                else if(uut.m0.opcode_store) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"STORE"); //Display PC and instruction 
+                else if(uut.m0.opcode_branch) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"BRANCH"); //Display PC and instruction 
+                else if(uut.m0.opcode_jal) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"JAL"); //Display PC and instruction 
+                else if(uut.m0.opcode_jalr) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"JALR"); //Display PC and instruction 
+                else if(uut.m0.opcode_lui) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"LUI"); //Display PC and instruction 
+                else if(uut.m0.opcode_auipc) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"AUIPC"); //Display PC and instruction 
+                else if(uut.m0.opcode_system) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"SYSTEM"); //Display PC and instruction 
+                else if(uut.m0.opcode_fence) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"FENCE"); //Display PC and instruction 
+                else $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"UNKNOWN INSTRUCTION"); //Display PC and instruction 
             end
             #1;
              if(uut.m0.go_to_trap && uut.m0.writeback_stage) begin //exception or interrupt detected
@@ -99,16 +99,16 @@ module rv32i_soc_TB #(parameter MEMORY);
                 endcase
              end
              
-             if(uut.m1.wr_en) begin //data memory is written
-                $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.data_addr,uut.m1.data_in,uut.m1.wr_mask); //display address of memory changed and its new value
+             if(uut.m1.i_wr_en) begin //data memory is written
+                $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.i_data_addr,uut.m1.i_data_in,uut.m1.i_wr_mask); //display address of memory changed and its new value
             end
             
-            if(uut.m0.m0.wr && uut.m0.m0.rd_addr!=0) begin //base register is written
-                $display("  [BASEREG] address:0x%0d   value:0x%h",uut.m0.m0.rd_addr,uut.m0.m0.rd); //display address of base reg changed and its new value
+            if(uut.m0.m0.i_wr && uut.m0.m0.i_rd_addr!=0) begin //base register is written
+                $display("  [BASEREG] address:0x%0d   value:0x%h",uut.m0.m0.i_rd_addr,uut.m0.m0.i_rd); //display address of base reg changed and its new value
             end
             
             if(uut.m0.m6.csr_enable) begin //base register is written
-                $display("  [CSR] address:0x%0h   value:0x%h",uut.m0.m6.csr_index,uut.m0.m6.csr_in); //display address of base reg changed and its new value
+                $display("  [CSR] address:0x%0h   value:0x%h",uut.m0.m6.i_csr_index,uut.m0.m6.csr_in); //display address of base reg changed and its new value
             end
             
             if(uut.m0.return_from_trap && uut.m0.writeback_stage) begin

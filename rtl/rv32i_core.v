@@ -4,24 +4,24 @@
 `default_nettype none
 
 module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) ( 
-    input wire clk, rst_n,
+    input wire i_clk, i_rst_n,
     //Instruction Memory Interface (32 bit rom)
-    input wire[31:0] inst, //32-bit instruction
-    output wire[31:0] iaddr, //address of instruction 
+    input wire[31:0] i_inst, //32-bit instruction
+    output wire[31:0] o_iaddr, //address of instruction 
     //Data Memory Interface (32 bit ram)
-    input wire[31:0] din, //data retrieve from memory
-    output wire[31:0] dout, //data to be stored to memory
-    output wire[31:0] daddr, //address of data memory for store/load
-    output wire[3:0] wr_mask, //write mask control
-    output wire wr_en, //write enable 
+    input wire[31:0] i_din, //data retrieve from memory
+    output wire[31:0] o_dout, //data to be stored to memory
+    output wire[31:0] o_daddr, //address of data memory for store/load
+    output wire[3:0] o_wr_mask, //write mask control
+    output wire o_wr_en, //write enable 
     //Interrupts
-    input wire external_interrupt, //interrupt from external source
-    input wire software_interrupt, //interrupt from software
+    input wire i_external_interrupt, //interrupt from external source
+    input wire i_software_interrupt, //interrupt from software
     // Timer Interrupt
-    input wire mtime_wr, //write to mtime
-    input wire mtimecmp_wr,  //write to mtimecmp
-    input wire[63:0] mtime_din, //data to be written to mtime
-    input wire[63:0] mtimecmp_din //data to be written to mtimecmp
+    input wire i_mtime_wr, //write to mtime
+    input wire i_mtimecmp_wr,  //write to mtimecmp
+    input wire[63:0] i_mtime_din, //data to be written to mtime
+    input wire[63:0] i_mtimecmp_din //data to be written to mtimecmp
 );
 
     //wires for basereg
@@ -92,201 +92,201 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     //wires for rv32i_memoryaccess
     wire wr_mem;
     
-    assign iaddr = pc; //instruction address
-    assign daddr = y; //data address
-    assign wr_en = wr_mem && !go_to_trap; //only write to data memory if there is no trap
+    assign o_iaddr = pc; //instruction address
+    assign o_daddr = y; //data address
+    assign o_wr_en = wr_mem && !go_to_trap; //only write to data memory if there is no trap
   
+    /// PIPELINE STAGES ///
+    
   
     //module instantiations (all outputs are registered)
     rv32i_basereg m0( //regfile controller for the 32 integer base registers
-        .clk(clk),
-        .rs1_addr(rs1_addr), //source register 1 address
-        .rs2_addr(rs2_addr), //source register 2 address
-        .rd_addr(rd_addr), //destination register address
-        .rd(rd), //data to be written to destination register
-        .wr(wr_rd), //write enable
-        .rs1(rs1), //source register 1 value
-        .rs2(rs2) //source register 2 value
+        .i_clk(i_clk),
+        .i_rs1_addr(rs1_addr), //source register 1 address
+        .i_rs2_addr(rs2_addr), //source register 2 address
+        .i_rd_addr(rd_addr), //destination register address
+        .i_rd(rd), //data to be written to destination register
+        .i_wr(wr_rd), //write enable
+        .o_rs1(rs1), //source register 1 value
+        .o_rs2(rs2) //source register 2 value
     );
     
     rv32i_decoder m1( //logic for the decoding of the 32 bit instruction [DECODE STAGE]
-        .clk(clk),
-        .rst_n(rst_n),
-        .pc(pc),
-        .inst(inst_q), //32 bit instruction
-        .rs1_addr(rs1_addr),//address for register source 1
-        .rs2_addr(rs2_addr), //address for register source 2
-        .rd_addr(rd_addr), //address for destination address
-        .imm(imm), //extended value for immediate
-        .funct3(funct3), //function type
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_inst(inst_q), //32 bit instruction
+        .o_rs1_addr(rs1_addr),//address for register source 1
+        .o_rs2_addr(rs2_addr), //address for register source 2
+        .o_rd_addr(rd_addr), //address for destination address
+        .o_imm(imm), //extended value for immediate
+        .o_funct3(funct3), //function type
         /// ALU Operations ///
-        .alu_add(alu_add), //addition
-        .alu_sub(alu_sub), //subtraction
-        .alu_slt(alu_slt), //set if less than
-        .alu_sltu(alu_sltu), //set if less than unsigned     
-        .alu_xor(alu_xor), //bitwise xor
-        .alu_or(alu_or),  //bitwise or
-        .alu_and(alu_and), //bitwise and
-        .alu_sll(alu_sll), //shift left logical
-        .alu_srl(alu_srl), //shift right logical
-        .alu_sra(alu_sra), //shift right arithmetic
-        .alu_eq(alu_eq),  //equal
-        .alu_neq(alu_neq), //not equal
-        .alu_ge(alu_ge),  //greater than or equal
-        .alu_geu(alu_geu), //greater than or equal unisgned
+        .o_alu_add(alu_add), //addition
+        .o_alu_sub(alu_sub), //subtraction
+        .o_alu_slt(alu_slt), //set if less than
+        .o_alu_sltu(alu_sltu), //set if less than unsigned     
+        .o_alu_xor(alu_xor), //bitwise xor
+        .o_alu_or(alu_or),  //bitwise or
+        .o_alu_and(alu_and), //bitwise and
+        .o_alu_sll(alu_sll), //shift left logical
+        .o_alu_srl(alu_srl), //shift right logical
+        .o_alu_sra(alu_sra), //shift right arithmetic
+        .o_alu_eq(alu_eq),  //equal
+        .o_alu_neq(alu_neq), //not equal
+        .o_alu_ge(alu_ge),  //greater than or equal
+        .o_alu_geu(alu_geu), //greater than or equal unisgned
         //// Opcode Type ////
-        .opcode_rtype(opcode_rtype),
-        .opcode_itype(opcode_itype),
-        .opcode_load(opcode_load),
-        .opcode_store(opcode_store),
-        .opcode_branch(opcode_branch),
-        .opcode_jal(opcode_jal),
-        .opcode_jalr(opcode_jalr),
-        .opcode_lui(opcode_lui),
-        .opcode_auipc(opcode_auipc),
-        .opcode_system(opcode_system),
-        .opcode_fence(opcode_fence),  
+        .o_opcode_rtype(opcode_rtype),
+        .o_opcode_itype(opcode_itype),
+        .o_opcode_load(opcode_load),
+        .o_opcode_store(opcode_store),
+        .o_opcode_branch(opcode_branch),
+        .o_opcode_jal(opcode_jal),
+        .o_opcode_jalr(opcode_jalr),
+        .o_opcode_lui(opcode_lui),
+        .o_opcode_auipc(opcode_auipc),
+        .o_opcode_system(opcode_system),
+        .o_opcode_fence(opcode_fence),  
         /// Exceptions ///
-        .is_inst_illegal(is_inst_illegal), //illegal instruction
-        .is_ecall(is_ecall), //ecall instruction
-        .is_ebreak(is_ebreak), //ebreak instruction
-        .is_mret(is_mret) //mret (return from trap) instruction
+        .o_is_inst_illegal(is_inst_illegal), //illegal instruction
+        .o_is_ecall(is_ecall), //ecall instruction
+        .o_is_ebreak(is_ebreak), //ebreak instruction
+        .o_is_mret(is_mret) //mret (return from trap) instruction
     );
 
     rv32i_alu m2( //ALU combinational logic [EXECUTE STAGE]
-        .clk(clk),
-        .rst_n(rst_n),
-        .alu(alu_stage), //update y output iff stage is currently on EXECUTE (ALU stage)
-        .a(a), //rs1 or pc
-        .b(b), //rs2 or imm 
-        .y(y), //result of arithmetic operation
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_alu(alu_stage), //update y output iff stage is currently on EXECUTE (ALU stage)
+        .i_a(a), //rs1 or pc
+        .i_b(b), //rs2 or imm 
+        .o_y(y), //result of arithmetic operation
         /// ALU Operations ///
-        .alu_add(alu_add), //addition
-        .alu_sub(alu_sub), //subtraction
-        .alu_slt(alu_slt), //set if less than
-        .alu_sltu(alu_sltu), //set if less than unsigned    
-        .alu_xor(alu_xor), //bitwise xor
-        .alu_or(alu_or),  //bitwise or
-        .alu_and(alu_and), //bitwise and
-        .alu_sll(alu_sll), //shift left logical
-        .alu_srl(alu_srl), //shift right logical
-        .alu_sra(alu_sra), //shift right arithmetic
-        .alu_eq(alu_eq),  //equal
-        .alu_neq(alu_neq), //not equal
-        .alu_ge(alu_ge),  //greater than or equal
-        .alu_geu(alu_geu) //greater than or equal unsigned
+        .i_alu_add(alu_add), //addition
+        .i_alu_sub(alu_sub), //subtraction
+        .i_alu_slt(alu_slt), //set if less than
+        .i_alu_sltu(alu_sltu), //set if less than unsigned    
+        .i_alu_xor(alu_xor), //bitwise xor
+        .i_alu_or(alu_or),  //bitwise or
+        .i_alu_and(alu_and), //bitwise and
+        .i_alu_sll(alu_sll), //shift left logical
+        .i_alu_srl(alu_srl), //shift right logical
+        .i_alu_sra(alu_sra), //shift right arithmetic
+        .i_alu_eq(alu_eq),  //equal
+        .i_alu_neq(alu_neq), //not equal
+        .i_alu_ge(alu_ge),  //greater than or equal
+        .i_alu_geu(alu_geu) //greater than or equal unsigned
     );
     
     rv32i_memoryaccess m3( //logic controller for data memory access (load/store) [MEMORY STAGE]
-        .clk(clk),
-        .rst_n(rst_n),
-        .memoryaccess(memoryaccess_stage), //enable wr_mem iff stage is currently on LOADSTORE
-        .rs2(rs2), //data to be stored to memory is always rs2
-        .din(din), //data retrieve from memory 
-        .addr_2(y[1:0]), //last 2 bits of address of data to be stored or loaded (always comes from ALU)
-        .funct3(funct3), //byte,half-word,word
-        .opcode_store(opcode_store), //determines if data_store will be to stored to data memory
-        .data_store(dout), //data to be stored to memory (mask-aligned)
-        .data_load(data_load), //data to be loaded to base reg (z-or-s extended) 
-        .wr_mask(wr_mask), //write mask {byte3,byte2,byte1,byte0}
-        .wr_mem(wr_mem) //write to data memory if enabled
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_memoryaccess(memoryaccess_stage), //enable wr_mem iff stage is currently on LOADSTORE
+        .i_rs2(rs2), //data to be stored to memory is always rs2
+        .i_din(i_din), //data retrieve from memory 
+        .i_addr_2(y[1:0]), //last 2 bits of address of data to be stored or loaded (always comes from ALU)
+        .i_funct3(funct3), //byte,half-word,word
+        .i_opcode_store(opcode_store), //determines if data_store will be to stored to data memory
+        .o_data_store(o_dout), //data to be stored to memory (mask-aligned)
+        .o_data_load(data_load), //data to be loaded to base reg (z-or-s extended) 
+        .o_wr_mask(o_wr_mask), //write mask {byte3,byte2,byte1,byte0}
+        .o_wr_mem(wr_mem) //write to data memory if enabled
     );
     
     rv32i_writeback #(.PC_RESET(PC_RESET)) m4( //logic controller for the next PC and rd value [WRITEBACK STAGE]
-        .clk(clk),
-        .rst_n(rst_n),
-        .writeback(writeback_stage), //enable wr_rd iff stage is currently on WRITEBACK
-        .funct3(funct3), //function type
-        .alu_out(y), //output of ALU
-        .imm(imm), //immediate value
-        .rs1(rs1), //source register 1 value
-        .data_load(data_load), //data to be loaded to base reg
-        .csr_out(csr_out), //CSR value to be loaded to basereg
-        .rd(rd), //value to be written back to destination register
-        .pc(pc), //new PC value
-        .wr_rd(wr_rd), //write rd to the base reg if enabled
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_writeback(writeback_stage), //enable wr_rd iff stage is currently on WRITEBACK
+        .i_funct3(funct3), //function type
+        .i_alu_out(y), //output of ALU
+        .i_imm(imm), //immediate value
+        .i_rs1(rs1), //source register 1 value
+        .i_data_load(data_load), //data to be loaded to base reg
+        .i_csr_out(csr_out), //CSR value to be loaded to basereg
+        .o_rd(rd), //value to be written back to destination register
+        .o_pc(pc), //new PC value
+        .o_wr_rd(wr_rd), //write rd to the base reg if enabled
         // Trap-Handler
-        .go_to_trap(go_to_trap), //high before going to trap (if exception/interrupt detected)
-        .return_from_trap(return_from_trap), //high before returning from trap (via mret)
-        .return_address(return_address), //mepc CSR
-        .trap_address(trap_address), //mtvec CSR
+        .i_go_to_trap(go_to_trap), //high before going to trap (if exception/interrupt detected)
+        .i_return_from_trap(return_from_trap), //high before returning from trap (via mret)
+        .i_return_address(return_address), //mepc CSR
+        .i_trap_address(trap_address), //mtvec CSR
          //// Opcode Type ////
-        .opcode_rtype(opcode_rtype),
-        .opcode_itype(opcode_itype),
-        .opcode_load(opcode_load),
-        .opcode_store(opcode_store),
-        .opcode_branch(opcode_branch),
-        .opcode_jal(opcode_jal),
-        .opcode_jalr(opcode_jalr),
-        .opcode_lui(opcode_lui),
-        .opcode_auipc(opcode_auipc),
-        .opcode_system(opcode_system),
-        .opcode_fence(opcode_fence) 
+        .i_opcode_rtype(opcode_rtype),
+        .i_opcode_itype(opcode_itype),
+        .i_opcode_load(opcode_load),
+        .i_opcode_store(opcode_store),
+        .i_opcode_branch(opcode_branch),
+        .i_opcode_jal(opcode_jal),
+        .i_opcode_jalr(opcode_jalr),
+        .i_opcode_lui(opcode_lui),
+        .i_opcode_auipc(opcode_auipc),
+        .i_opcode_system(opcode_system),
+        .i_opcode_fence(opcode_fence) 
     );
 
     rv32i_fsm m5( //FSM controller for the fetch, decode, execute, memory access, and writeback processes.
-        .clk(clk),
-        .rst_n(rst_n),
-        .inst(inst), //instruction
-        .pc(pc), //Program Counter
-        .rs1(rs1), //Source register 1 value
-        .rs2(rs2), //Source Register 2 value
-        .imm(imm), //Immediate value
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_inst(i_inst), //instruction
+        .i_pc(pc), //Program Counter
+        .i_rs1(rs1), //Source register 1 value
+        .i_rs2(rs2), //Source Register 2 value
+        .i_imm(imm), //Immediate value
         /// Opcode Type ///
-        .opcode_jal(opcode_jal),
-        .opcode_auipc(opcode_auipc),
-        .opcode_rtype(opcode_rtype),
-        .opcode_branch(opcode_branch),
-        .inst_q(inst_q), //registered instruction
-        .stage_q(stage_q), //current stage
-        .a(a), //value of a in ALU
-        .b(b), //value of b in ALU
-        .alu_stage(alu_stage),//high if stage is on EXECUTE
-        .memoryaccess_stage(memoryaccess_stage),//high if stage is on MEMORYACCESS
-        .writeback_stage(writeback_stage), //high if stage is on WRITEBACK
-        .csr_stage(csr_stage), //high if stage is on EXECUTE
-        .done_tick(done_tick) //high for one clock cycle at the end of every instruction
+        .i_opcode_jal(opcode_jal),
+        .i_opcode_auipc(opcode_auipc),
+        .i_opcode_rtype(opcode_rtype),
+        .i_opcode_branch(opcode_branch),
+        .o_inst_q(inst_q), //registered instruction
+        .o_stage_q(stage_q), //current stage
+        .o_a(a), //value of a in ALU
+        .o_b(b), //value of b in ALU
+        .o_alu_stage(alu_stage),//high if stage is on EXECUTE
+        .o_memoryaccess_stage(memoryaccess_stage),//high if stage is on MEMORYACCESS
+        .o_writeback_stage(writeback_stage), //high if stage is on WRITEBACK
+        .o_csr_stage(csr_stage), //high if stage is on EXECUTE
+        .o_done_tick(done_tick) //high for one clock cycle at the end of every instruction
     );
     
     rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6(// control logic for Control and Status Registers (CSR)
-        .clk(clk),
-        .rst_n(rst_n),
-        .csr_stage(csr_stage), //enable csr read/write iff stage is currently on MEMORYACCESS
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_csr_stage(csr_stage), //enable csr read/write iff stage is currently on MEMORYACCESS
         // Interrupts
-        .external_interrupt(external_interrupt), //interrupt from external source
-        .software_interrupt(software_interrupt), //interrupt from software
+        .i_external_interrupt(i_external_interrupt), //interrupt from external source
+        .i_software_interrupt(i_software_interrupt), //interrupt from software
         // Timer Interrupt
-        .mtime_wr(mtime_wr), //write to mtime
-        .mtimecmp_wr(mtimecmp_wr), //write to mtimecmp
-        .mtime_din(mtime_din), //data to be written to mtime
-        .mtimecmp_din(mtimecmp_din), //data to be written to mtimecmp
+        .i_mtime_wr(i_mtime_wr), //write to mtime
+        .i_mtimecmp_wr(i_mtimecmp_wr), //write to mtimecmp
+        .i_mtime_din(i_mtime_din), //data to be written to mtime
+        .i_mtimecmp_din(i_mtimecmp_din), //data to be written to mtimecmp
         /// Exceptions ///
-        .is_inst_illegal(is_inst_illegal), //illegal instruction
-        .is_ecall(is_ecall), //ecall instruction
-        .is_ebreak(is_ebreak), //ebreak instruction
-        .is_mret(is_mret), //mret (return from trap) instruction
+        .i_is_inst_illegal(is_inst_illegal), //illegal instruction
+        .i_is_ecall(is_ecall), //ecall instruction
+        .i_is_ebreak(is_ebreak), //ebreak instruction
+        .i_is_mret(is_mret), //mret (return from trap) instruction
         /// Load/Store Misaligned Exception///
-        .opcode_store(opcode_store), 
-        .opcode_load(opcode_load),
-        .opcode_branch(opcode_branch),
-        .opcode_jal(opcode_jal),
-        .opcode_jalr(opcode_jalr),
-        .alu_sum(y), //sum from ALU (address used in load/store/jump/branch)
+        .i_opcode_store(opcode_store), 
+        .i_opcode_load(opcode_load),
+        .i_opcode_branch(opcode_branch),
+        .i_opcode_jal(opcode_jal),
+        .i_opcode_jalr(opcode_jalr),
+        .i_alu_sum(y), //sum from ALU (address used in load/store/jump/branch)
         /// CSR instruction ///
-        .opcode_system(opcode_system),
-        .funct3(funct3), // CSR instruction operation
-        .csr_index(imm[11:0]), //immediate value decoded by decoder
-        .imm({27'b0,rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
-        .rs1(rs1), //Source register 1 value (new value to be stored to CSR)
-        .csr_out(csr_out), //CSR value to be loaded to basereg
+        .i_opcode_system(opcode_system),
+        .i_funct3(funct3), // CSR instruction operation
+        .i_csr_index(imm[11:0]), //immediate value decoded by decoder
+        .i_imm({27'b0,rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
+        .i_rs1(rs1), //Source register 1 value (new value to be stored to CSR)
+        .o_csr_out(csr_out), //CSR value to be loaded to basereg
         // Trap-Handler 
-        .pc(pc), //Program Counter 
-        .return_address(return_address), //mepc CSR
-        .trap_address(trap_address), //mtvec CSR
-        .go_to_trap_q(go_to_trap), //high before going to trap (if exception/interrupt detected)
-        .return_from_trap_q(return_from_trap), //high before returning from trap (via mret)
-        
-        .minstret_inc(done_tick)
+        .i_pc(pc), //Program Counter 
+        .o_return_address(return_address), //mepc CSR
+        .o_trap_address(trap_address), //mtvec CSR
+        .o_go_to_trap_q(go_to_trap), //high before going to trap (if exception/interrupt detected)
+        .o_return_from_trap_q(return_from_trap), //high before returning from trap (via mret)
+        .i_minstret_inc(done_tick)
     );
       
 endmodule

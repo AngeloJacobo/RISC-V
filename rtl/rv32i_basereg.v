@@ -4,14 +4,14 @@
 
 module rv32i_basereg
     (
-        input wire clk,
-        input wire[4:0] rs1_addr,
-        input wire[4:0] rs2_addr,
-        input wire[4:0] rd_addr,
-        input wire[31:0] rd,
-        input wire wr,
-        output wire[31:0] rs1,
-        output wire[31:0] rs2
+        input wire i_clk,
+        input wire[4:0] i_rs1_addr,
+        input wire[4:0] i_rs2_addr,
+        input wire[4:0] i_rd_addr,
+        input wire[31:0] i_rd,
+        input wire i_wr,
+        output wire[31:0] o_rs1,
+        output wire[31:0] o_rs2
     );
     
     reg[5:0] i = 0;
@@ -22,16 +22,16 @@ module rv32i_basereg
         for(i=0 ; i<32 ; i=i+1) base_regfile[i]=0; 
     end
     
-    always @(posedge clk) begin
-        if(wr && rd_addr!=0) begin
-           base_regfile[rd_addr] <= rd; //synchronous write
+    always @(posedge i_clk) begin
+        if(i_wr && i_rd_addr!=0) begin
+           base_regfile[i_rd_addr] <= i_rd; //synchronous write
         end
-        rs1_addr_q <= rs1_addr; //synchronous read
-        rs2_addr_q <= rs2_addr; //synchronous read
+        rs1_addr_q <= i_rs1_addr; //synchronous read
+        rs2_addr_q <= i_rs2_addr; //synchronous read
     end
 
-    assign rs1 = rs1_addr_q==0? 0: base_regfile[rs1_addr_q]; 
-    assign rs2 = rs2_addr_q==0? 0: base_regfile[rs2_addr_q];
+    assign o_rs1 = rs1_addr_q==0? 0: base_regfile[rs1_addr_q]; 
+    assign o_rs2 = rs2_addr_q==0? 0: base_regfile[rs2_addr_q];
     
 endmodule
 
