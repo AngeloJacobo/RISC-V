@@ -30,13 +30,15 @@ Inside the `rtl` folder are the following:
 
 
 ## Regression Tests
-The RISCV toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and `vlog` must be callable from PATH. Run regression tests either with:
+The RISCV toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and `vlog` must be callable from PATH. Run **regression tests** either with:
  - `$ ./test.sh` = run regression tests for both `riscv-tests/isa/rv32ui/` and `riscv-tests/isa/rv32mi/`
- - `$ ./test.sh compile` = compile-only the rtl files
  - `$ ./test.sh rv32ui` = run regression tests only for the `riscv-tests/isa/rv32ui/`
  - `$ ./test.sh rv32mi` = run regression tests only for the `riscv-tests/isa/rv32mi/`
  - `$ ./test.sh extra` =  run regression tests for `extra/` (contains tests for interrupts which the official tests don't have)
- - `$ ./test.sh all` = run regression tests for `riscv-tests/isa/rv32ui/`, `riscv-tests/isa/rv32mi/`, and `extra/`
+ - `$ ./test.sh all` = run regression tests for `riscv-tests/isa/rv32ui/`, `riscv-tests/isa/rv32mi/`, and `extra/`  
+ 
+ Some commmands for **debugging the design**:
+ - `$ ./test.sh compile` = compile-only the rtl files
  - `$ ./test.sh <testfile>` = test and debug testfile <testfile> which is located at `INDIVIDUAL_TESTDIR` macro of `test.sh` script
  - `$ ./test.sh <testfile> -gui` = test and debug testfile <testfile> and open wave in Modelsim
 
