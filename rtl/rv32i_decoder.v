@@ -42,7 +42,10 @@ module rv32i_decoder(
     output reg o_is_inst_illegal, //illegal instruction
     output reg o_is_ecall, //ecall instruction
     output reg o_is_ebreak, //ebreak instruction
-    output reg o_is_mret //mret (return from trap) instruction
+    output reg o_is_mret, //mret (return from trap) instruction
+    /// Pipeline Control ///
+    input wire i_ce, // input clk enable for pipeline stalling of this stage
+    output reg o_ce // output clk enable for pipeline stalling of next stage
 );
 
     localparam R_TYPE = 7'b011_0011, //instruction types and its corresponding opcode
@@ -71,9 +74,47 @@ module rv32i_decoder(
                GE   = 3'b101,
                LTU  = 3'b110,
                GEU  = 3'b111;
+                      
+    initial begin
+        o_ce = 0;
+        o_funct3   = 0;
+        o_imm      = 0; 
+        /// ALU Operation ///
+        o_alu_add  = 0;
+        o_alu_sub  = 0;
+        o_alu_slt  = 0;
+        o_alu_sltu = 0;
+        o_alu_xor  = 0;
+        o_alu_or   = 0;
+        o_alu_and  = 0;
+        o_alu_sll  = 0;
+        o_alu_srl  = 0;
+        o_alu_sra  = 0;
+        o_alu_eq   = 0;
+        o_alu_neq  = 0;
+        o_alu_ge   = 0;
+        o_alu_geu  = 0;
+        /// Opcode Type ///
+        o_opcode_rtype  = 0;
+        o_opcode_itype  = 0;
+        o_opcode_load   = 0;
+        o_opcode_store  = 0;
+        o_opcode_branch = 0;
+        o_opcode_jal    = 0;
+        o_opcode_jalr   = 0;
+        o_opcode_lui    = 0;
+        o_opcode_auipc  = 0;
+        o_opcode_system = 0;
+        o_opcode_fence  = 0;
+        /// Exceptions ///
+        o_is_inst_illegal = 0;
+        o_is_ecall  = 0;
+        o_is_ebreak = 0;
+        o_is_mret = 0;
+    end
 
     assign o_rs2_addr = i_inst[24:20]; //o_rs1_addr,o_rs2_addr, and o_rd_addr are not registered 
-    assign o_rs1_addr = i_inst[19:15];   //since rv32i_basereg do the registering itself
+    assign o_rs1_addr = i_inst[19:15];   //since rv32i_basereg module do the registering itself
     assign o_rd_addr = i_inst[11:7];
 
     wire[2:0] funct3_d = i_inst[14:12];
@@ -113,6 +154,7 @@ module rv32i_decoder(
     //register the outputs of this decoder module for shorter combinational timing paths
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
+            o_ce       <= 0;
             o_funct3   <= 0;
             o_imm      <= 0; 
             /// ALU Operation ///
@@ -149,68 +191,71 @@ module rv32i_decoder(
             o_is_mret <= 0;
         end
         else begin
-            o_funct3   <= funct3_d;
-            o_imm      <= imm_d;
-            
-            /// ALU Operations ////
-            o_alu_add  <= alu_add_d;
-            o_alu_sub  <= alu_sub_d;
-            o_alu_slt  <= alu_slt_d;
-            o_alu_sltu <= alu_sltu_d;
-            o_alu_xor  <= alu_xor_d;
-            o_alu_or   <= alu_or_d; 
-            o_alu_and  <= alu_and_d;
-            o_alu_sll  <= alu_sll_d; 
-            o_alu_srl  <= alu_srl_d;
-            o_alu_sra  <= alu_sra_d;
-            o_alu_eq   <= alu_eq_d; 
-            o_alu_neq  <= alu_neq_d;
-            o_alu_ge   <= alu_ge_d; 
-            o_alu_geu  <= alu_geu_d;
-            
-            //// Opcode Type ////
-            opcode_rtype_d  = opcode == R_TYPE;
-            opcode_itype_d  = opcode == I_TYPE;
-            opcode_load_d   = opcode == LOAD;
-            opcode_store_d  = opcode == STORE;
-            opcode_branch_d = opcode == BRANCH;
-            opcode_jal_d    = opcode == JAL;
-            opcode_jalr_d   = opcode == JALR;
-            opcode_lui_d    = opcode == LUI;
-            opcode_auipc_d  = opcode == AUIPC;
-            opcode_system_d = opcode == SYSTEM;
-            opcode_fence_d  = opcode == FENCE;
-            
-            o_opcode_rtype  <= opcode_rtype_d;
-            o_opcode_itype  <= opcode_itype_d;
-            o_opcode_load   <= opcode_load_d;
-            o_opcode_store  <= opcode_store_d;
-            o_opcode_branch <= opcode_branch_d;
-            o_opcode_jal    <= opcode_jal_d;
-            o_opcode_jalr   <= opcode_jalr_d;
-            o_opcode_lui    <= opcode_lui_d;
-            o_opcode_auipc  <= opcode_auipc_d;
-            o_opcode_system <= opcode_system_d;
-            o_opcode_fence  <= opcode_fence_d;
-            
-            /*********************** decode possible exceptions ***********************/
-            system_noncsr = opcode == SYSTEM && funct3_d == 0 ; //system instruction but not CSR operation
-            
-            // Check if instruction is illegal    
-            valid_opcode = (opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d);
-            illegal_shift = (opcode_itype_d && (o_alu_sll || o_alu_srl || o_alu_sra)) && i_inst[25];
-            o_is_inst_illegal <= !valid_opcode || illegal_shift;
+            if(i_ce) begin //update registers only if this stage is enabled
+                o_funct3   <= funct3_d;
+                o_imm      <= imm_d;
+                
+                /// ALU Operations ////
+                o_alu_add  <= alu_add_d;
+                o_alu_sub  <= alu_sub_d;
+                o_alu_slt  <= alu_slt_d;
+                o_alu_sltu <= alu_sltu_d;
+                o_alu_xor  <= alu_xor_d;
+                o_alu_or   <= alu_or_d; 
+                o_alu_and  <= alu_and_d;
+                o_alu_sll  <= alu_sll_d; 
+                o_alu_srl  <= alu_srl_d;
+                o_alu_sra  <= alu_sra_d;
+                o_alu_eq   <= alu_eq_d; 
+                o_alu_neq  <= alu_neq_d;
+                o_alu_ge   <= alu_ge_d; 
+                o_alu_geu  <= alu_geu_d;
+                
+                //// Opcode Type ////
+                opcode_rtype_d  = opcode == R_TYPE;
+                opcode_itype_d  = opcode == I_TYPE;
+                opcode_load_d   = opcode == LOAD;
+                opcode_store_d  = opcode == STORE;
+                opcode_branch_d = opcode == BRANCH;
+                opcode_jal_d    = opcode == JAL;
+                opcode_jalr_d   = opcode == JALR;
+                opcode_lui_d    = opcode == LUI;
+                opcode_auipc_d  = opcode == AUIPC;
+                opcode_system_d = opcode == SYSTEM;
+                opcode_fence_d  = opcode == FENCE;
+                
+                o_opcode_rtype  <= opcode_rtype_d;
+                o_opcode_itype  <= opcode_itype_d;
+                o_opcode_load   <= opcode_load_d;
+                o_opcode_store  <= opcode_store_d;
+                o_opcode_branch <= opcode_branch_d;
+                o_opcode_jal    <= opcode_jal_d;
+                o_opcode_jalr   <= opcode_jalr_d;
+                o_opcode_lui    <= opcode_lui_d;
+                o_opcode_auipc  <= opcode_auipc_d;
+                o_opcode_system <= opcode_system_d;
+                o_opcode_fence  <= opcode_fence_d;
+                
+                /*********************** decode possible exceptions ***********************/
+                system_noncsr = opcode == SYSTEM && funct3_d == 0 ; //system instruction but not CSR operation
+                
+                // Check if instruction is illegal    
+                valid_opcode = (opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d);
+                illegal_shift = (opcode_itype_d && (o_alu_sll || o_alu_srl || o_alu_sra)) && i_inst[25];
+                o_is_inst_illegal <= !valid_opcode || illegal_shift;
 
-            // Check if ECALL
-            o_is_ecall <= (system_noncsr && i_inst[21:20]==2'b00)? 1:0;
-            
-            // Check if EBREAK
-            o_is_ebreak <= (system_noncsr && i_inst[21:20]==2'b01)? 1:0;
-            
-            // Check if MRET
-             o_is_mret <= (system_noncsr && i_inst[21:20]==2'b10)? 1:0;
+                // Check if ECALL
+                o_is_ecall <= (system_noncsr && i_inst[21:20]==2'b00)? 1:0;
+                
+                // Check if EBREAK
+                o_is_ebreak <= (system_noncsr && i_inst[21:20]==2'b01)? 1:0;
+                
+                // Check if MRET
+                 o_is_mret <= (system_noncsr && i_inst[21:20]==2'b10)? 1:0;
 
-            /***************************************************************************/
+                /***************************************************************************/
+            end
+            o_ce <= i_ce;
         end
     end
 
