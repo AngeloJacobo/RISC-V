@@ -5,13 +5,15 @@
 
 module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
     input wire i_clk, i_rst_n,
-    input wire i_writeback, //enable wr_rd iff stage is currently on i_writeback
     input wire[2:0] i_funct3, //function type 
     input wire[31:0] i_alu_out,//output of ALU
     input wire[31:0] i_imm, //immediate value
     input wire[31:0] i_rs1, //source register 1 value
     input wire[31:0] i_data_load, //data to be loaded to base reg
     input wire[31:0] i_csr_out, //CSR value to be loaded to basereg
+    output reg[31:0] o_rd, //value to be written back to destination register
+    output reg[31:0] o_pc, //new pc value
+    output reg o_wr_rd, //write rd to the base reg if enabled
     // Trap-Handler
     input wire i_go_to_trap, //high before going to trap (if exception/interrupt detected)
     input wire i_return_from_trap, //high before returning from trap (via mret)
@@ -28,12 +30,17 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
     input wire i_opcode_lui,
     input wire i_opcode_auipc,
     input wire i_opcode_system,
-    input wire i_opcode_fence,  
-    output reg[31:0] o_rd, //value to be written back to destination register
-    output reg[31:0] o_pc, //new pc value
-    output reg o_wr_rd //write rd to the base reg if enabled
+    input wire i_opcode_fence,
+    /// Pipeline Control ///
+    input wire i_ce, // input clk enable for pipeline stalling of this stage
+    output reg o_ce // output clk enable for pipeline stalling of next stage
 );
-    initial o_pc = PC_RESET;
+    initial begin
+        o_rd = 0;
+        o_pc = PC_RESET;
+        o_wr_rd = 0;
+        o_ce = 0;
+    end
 
     reg[31:0] rd_d;
     reg[31:0] pc_d;
@@ -47,12 +54,15 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
             o_rd <= 0; 
             o_pc <= PC_RESET;
             o_wr_rd <= 0;
+            o_ce <= 0;
         end
         else begin
-            o_rd <= rd_d;
-            o_pc <= i_writeback ? pc_d:o_pc;
-            o_wr_rd <= wr_rd_d && i_writeback; //enable o_wr_rd iff stage is currently on i_writeback
-
+            if(i_ce) begin //update register only if this stage is enabled
+                o_rd <= rd_d;
+                o_pc <= pc_d;
+                o_wr_rd <= wr_rd_d; 
+            end
+            o_ce <= i_ce;
         end
     end
 
