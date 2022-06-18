@@ -23,9 +23,14 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     input wire[63:0] i_mtime_din, //data to be written to mtime
     input wire[63:0] i_mtimecmp_din //data to be written to mtimecmp
 );
-
+    // wires for pipeline control
+    wire[4:0] ce;
+    
     //wires for basereg
-    wire[31:0] rs1, rs2, rd; //value of source register 1 and 2 and destination register 
+    wire[31:0] rs1, rs2, rd; //value of source register 1 and 2 and destination register  
+    
+    //wires for rv32i_fetch
+     wire[31:0] inst;
 
     //wires for rv32i_decoder
     wire[31:0] imm; 
@@ -62,7 +67,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire is_ecall;
     wire is_ebreak;
     wire is_mret;
-    
+
     
     //wires for rv32i_alu
     wire[31:0] a,b;
@@ -73,14 +78,6 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire[31:0] pc; //program counter (PC) value
     wire wr_rd; //write to rd if enabled
 
-    //wires for rv32i_fsm
-    wire[31:0] inst_q;
-    wire[2:0] stage_q;
-    wire alu_stage;
-    wire memoryaccess_stage;
-    wire writeback_stage; 
-    wire csr_stage;
-    wire done_tick;
     
     //wires for rv32i_csr
     wire[31:0] csr_out; //CSR value to be stored to basereg
@@ -95,13 +92,13 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     assign o_iaddr = pc; //instruction address
     assign o_daddr = y; //data address
     assign o_wr_en = wr_mem && !go_to_trap; //only write to data memory if there is no trap
-  
-    /// PIPELINE STAGES ///
     
   
     //module instantiations (all outputs are registered)
     rv32i_basereg m0( //regfile controller for the 32 integer base registers
         .i_clk(i_clk),
+        .i_ce_stage1(ce[0]), //clock enable for stage 1
+        .i_ce_stage5(ce[4]), //clock enable for stage 5
         .i_rs1_addr(rs1_addr), //source register 1 address
         .i_rs2_addr(rs2_addr), //source register 2 address
         .i_rd_addr(rd_addr), //destination register address
@@ -111,15 +108,25 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_rs2(rs2) //source register 2 value
     );
     
-    rv32i_decoder m1( //logic for the decoding of the 32 bit instruction [DECODE STAGE]
+    rv32i_fetch m0_5( // logic for fetching instruction [FETCH STAGE , STAGE 1]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_inst(inst_q), //32 bit instruction
-        .o_rs1_addr(rs1_addr),//address for register source 1
-        .o_rs2_addr(rs2_addr), //address for register source 2
-        .o_rd_addr(rd_addr), //address for destination address
-        .o_imm(imm), //extended value for immediate
-        .o_funct3(funct3), //function type
+        .i_inst(i_inst), // retrieved instruction from Memory
+        .o_inst(inst), // instruction sent to pipeline
+        /// Pipeline Control ///
+        .i_ce(ce[0]), // input clk enable for pipeline stalling of this stage
+        .o_ce(ce[1]) // output clk enable for pipeline stalling of next stage
+    ); 
+    
+    rv32i_decoder m1( //logic for the decoding of the 32 bit instruction [DECODE STAGE , STAGE 2]
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_inst(inst), //32 bit instruction
+        .o_rs1_addr(rs1_addr),// address for register source 1
+        .o_rs2_addr(rs2_addr), // address for register source 2
+        .o_rd_addr(rd_addr), // address for destination address   
+        .o_imm(imm), // extended value for immediate
+        .o_funct3(funct3), // function type
         /// ALU Operations ///
         .o_alu_add(alu_add), //addition
         .o_alu_sub(alu_sub), //subtraction
@@ -134,7 +141,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_alu_eq(alu_eq),  //equal
         .o_alu_neq(alu_neq), //not equal
         .o_alu_ge(alu_ge),  //greater than or equal
-        .o_alu_geu(alu_geu), //greater than or equal unisgned
+        .o_alu_geu(alu_geu), //greater than or equal unsigned
         //// Opcode Type ////
         .o_opcode_rtype(opcode_rtype),
         .o_opcode_itype(opcode_itype),
@@ -151,15 +158,19 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_is_inst_illegal(is_inst_illegal), //illegal instruction
         .o_is_ecall(is_ecall), //ecall instruction
         .o_is_ebreak(is_ebreak), //ebreak instruction
-        .o_is_mret(is_mret) //mret (return from trap) instruction
+        .o_is_mret(is_mret), //mret (return from trap) instruction
+         /// Pipeline Control ///
+        .i_ce(ce[1]), // input clk enable for pipeline stalling of this stage
+        .o_ce(ce[2]) // output clk enable for pipeline stalling of next stage
     );
 
-    rv32i_alu m2( //ALU combinational logic [EXECUTE STAGE]
+    rv32i_alu m2( //ALU combinational logic [EXECUTE STAGE , STAGE 3]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_alu(alu_stage), //update y output iff stage is currently on EXECUTE (ALU stage)
-        .i_a(a), //rs1 or pc
-        .i_b(b), //rs2 or imm 
+        .i_pc(pc), //Program Counter
+        .i_rs1(rs1), //Source register 1 value
+        .i_rs2(rs2), //Source Register 2 value
+        .i_imm(imm), //Immediate value
         .o_y(y), //result of arithmetic operation
         /// ALU Operations ///
         .i_alu_add(alu_add), //addition
@@ -175,13 +186,15 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_alu_eq(alu_eq),  //equal
         .i_alu_neq(alu_neq), //not equal
         .i_alu_ge(alu_ge),  //greater than or equal
-        .i_alu_geu(alu_geu) //greater than or equal unsigned
+        .i_alu_geu(alu_geu), //greater than or equal unsigned
+         /// Pipeline Control ///
+        .i_ce(ce[2]), // input clk enable for pipeline stalling of this stage
+        .o_ce(ce[3]) // output clk enable for pipeline stalling of next stage
     );
     
-    rv32i_memoryaccess m3( //logic controller for data memory access (load/store) [MEMORY STAGE]
+    rv32i_memoryaccess m3( //logic controller for data memory access (load/store) [MEMORY STAGE , STAGE 4]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_memoryaccess(memoryaccess_stage), //enable wr_mem iff stage is currently on LOADSTORE
         .i_rs2(rs2), //data to be stored to memory is always rs2
         .i_din(i_din), //data retrieve from memory 
         .i_addr_2(y[1:0]), //last 2 bits of address of data to be stored or loaded (always comes from ALU)
@@ -190,13 +203,15 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_data_store(o_dout), //data to be stored to memory (mask-aligned)
         .o_data_load(data_load), //data to be loaded to base reg (z-or-s extended) 
         .o_wr_mask(o_wr_mask), //write mask {byte3,byte2,byte1,byte0}
-        .o_wr_mem(wr_mem) //write to data memory if enabled
+        .o_wr_mem(wr_mem), //write to data memory if enabled
+         /// Pipeline Control ///
+        .i_ce(ce[3]), // input clk enable for pipeline stalling of this stage
+        .o_ce(ce[4]) // output clk enable for pipeline stalling of next stage
     );
     
-    rv32i_writeback #(.PC_RESET(PC_RESET)) m4( //logic controller for the next PC and rd value [WRITEBACK STAGE]
+    rv32i_writeback #(.PC_RESET(PC_RESET)) m4( //logic controller for the next PC and rd value [WRITEBACK STAGE , STAGE 5]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_writeback(writeback_stage), //enable wr_rd iff stage is currently on WRITEBACK
         .i_funct3(funct3), //function type
         .i_alu_out(y), //output of ALU
         .i_imm(imm), //immediate value
@@ -222,37 +237,15 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_opcode_lui(opcode_lui),
         .i_opcode_auipc(opcode_auipc),
         .i_opcode_system(opcode_system),
-        .i_opcode_fence(opcode_fence) 
-    );
-
-    rv32i_fsm m5( //FSM controller for the fetch, decode, execute, memory access, and writeback processes.
-        .i_clk(i_clk),
-        .i_rst_n(i_rst_n),
-        .i_inst(i_inst), //instruction
-        .i_pc(pc), //Program Counter
-        .i_rs1(rs1), //Source register 1 value
-        .i_rs2(rs2), //Source Register 2 value
-        .i_imm(imm), //Immediate value
-        /// Opcode Type ///
-        .i_opcode_jal(opcode_jal),
-        .i_opcode_auipc(opcode_auipc),
-        .i_opcode_rtype(opcode_rtype),
-        .i_opcode_branch(opcode_branch),
-        .o_inst_q(inst_q), //registered instruction
-        .o_stage_q(stage_q), //current stage
-        .o_a(a), //value of a in ALU
-        .o_b(b), //value of b in ALU
-        .o_alu_stage(alu_stage),//high if stage is on EXECUTE
-        .o_memoryaccess_stage(memoryaccess_stage),//high if stage is on MEMORYACCESS
-        .o_writeback_stage(writeback_stage), //high if stage is on WRITEBACK
-        .o_csr_stage(csr_stage), //high if stage is on EXECUTE
-        .o_done_tick(done_tick) //high for one clock cycle at the end of every instruction
+        .i_opcode_fence(opcode_fence), 
+        /// Pipeline Control ///
+        .i_ce(ce[4]), // input clk enable for pipeline stalling of this stage
+        .o_ce() // output clk enable for pipeline stalling of next stage
     );
     
     rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6(// control logic for Control and Status Registers (CSR)
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_csr_stage(csr_stage), //enable csr read/write iff stage is currently on MEMORYACCESS
         // Interrupts
         .i_external_interrupt(i_external_interrupt), //interrupt from external source
         .i_software_interrupt(i_software_interrupt), //interrupt from software
@@ -286,7 +279,9 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_trap_address(trap_address), //mtvec CSR
         .o_go_to_trap_q(go_to_trap), //high before going to trap (if exception/interrupt detected)
         .o_return_from_trap_q(return_from_trap), //high before returning from trap (via mret)
-        .i_minstret_inc(done_tick)
+        .i_minstret_inc(ce[4]), //high for one clock cycle at the end of every instruction
+        /// Pipeline Control ///
+        .i_ce(ce[4]) // input clk enable for pipeline stalling of this stage
     );
       
 endmodule
