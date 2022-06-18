@@ -2,9 +2,9 @@
  
 `timescale 1ns / 1ps
 `default_nettype none
+
 module rv32i_memoryaccess(
     input wire i_clk, i_rst_n,
-    input wire i_memoryaccess, //enable wr_mem iff stage is currently on i_memoryaccess
     input wire[31:0] i_rs2, //data to be stored to memory is always i_rs2
     input wire[31:0] i_din, //data retrieve from memory 
     input wire[1:0] i_addr_2, //last 2 bits of address of data to be stored or loaded (always comes from ALU)
@@ -13,8 +13,19 @@ module rv32i_memoryaccess(
     output reg[31:0] o_data_store, //data to be stored to memory (mask-aligned)
     output reg[31:0] o_data_load, //data to be loaded to base reg (z-or-s extended) 
     output reg[3:0] o_wr_mask, //write mask {byte3,byte2,byte1,byte0}
-    output reg o_wr_mem //write to data memory if enabled
+    output reg o_wr_mem, //write to data memory if enabled
+    /// Pipeline Control ///
+    input wire i_ce, // input clk enable for pipeline stalling of this stage
+    output reg o_ce // output clk enable for pipeline stalling of next stage
 );
+    initial begin
+        o_data_store = 0;
+        o_data_load = 0;
+        o_wr_mask = 0;
+        o_wr_mem = 0;
+        o_ce = 0;
+    end
+    
     reg[31:0] data_store_d;
     reg[31:0] data_load_d;
     reg[3:0] wr_mask_d;
@@ -26,12 +37,16 @@ module rv32i_memoryaccess(
             o_data_load <= 0;
             o_wr_mask <= 0;
             o_wr_mem <= 0;
+            o_ce <= 0;
         end
         else begin
-            o_data_store <= data_store_d;
-            o_data_load <= data_load_d;
-            o_wr_mask <= wr_mask_d;
-            o_wr_mem <= i_opcode_store && i_memoryaccess; 
+            if(i_ce) begin //update register only if this stage is enabled
+                o_data_store <= data_store_d;
+                o_data_load <= data_load_d;
+                o_wr_mask <= wr_mask_d;
+                o_wr_mem <= i_opcode_store; 
+            end
+            o_ce <= i_ce;
         end
     end 
 
