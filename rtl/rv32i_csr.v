@@ -5,7 +5,6 @@
 
 module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire i_clk, i_rst_n,
-    input wire i_csr_stage, //enable csr read/write iff stage is currently on MEMORYACCESS
     // Interrupts
     input wire i_external_interrupt, //interrupt from external source
     input wire i_software_interrupt, //interrupt from software
@@ -32,14 +31,16 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire[11:0] i_csr_index, // immediate value from decoder
     input wire[31:0] i_imm, //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
     input wire[31:0] i_rs1, //Source register 1 value (new value to be stored to CSR)
-    output reg[31:0] o_csr_out, //CSR value to be loaded to basereg
+    output wire[31:0] o_csr_out, //CSR value to be loaded to basereg
     // Trap-Handler 
     input wire[31:0] i_pc, //Program Counter 
     output reg[31:0] o_return_address, //mepc CSR
     output reg[31:0] o_trap_address, //mtvec CSR
     output reg o_go_to_trap_q, //high before going to trap (if exception/interrupt detected)
     output reg o_return_from_trap_q, //high before returning from trap (via mret)
-    input wire i_minstret_inc //increment minstret after executing an instruction
+    input wire i_minstret_inc, //increment minstret after executing an instruction
+    /// Pipeline Control ///
+    input wire i_ce // input clk enable for pipeline stalling of this stage
 );
                //CSR operation type
     localparam CSRRW = 3'b001,
@@ -86,19 +87,13 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                STORE_ADDRESS_MISALIGNED = 6,
                ECALL = 11;
     
-    initial begin
-        o_csr_out = 0;
-        o_return_address = 0;
-        o_trap_address = 0;
-        o_go_to_trap_q = 0;
-        o_return_from_trap_q = 0;
-    end
+    
                //Wrap value for 1 millisecond
     localparam MILLISEC_WRAP =  (CLK_FREQ_MHZ*10**6)/1000;
     
     reg[31:0] csr_in; //value to be stored to CSR
     reg[31:0] csr_data; //value at current CSR address
-    wire csr_enable = i_opcode_system && i_funct3!=0 && i_csr_stage; //csr operation is enabled only at this conditions
+    wire csr_enable = i_opcode_system && i_funct3!=0 && i_ce; //csr operation is enabled only at this conditions
     reg[1:0] new_pc = 0; //last two bits of i_pc that will be used in taken branch and jumps
     reg go_to_trap; //high before going to trap (if exception/interrupt detected)
     reg return_from_trap; //high before returning from trap (via mret)
@@ -195,10 +190,6 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             minstret <= 0;
             mcountinhibit_cy <= 0;
             mcountinhibit_ir <= 0;
-            o_go_to_trap_q <= 0;
-            o_return_from_trap_q <= 0;
-            o_return_address <= 0;
-            o_trap_address <= 0;
         end
  
         /********************************************** control logic for trap-handling sequence **********************************************/
@@ -209,8 +200,13 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         is_exception = 0;
         is_trap = 0;
         go_to_trap = 0;
+        o_return_address = 0;
+        o_trap_address = 0;
+        o_go_to_trap_q = 0;
+        o_return_from_trap_q = 0;
         return_from_trap = 0;
-        if(i_csr_stage) begin
+        
+        if(i_ce) begin
              external_interrupt_pending =  mstatus_mie && mie_meie && (mip_meip); //machine_interrupt_enable + machine_external_interrupt_enable + machine_external_interrupt_pending must all be high
              software_interrupt_pending = mstatus_mie && mie_msie && mip_msip;  //machine_interrupt_enable + machine_software_interrupt_enable + machine_software_interrupt_pending must all be high
              timer_interrupt_pending = mstatus_mie && mie_mtie && mip_mtip; //machine_interrupt_enable + machine_timer_interrupt_enable + machine_timer_interrupt_pending must all be high
@@ -222,15 +218,15 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
              return_from_trap = i_is_mret; // return from trap, go back to saved i_pc
              
              //registered outputs
-             o_go_to_trap_q <= go_to_trap;
-             o_return_from_trap_q <= return_from_trap;
-             o_return_address <= mepc;
+             o_go_to_trap_q = go_to_trap;
+             o_return_from_trap_q = return_from_trap;
+             o_return_address = mepc;
              /* Volume 2 pg. 30: When MODE=Direct (0), all traps into machine mode cause the i_pc to be set to the address in the  
              BASE field. When MODE=Vectored (1), all synchronous exceptions into machine mode cause the i_pc to be set to the address 
              in the BASE field, whereas interrupts cause the i_pc to be set to the address in the BASE field plus four times the
              interrupt cause number */
-             if(mtvec_mode[1] && is_interrupt) o_trap_address <= {mtvec_base,2'b00} + mcause_code<<2;
-             else o_trap_address <= {mtvec_base,2'b00};
+             if(mtvec_mode[1] && is_interrupt) o_trap_address = {mtvec_base,2'b00} + mcause_code<<2;
+             else o_trap_address = {mtvec_base,2'b00};
          end
          /*************************************************************************************************************************************/
          
@@ -517,10 +513,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             mcountinhibit_ir <= csr_in[2];
         end
 
-        o_csr_out <= csr_enable? csr_data: o_csr_out; //registered output for o_csr_out
          /****************************************************************************************************************************/
-            
     end
-   
+   assign o_csr_out = csr_data;
     
 endmodule
