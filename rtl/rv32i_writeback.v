@@ -12,7 +12,7 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
     input wire[31:0] i_data_load, //data to be loaded to base reg
     input wire[31:0] i_csr_out, //CSR value to be loaded to basereg
     output reg[31:0] o_rd, //value to be written back to destination register
-    output reg[31:0] o_pc, //new pc value
+    output wire[31:0] o_next_pc, //new pc value
     output reg o_wr_rd, //write rd to the base reg if enabled
     // Trap-Handler
     input wire i_go_to_trap, //high before going to trap (if exception/interrupt detected)
@@ -37,13 +37,12 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
 );
     initial begin
         o_rd = 0;
-        o_pc = PC_RESET;
         o_wr_rd = 0;
         o_ce = 0;
     end
 
     reg[31:0] rd_d;
-    reg[31:0] pc_d;
+    reg[31:0] pc=0,pc_d;
     reg wr_rd_d;
     reg[31:0] a;
     wire[31:0] sum;
@@ -52,26 +51,26 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
     always @(posedge i_clk,negedge i_rst_n) begin
         if(!i_rst_n) begin
             o_rd <= 0; 
-            o_pc <= PC_RESET;
+            pc <= PC_RESET;
             o_wr_rd <= 0;
             o_ce <= 0;
         end
         else begin
             if(i_ce) begin //update register only if this stage is enabled
                 o_rd <= rd_d;
-                o_pc <= pc_d;
+                pc <= pc_d;
                 o_wr_rd <= wr_rd_d; 
             end
             o_ce <= i_ce;
         end
     end
 
-    //determine next value of o_pc and o_rd
+    //determine next value of pc and o_rd
     always @* begin
         rd_d = 0;
-        pc_d = o_pc + 32'd4;
+        pc_d = pc + 32'd4;
         wr_rd_d = 0;
-        a = o_pc;
+        a = pc;
 
         if(i_go_to_trap) pc_d = i_trap_address;  //interrupt or exception detected
         
@@ -100,5 +99,5 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
     end
     
     assign sum = a + i_imm; //share adder for all addition operation for less resource utilization
-    
+    assign o_next_pc = pc_d;
 endmodule
