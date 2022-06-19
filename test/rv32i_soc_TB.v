@@ -58,63 +58,67 @@ module rv32i_soc_TB #(parameter MEMORY);
         while(  `ifdef HALT_ON_ILLEGAL_INSTRUCTION
                     uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.m6.i_is_inst_illegal && uut.m0.m6.i_csr_stage) //exception testing (halt core only when instruction is illegal)
                 `elsif HALT_ON_EBREAK
-                    uut.m0.inst_q != 32'h00100073 //ebreak test (halt core on ebreak)
+                    !uut.m0.is_ebreak_memoryaccess //ebreak test (halt core on ebreak)
                 `elsif HALT_ON_ECALL
-                    uut.m0.inst_q != 32'h00000073 //ecall test (halt core on ecall)
+                    !uut.m0.is_ecall_memoryaccess //ecall test (halt core on ecall)
                 `else
-                    uut.m0.inst_q != 32'h00100073 && uut.m0.inst_q != 32'h00000073 //normal test (halt core on ebreak/ecall)
+                    !uut.m0.is_ecall_memoryaccess && !uut.m0.is_ebreak_memoryaccess //normal test (halt core on ebreak/ecall)
                 `endif
              ) begin
 
             @(negedge clk);
             #1;
-            if(uut.m0.alu_stage) begin
-                if(uut.m0.opcode_rtype) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"RTYPE"); //Display PC and instruction 
-                else if(uut.m0.opcode_itype) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"ITYPE"); //Display PC and instruction          
-                else if(uut.m0.opcode_load) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"LOAD"); //Display PC and instruction 
-                else if(uut.m0.opcode_store) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"STORE"); //Display PC and instruction 
-                else if(uut.m0.opcode_branch) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"BRANCH"); //Display PC and instruction 
-                else if(uut.m0.opcode_jal) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"JAL"); //Display PC and instruction 
-                else if(uut.m0.opcode_jalr) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"JALR"); //Display PC and instruction 
-                else if(uut.m0.opcode_lui) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"LUI"); //Display PC and instruction 
-                else if(uut.m0.opcode_auipc) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"AUIPC"); //Display PC and instruction 
-                else if(uut.m0.opcode_system) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"SYSTEM"); //Display PC and instruction 
-                else if(uut.m0.opcode_fence) $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"FENCE"); //Display PC and instruction 
-                else $display("\nPC: %h    %h [%s]", uut.m0.pc, uut.m0.i_inst,"UNKNOWN INSTRUCTION"); //Display PC and instruction 
-            end
-            #1;
-             if(uut.m0.go_to_trap && uut.m0.writeback_stage) begin //exception or interrupt detected
-                case({uut.m0.m6.mcause_intbit,uut.m0.m6.mcause_code})
-                    {1'b1,4'd3}: $display("  GO TO TRAP: %s","SOFTWARE INTERRUPT");
-                    {1'b1,4'd7}: $display("  GO TO TRAP: %s","TIMER INTERRUPT");
-                   {1'b1,4'd11}: $display("  GO TO TRAP: %s","EXTERNAL INTERRUPT"); 
+            if(uut.m0.ce_writeback && uut.m0.ce_global) begin
+                    if(uut.m0.opcode_rtype_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"RTYPE"); //Display PC and instruction 
+                    else if(uut.m0.opcode_itype_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"ITYPE"); //Display PC and instruction          
+                    else if(uut.m0.opcode_load_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"LOAD"); //Display PC and instruction 
+                    else if(uut.m0.opcode_store_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"STORE"); //Display PC and instruction 
+                    else if(uut.m0.opcode_branch_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"BRANCH"); //Display PC and instruction 
+                    else if(uut.m0.opcode_jal_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"JAL"); //Display PC and instruction 
+                    else if(uut.m0.opcode_jalr_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"JALR"); //Display PC and instruction 
+                    else if(uut.m0.opcode_lui_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"LUI"); //Display PC and instruction 
+                    else if(uut.m0.opcode_auipc_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"AUIPC"); //Display PC and instruction 
+                    else if(uut.m0.opcode_system_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"SYSTEM"); //Display PC and instruction 
+                    else if(uut.m0.opcode_fence_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"FENCE"); //Display PC and instruction 
+                    else $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"UNKNOWN INSTRUCTION"); //Display PC and instruction 
                     
-                    {1'b0,4'd0}: $display("  GO TO TRAP: %s","INSTRUCTION ADDRESS MISALIGNED");
-                    {1'b0,4'd2}: $display("  GO TO TRAP: %s","ILLEGAL INSTRUCTION");
-                    {1'b0,4'd3}: $display("  GO TO TRAP: %s","EBREAK"); 
-                    {1'b0,4'd4}: $display("  GO TO TRAP: %s","LOAD ADDRESS MISALIGNED"); 
-                    {1'b0,4'd6}: $display("  GO TO TRAP: %s","STORE ADDRESS MISALIGNED"); 
-                   {1'b0,4'd11}: $display("  GO TO TRAP: %s","ECALL");
-                        default: $display("  GO TO TRAP: %s","UNKNOWN TRAP");
-                endcase
-             end
-             
-             if(uut.m1.i_wr_en) begin //data memory is written
-                $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.i_data_addr,uut.m1.i_data_in,uut.m1.i_wr_mask); //display address of memory changed and its new value
-            end
-            
-            if(uut.m0.m0.i_wr && uut.m0.m0.i_rd_addr!=0) begin //base register is written
-                $display("  [BASEREG] address:0x%0d   value:0x%h",uut.m0.m0.i_rd_addr,uut.m0.m0.i_rd); //display address of base reg changed and its new value
-            end
-            
-            if(uut.m0.m6.csr_enable) begin //base register is written
-                $display("  [CSR] address:0x%0h   value:0x%h",uut.m0.m6.i_csr_index,uut.m0.m6.csr_in); //display address of base reg changed and its new value
-            end
-            
-            if(uut.m0.return_from_trap && uut.m0.writeback_stage) begin
-                $display("  RETURN FROM TRAP"); //go back from trap via mret
+                #1;
+                
+                 if(uut.m0.go_to_trap) begin //exception or interrupt detected
+                    case({uut.m0.m6.mcause_intbit,uut.m0.m6.mcause_code})
+                        {1'b1,4'd3}: $display("  GO TO TRAP: %s","SOFTWARE INTERRUPT");
+                        {1'b1,4'd7}: $display("  GO TO TRAP: %s","TIMER INTERRUPT");
+                       {1'b1,4'd11}: $display("  GO TO TRAP: %s","EXTERNAL INTERRUPT"); 
+                        
+                        {1'b0,4'd0}: $display("  GO TO TRAP: %s","INSTRUCTION ADDRESS MISALIGNED");
+                        {1'b0,4'd2}: $display("  GO TO TRAP: %s","ILLEGAL INSTRUCTION");
+                        {1'b0,4'd3}: $display("  GO TO TRAP: %s","EBREAK"); 
+                        {1'b0,4'd4}: $display("  GO TO TRAP: %s","LOAD ADDRESS MISALIGNED"); 
+                        {1'b0,4'd6}: $display("  GO TO TRAP: %s","STORE ADDRESS MISALIGNED"); 
+                       {1'b0,4'd11}: $display("  GO TO TRAP: %s","ECALL");
+                            default: $display("  GO TO TRAP: %s","UNKNOWN TRAP");
+                    endcase
+                 end
+                 
+                 if(uut.m1.i_wr_en) begin //data memory is written
+                    $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.i_data_addr,uut.m1.i_data_in,uut.m1.i_wr_mask); //display address of memory changed and its new value
+                end
+                
+                if(uut.m0.m4.wr_rd_d && uut.m0.rd_addr_memoryaccess!=0) begin //base register is written
+                    $display("  [BASEREG] address:0x%0d   value:0x%h",uut.m0.rd_addr_memoryaccess,uut.m0.m4.rd_d); //display address of base reg changed and its new value
+                end
+                
+                if(uut.m0.m6.csr_enable) begin //csr is written
+                    $display("  [CSR] address:0x%0h   value:0x%h",uut.m0.m6.i_csr_index,uut.m0.m6.csr_in); //display address of csr changed and its new value
+                end
+                
+                if(uut.m0.return_from_trap) begin
+                    $display("  RETURN FROM TRAP"); //go back from trap via mret
+                end
+                
             end
         end
+        
         $display("\nAll instructions executed......");
         
         /************* Dump Base Register and Memory Values *******************/
@@ -150,14 +154,14 @@ module rv32i_soc_TB #(parameter MEMORY);
     initial begin   //external interrupt at 5 ms
         #5_005_000; //(5ms)
         external_interrupt = 1;
-        wait(uut.m0.go_to_trap);
+        wait(uut.m0.ce_writeback && uut.m0.go_to_trap);
         external_interrupt = 0;
     end
     
     initial begin   //software interrupt at 10 ms
         #10_005_000; //(5ms)
         software_interrupt = 1;
-        wait(uut.m0.go_to_trap);
+        wait(uut.m0.ce_writeback && uut.m0.go_to_trap);
         software_interrupt = 0;
     end
     
