@@ -8,7 +8,7 @@ module rv32i_decoder(
     input wire[31:0] i_inst, //32 bit instruction
     output wire[4:0] o_rs1_addr,//address for register source 1
     output wire[4:0] o_rs2_addr, //address for register source 2
-    output wire[4:0] o_rd_addr, //address for destination address
+    output reg[4:0] o_rd_addr, //address for destination address
     output reg[31:0] o_imm, //extended value for immediate
     output reg[2:0] o_funct3, //function type
     /// ALU Operations ///
@@ -77,6 +77,7 @@ module rv32i_decoder(
                       
     initial begin
         o_ce = 0;
+        o_rd_addr = 0;
         o_funct3   = 0;
         o_imm      = 0; 
         /// ALU Operation ///
@@ -115,7 +116,7 @@ module rv32i_decoder(
 
     assign o_rs2_addr = i_inst[24:20]; //o_rs1_addr,o_rs2_addr, and o_rd_addr are not registered 
     assign o_rs1_addr = i_inst[19:15];   //since rv32i_basereg module do the registering itself
-    assign o_rd_addr = i_inst[11:7];
+    
 
     wire[2:0] funct3_d = i_inst[14:12];
     wire[6:0] opcode = i_inst[6:0];
@@ -155,6 +156,7 @@ module rv32i_decoder(
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
             o_ce       <= 0;
+            o_rd_addr  <= 0;
             o_funct3   <= 0;
             o_imm      <= 0; 
             /// ALU Operation ///
@@ -192,6 +194,7 @@ module rv32i_decoder(
         end
         else begin
             if(i_ce) begin //update registers only if this stage is enabled
+                o_rd_addr  <= i_inst[11:7];
                 o_funct3   <= funct3_d;
                 o_imm      <= imm_d;
                 
