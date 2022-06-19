@@ -13,48 +13,52 @@ add wave -noupdate /rv32i_soc_TB/uut/m0/o_dout
 add wave -noupdate -radix binary /rv32i_soc_TB/uut/m0/o_wr_mask
 add wave -noupdate /rv32i_soc_TB/uut/m0/o_wr_en
 add wave -noupdate -divider {Core Registers}
-add wave -noupdate -label {stage_q [FeDeExMeWr]} -radix hexadecimal -childformat {{{/rv32i_soc_TB/uut/m0/stage_q[2]} -radix hexadecimal} {{/rv32i_soc_TB/uut/m0/stage_q[1]} -radix hexadecimal} {{/rv32i_soc_TB/uut/m0/stage_q[0]} -radix hexadecimal}} -subitemconfig {{/rv32i_soc_TB/uut/m0/stage_q[2]} {-height 15 -radix hexadecimal} {/rv32i_soc_TB/uut/m0/stage_q[1]} {-height 15 -radix hexadecimal} {/rv32i_soc_TB/uut/m0/stage_q[0]} {-height 15 -radix hexadecimal}} /rv32i_soc_TB/uut/m0/stage_q
-add wave -noupdate /rv32i_soc_TB/uut/m0/inst_q
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_auipc
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_branch
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_fence
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_itype
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_jal
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_jalr
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_load
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_lui
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_rtype
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_store
-add wave -noupdate -group opcode /rv32i_soc_TB/uut/m0/opcode_system
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_add
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_and
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_eq
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_ge
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_geu
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_neq
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_or
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_sll
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_slt
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_sltu
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_sra
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_srl
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_sub
-add wave -noupdate -group alu_operation /rv32i_soc_TB/uut/m0/alu_xor
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_auipc
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_branch
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_fence
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_itype
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_jal
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_jalr
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_load
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_lui
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_rtype
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_store
+add wave -noupdate -group opcode_alu /rv32i_soc_TB/uut/m0/opcode_system
+add wave -noupdate -expand -group clock_enable /rv32i_soc_TB/uut/m0/ce_global
+add wave -noupdate -expand -group clock_enable /rv32i_soc_TB/uut/m0/ce_fetch
+add wave -noupdate -expand -group clock_enable /rv32i_soc_TB/uut/m0/ce_decoder
+add wave -noupdate -expand -group clock_enable /rv32i_soc_TB/uut/m0/ce_alu
+add wave -noupdate -expand -group clock_enable /rv32i_soc_TB/uut/m0/ce_memoryaccess
+add wave -noupdate -expand -group clock_enable /rv32i_soc_TB/uut/m0/ce_writeback
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_add
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_and
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_eq
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_ge
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_geu
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_neq
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_or
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_sll
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_slt
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_sltu
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_sra
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_srl
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_sub
+add wave -noupdate -group ALU_op /rv32i_soc_TB/uut/m0/m2/i_alu_xor
+add wave -noupdate /rv32i_soc_TB/uut/m0/m4/o_next_pc
 add wave -noupdate -divider {Decoder Outputs}
 add wave -noupdate /rv32i_soc_TB/uut/m0/rs1_addr
-add wave -noupdate /rv32i_soc_TB/uut/m0/rs1
 add wave -noupdate /rv32i_soc_TB/uut/m0/rs2_addr
+add wave -noupdate /rv32i_soc_TB/uut/m0/rs1
 add wave -noupdate /rv32i_soc_TB/uut/m0/rs2
-add wave -noupdate /rv32i_soc_TB/uut/m0/imm
-add wave -noupdate /rv32i_soc_TB/uut/m0/rd_addr
 add wave -noupdate -divider ALU
-add wave -noupdate -radix hexadecimal /rv32i_soc_TB/uut/m0/a
-add wave -noupdate -radix hexadecimal /rv32i_soc_TB/uut/m0/b
-add wave -noupdate -radix hexadecimal /rv32i_soc_TB/uut/m0/y
+add wave -noupdate /rv32i_soc_TB/uut/m0/m2/a
+add wave -noupdate /rv32i_soc_TB/uut/m0/m2/b
+add wave -noupdate /rv32i_soc_TB/uut/m0/m2/o_y
 add wave -noupdate -divider WriteBack
-add wave -noupdate /rv32i_soc_TB/uut/m0/m4/o_pc
-add wave -noupdate /rv32i_soc_TB/uut/m0/m4/o_rd
+add wave -noupdate /rv32i_soc_TB/uut/m0/m4/pc
 add wave -noupdate /rv32i_soc_TB/uut/m0/m4/o_wr_rd
+add wave -noupdate /rv32i_soc_TB/uut/m0/rd_addr_memoryaccess
+add wave -noupdate /rv32i_soc_TB/uut/m0/m4/rd_d
 add wave -noupdate -divider CSR
 add wave -noupdate /rv32i_soc_TB/uut/m0/m6/is_trap
 add wave -noupdate /rv32i_soc_TB/uut/m0/m6/is_exception
@@ -108,7 +112,7 @@ add wave -noupdate -divider {Basereg and Memory}
 add wave -noupdate /rv32i_soc_TB/uut/m0/m0/base_regfile
 add wave -noupdate /rv32i_soc_TB/uut/m1/memory_regfile
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {394187 ps} 0}
+WaveRestoreCursors {{Cursor 1} {109704 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 243
 configure wave -valuecolwidth 100
@@ -124,4 +128,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ps} {433823 ps}
+WaveRestoreZoom {0 ps} {244811 ps}
