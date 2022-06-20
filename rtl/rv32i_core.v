@@ -85,8 +85,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire wr_mem;
 
     //pipeline registers
-    reg ce_fetch=0, ce_global=0;
-    wire ce_decoder, ce_alu, ce_memoryaccess, ce_writeback;
+    reg ce_stage1=0, ce_stage2=0, ce_stage3=0, ce_stage4=0, ce_stage5=0;
     reg opcode_rtype_alu=0,opcode_rtype_memoryaccess=0;
     reg opcode_itype_alu=0,opcode_itype_memoryaccess=0;
     reg opcode_load_alu=0, opcode_load_memoryaccess=0;
@@ -109,81 +108,90 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     reg[31:0] rs1_alu=0,rs1_memoryaccess=0;
     reg[31:0] rs2_alu=0;
     reg[31:0] y_memoryaccess=0;
-    
     reg[31:0] pc=0;
+    reg[2:0] state = 0;
     
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
-            ce_fetch <= 0;
-            ce_global <= 0;
+            ce_stage1 <= 0; //[FETCH]
+            ce_stage2 <= 0; //[DECODE]
+            ce_stage3 <= 0; //[EXECUTE]
+            ce_stage4 <= 0; //[MEMORY ACCESS]
+            ce_stage5 <= 0; //[WRITEBACK]
             pc <= PC_RESET;
         end
         else begin
-            if(ce_global) begin
-                if(ce_alu) begin
-                    opcode_rtype_alu <= opcode_rtype;
-                    opcode_itype_alu <= opcode_itype;
-                    opcode_load_alu <= opcode_load;
-                    opcode_store_alu <= opcode_store;
-                    opcode_branch_alu <= opcode_branch;
-                    opcode_jal_alu <= opcode_jal;
-                    opcode_jalr_alu <= opcode_jalr;
-                    opcode_lui_alu <= opcode_lui;
-                    opcode_auipc_alu <= opcode_auipc;
-                    opcode_system_alu <= opcode_system;
-                    opcode_fence_alu <= opcode_fence;
-                    is_inst_illegal_alu <= is_inst_illegal;
-                    is_ecall_alu <= is_ecall;
-                    is_ebreak_alu <= is_ebreak;
-                    is_mret_alu <= is_mret;
-                    funct3_alu <= funct3;
-                    imm_alu <= imm;
-                    rs1_addr_alu <= rs1_addr;
-                    rd_addr_alu <= rd_addr; 
-                    rs1_alu <= rs1;
-                    rs2_alu <= rs2;
-                end
-                if(ce_memoryaccess) begin
-                    opcode_rtype_memoryaccess <= opcode_rtype_alu;
-                    opcode_itype_memoryaccess <= opcode_itype_alu;
-                    opcode_load_memoryaccess <= opcode_load_alu;
-                    opcode_store_memoryaccess <= opcode_store_alu;
-                    opcode_branch_memoryaccess <= opcode_branch_alu;
-                    opcode_jal_memoryaccess <= opcode_jal_alu;
-                    opcode_jalr_memoryaccess <= opcode_jalr_alu;
-                    opcode_lui_memoryaccess <= opcode_lui_alu;
-                    opcode_auipc_memoryaccess <= opcode_auipc_alu;
-                    opcode_system_memoryaccess <= opcode_system_alu;
-                    opcode_fence_memoryaccess <= opcode_fence;
-                    is_inst_illegal_memoryaccess <= is_inst_illegal_alu;
-                    is_ecall_memoryaccess <= is_ecall_alu;
-                    is_ebreak_memoryaccess <= is_ebreak_alu;
-                    is_mret_memoryaccess <= is_mret_alu;
-                    funct3_memoryaccess <= funct3_alu;
-                    imm_memoryaccess <= imm_alu;
-                    rs1_addr_memoryaccess <= rs1_addr_alu;
-                    rd_addr_memoryaccess <= rd_addr_alu;
-                    rs1_memoryaccess <= rs1_alu; 
-                    y_memoryaccess <= y;
-                end
-                if(ce_writeback) begin
-                    rd_addr_writeback <= rd_addr_memoryaccess;
-                end
-                
-                // clock enable control logic
-                ce_fetch <= 1; //fetch must only be high if instruction is already retrieved from memory
-                
-                //next_pc should be equal to original PC four stages before [fetch -> decode -> execute -> memory_access] 
-                if(ce_writeback && (next_pc != pc-16+4)) begin //then add 4 since we are checking the "next" value
-                    ce_global <= 0;
-                    pc <= next_pc;           
-                end
-                else if(ce_fetch) begin
-                    pc <= pc + 4;
-                end
+            if(ce_stage3) begin //Pipeline Registers for Execute Stage
+                opcode_rtype_alu <= opcode_rtype;
+                opcode_itype_alu <= opcode_itype;
+                opcode_load_alu <= opcode_load;
+                opcode_store_alu <= opcode_store;
+                opcode_branch_alu <= opcode_branch;
+                opcode_jal_alu <= opcode_jal;
+                opcode_jalr_alu <= opcode_jalr;
+                opcode_lui_alu <= opcode_lui;
+                opcode_auipc_alu <= opcode_auipc;
+                opcode_system_alu <= opcode_system;
+                opcode_fence_alu <= opcode_fence;
+                is_inst_illegal_alu <= is_inst_illegal;
+                is_ecall_alu <= is_ecall;
+                is_ebreak_alu <= is_ebreak;
+                is_mret_alu <= is_mret;
+                funct3_alu <= funct3;
+                imm_alu <= imm;
+                rs1_addr_alu <= rs1_addr;
+                rd_addr_alu <= rd_addr; 
+                rs1_alu <= rs1;
+                rs2_alu <= rs2;
+            end
+            if(ce_stage4) begin //Pipeline Registers for MemoryAccess Stage
+                opcode_rtype_memoryaccess <= opcode_rtype_alu;
+                opcode_itype_memoryaccess <= opcode_itype_alu;
+                opcode_load_memoryaccess <= opcode_load_alu;
+                opcode_store_memoryaccess <= opcode_store_alu;
+                opcode_branch_memoryaccess <= opcode_branch_alu;
+                opcode_jal_memoryaccess <= opcode_jal_alu;
+                opcode_jalr_memoryaccess <= opcode_jalr_alu;
+                opcode_lui_memoryaccess <= opcode_lui_alu;
+                opcode_auipc_memoryaccess <= opcode_auipc_alu;
+                opcode_system_memoryaccess <= opcode_system_alu;
+                opcode_fence_memoryaccess <= opcode_fence;
+                is_inst_illegal_memoryaccess <= is_inst_illegal_alu;
+                is_ecall_memoryaccess <= is_ecall_alu;
+                is_ebreak_memoryaccess <= is_ebreak_alu;
+                is_mret_memoryaccess <= is_mret_alu;
+                funct3_memoryaccess <= funct3_alu;
+                imm_memoryaccess <= imm_alu;
+                rs1_addr_memoryaccess <= rs1_addr_alu;
+                rd_addr_memoryaccess <= rd_addr_alu;
+                rs1_memoryaccess <= rs1_alu; 
+                y_memoryaccess <= y;
+            end
+            if(ce_stage5) begin //Pipeline Registers for Writeback Stage
+                rd_addr_writeback <= rd_addr_memoryaccess;
             end
             
-            if(!ce_global) ce_global <= 1;
+            
+            //FSM for Pipeline Control
+            // BRANCH HAZARD
+            if(ce_stage5 && (next_pc != pc-16+4)) begin  //next_pc should be equal to original PC four stages before [fetch -> decode -> execute -> memory_access] then add 4 since we are checking the "next" value
+                ce_stage1 <= 0; //if pc is incorrect, we must flush the pipeline
+                ce_stage2 <= 0; 
+                ce_stage3 <= 0; 
+                ce_stage4 <= 0;
+                ce_stage5 <= 0;
+                pc <= next_pc;     
+            end
+            //Normal Operation
+            else begin
+                ce_stage1 <= 1; //ce_stage1 must only be high if instruction can already be retrieved from the memory 
+                ce_stage2 <= ce_stage1; 
+                ce_stage3 <= ce_stage2; 
+                ce_stage4 <= ce_stage3;
+                ce_stage5 <= ce_stage4;
+                if(ce_stage1) pc <= pc + 4;
+            end
+            
         end
     end
     
@@ -194,8 +202,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     //module instantiations (all outputs are registered)
     rv32i_basereg m0( //regfile controller for the 32 integer base registers
         .i_clk(i_clk),
-        .i_ce_stage1(ce_fetch && ce_global), //clock enable for stage 1
-        .i_ce_stage5(ce_writeback && ce_global), //clock enable for stage 5
+        .i_ce_stage1(ce_stage1), //clock enable for stage 1
+        .i_ce_stage5(ce_stage5), //clock enable for stage 5
         .i_rs1_addr(rs1_addr), //source register 1 address
         .i_rs2_addr(rs2_addr), //source register 2 address
         .i_rd_addr(rd_addr_writeback), //destination register address
@@ -211,8 +219,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_inst(i_inst), // retrieved instruction from Memory
         .o_inst(inst), // instruction sent to pipeline
         /// Pipeline Control ///
-        .i_ce(ce_fetch && ce_global), // input clk enable for pipeline stalling of this stage
-        .o_ce(ce_decoder) // output clk enable for pipeline stalling of next stage
+        .i_ce(ce_stage1), // input clk enable for pipeline stalling of this stage
+        .o_ce() // output clk enable for pipeline stalling of next stage
     ); 
     
     rv32i_decoder m1( //logic for the decoding of the 32 bit instruction [DECODE STAGE , STAGE 2]
@@ -257,8 +265,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_is_ebreak(is_ebreak), //ebreak instruction
         .o_is_mret(is_mret), //mret (return from trap) instruction
          /// Pipeline Control ///
-        .i_ce(ce_decoder && ce_global), // input clk enable for pipeline stalling of this stage
-        .o_ce(ce_alu) // output clk enable for pipeline stalling of next stage
+        .i_ce(ce_stage2), // input clk enable for pipeline stalling of this stage
+        .o_ce() // output clk enable for pipeline stalling of next stage
     );
 
     rv32i_alu m2( //ALU combinational logic [EXECUTE STAGE , STAGE 3]
@@ -290,8 +298,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_opcode_jal(opcode_jal),
         .i_opcode_auipc(opcode_auipc),
          /// Pipeline Control ///
-        .i_ce(ce_alu && ce_global), // input clk enable for pipeline stalling of this stage
-        .o_ce(ce_memoryaccess) // output clk enable for pipeline stalling of next stage
+        .i_ce(ce_stage3), // input clk enable for pipeline stalling of this stage
+        .o_ce() // output clk enable for pipeline stalling of next stage
     );
     
     rv32i_memoryaccess m3( //logic controller for data memory access (load/store) [MEMORY STAGE , STAGE 4]
@@ -307,8 +315,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_wr_mask(o_wr_mask), //write mask {byte3,byte2,byte1,byte0}
         .o_wr_mem(wr_mem), //write to data memory if enabled
          /// Pipeline Control ///
-        .i_ce(ce_memoryaccess && ce_global), // input clk enable for pipeline stalling of this stage
-        .o_ce(ce_writeback) // output clk enable for pipeline stalling of next stage
+        .i_ce(ce_stage4), // input clk enable for pipeline stalling of this stage
+        .o_ce() // output clk enable for pipeline stalling of next stage
     );
     
     rv32i_writeback #(.PC_RESET(PC_RESET)) m4( //logic controller for the next PC and rd value [WRITEBACK STAGE , STAGE 5]
@@ -341,7 +349,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_opcode_system(opcode_system_memoryaccess),
         .i_opcode_fence(opcode_fence_memoryaccess), 
         /// Pipeline Control ///
-        .i_ce(ce_writeback && ce_global), // input clk enable for pipeline stalling of this stage
+        .i_ce(ce_stage5), // input clk enable for pipeline stalling of this stage
         .o_ce() // output clk enable for pipeline stalling of next stage
     );
     
@@ -381,9 +389,9 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_trap_address(trap_address), //mtvec CSR
         .o_go_to_trap_q(go_to_trap), //high before going to trap (if exception/interrupt detected)
         .o_return_from_trap_q(return_from_trap), //high before returning from trap (via mret)
-        .i_minstret_inc(ce_writeback && ce_global), //high for one clock cycle at the end of every instruction
+        .i_minstret_inc(ce_stage5), //high for one clock cycle at the end of every instruction
         /// Pipeline Control ///
-        .i_ce(ce_writeback && ce_global) // input clk enable for pipeline stalling of this stage
+        .i_ce(ce_stage5) // input clk enable for pipeline stalling of this stage
     );
       
 endmodule
