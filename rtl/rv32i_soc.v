@@ -1,7 +1,9 @@
+// Core plus memory
+
 `timescale 1ns / 1ps
 `default_nettype none
 
-//complete package containing the rv32i_core , ROM (for instruction memory) , and RAM (for data memory]
+//complete package containing the rv32i_core and memory (Instruction and Data memory is combined)
 module rv32i_soc #(parameter CLK_FREQ_MHZ=100, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, MEMORY_DEPTH=1024) ( 
     input wire i_clk,
     input wire i_rst_n,
@@ -47,7 +49,7 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=100, PC_RESET=32'h00_00_00_00, TRAP_AD
         .i_mtimecmp_din(i_mtimecmp_din) //data to be written to mtimecmp
      );
         
-     main_memory #(.MEMORY_DEPTH(MEMORY_DEPTH)) m1(
+     main_memory #(.MEMORY_DEPTH(MEMORY_DEPTH)) m1( //memory for instruction and data
         .i_clk(i_clk),
         // READ INSTRUCTION
         .i_inst_addr(iaddr[$clog2(MEMORY_DEPTH)-1:0]),
@@ -84,12 +86,12 @@ module main_memory #(parameter MEMORY_DEPTH=1024) (
     initial begin //initialize memory to zero
         for(i=0 ; i < MEMORY_DEPTH/4 -1 ; i=i+1) memory_regfile[i]=0; 
     end
-    
+
     assign o_inst_out = memory_regfile[{i_inst_addr>>2}]; //read instruction
     assign o_data_out = memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]]; //read data
-    
     // write data
     always @(posedge i_clk) begin
+        
         if(i_wr_en) begin
             if(i_wr_mask[0]) memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]][7:0] <= i_data_in[7:0]; 
             if(i_wr_mask[1]) memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]][15:8] <= i_data_in[15:8];
