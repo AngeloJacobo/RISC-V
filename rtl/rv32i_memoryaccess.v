@@ -1,4 +1,4 @@
- //logic controller for data memory access (load/store) [MEMORY STAGE]
+ //logic controller for data memory access (load/store) [MEMORY ACCESS STAGE]
  
 `timescale 1ns / 1ps
 `default_nettype none
