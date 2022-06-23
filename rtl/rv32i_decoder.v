@@ -1,4 +1,4 @@
-//logic for the decoding of a 32 bit instruction [DECODE STAGE]
+//logic for decoding the 32 bit instruction [DECODE STAGE]
 
 `timescale 1ns / 1ps
 `default_nettype none
@@ -114,7 +114,7 @@ module rv32i_decoder(
         o_is_mret = 0;
     end
 
-    assign o_rs2_addr = i_inst[24:20]; //o_rs1_addr,o_rs2_addr, and o_rd_addr are not registered 
+    assign o_rs2_addr = i_inst[24:20]; //o_rs1_addrando_rs2_addr are not registered 
     assign o_rs1_addr = i_inst[19:15];   //since rv32i_basereg module do the registering itself
     
 
@@ -244,7 +244,7 @@ module rv32i_decoder(
                 
                 // Check if instruction is illegal    
                 valid_opcode = (opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d);
-                illegal_shift = (opcode_itype_d && (o_alu_sll || o_alu_srl || o_alu_sra)) && i_inst[25];
+                illegal_shift = (opcode_itype_d && (alu_sll_d || alu_srl_d || alu_sra_d)) && i_inst[25];
                 o_is_inst_illegal <= !valid_opcode || illegal_shift;
 
                 // Check if ECALL
