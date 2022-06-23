@@ -1,4 +1,4 @@
-//logic for fetching instruction
+//logic for fetching an instruction [FETCH]
 
 `timescale 1ns / 1ps
 `default_nettype none
