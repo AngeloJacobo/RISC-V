@@ -1,8 +1,8 @@
 #! /bin/bash
 
 # Configurables
-# INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
-INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+ INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+#INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
 
 # Compilation parameters for RISC-V toolchain
 PREFIX=riscv64-unknown-elf-
@@ -135,10 +135,11 @@ then
                 vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
             fi
             
-            a=$(vsim -quiet -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
+            a=$(vsim -quiet -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
             if (( $(grep "PASS:" -c <<< $a) != 0 ))
             then
-                printf "PASS!\n\n"
+                status=$(tail -n 1 <<< $a)
+                printf "PASS! $status\n\n"
                 countpassed=$((countpassed+1)) # increment number of PASSED
             elif (( $(grep "FAIL:" -c <<< $a) != 0 ))
             then
@@ -257,11 +258,12 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
             vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
         fi
         vsim $2 -G MEMORY="${MEMORY}" rv32i_soc_TB -do "do wave.do;run -all"
-        a=$(vsim -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN")
+        a=$(vsim -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
         printf "##############################################################\n"
         if (( $(grep "PASS:" -c <<< $a) != 0 ))
-        then
-            printf "PASS!\n\n"
+        then    
+            status=$(tail -n 1 <<< $a)
+            printf "PASS! $status\n\n"
         elif (( $(grep "FAIL:" -c <<< $a) != 0 ))
         then
             printf "\e[31m$a\n\n\e[0m" # red text for FAILED
