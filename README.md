@@ -20,12 +20,12 @@ Inside the `rtl/` folder are the following:
  - `extra/` folder = contains my own assembly testfiles for all basic instructions, system instructions, and pipeline hazards
  
 ## Pipeline Features
- - 5 pipeline stages  
- - Separate data and instruction memory interface [Harvard architecture]  
+ - 5 pipelined stages  
+ - Separate data and instruction memory interface **[Harvard architecture]**  
  - Load instructions take a minimum of 2 clk cycles   
- - Taken branch and jump instructions take a minimum of 6 clk cycles [No Branch Prediction Used]  
- - Two **consecutive** instructions with data dependency take a minimum of 2 clk cycles. Nonconsecutive instructions with data dependency take a minimum of 1 clk cycle [Operation Forwarding used]   
- - All remaining instructions take a minimum of 1 clk cycle   
+ - Taken branch and jump instructions take a minimum of 6 clk cycles **[No Branch Prediction Used]**  
+ - Two **consecutive** instructions with data dependency take a minimum of 2 clk cycles. Nonconsecutive instructions with data dependency take a minimum of 1 clk cycle **[Operation Forwarding used]**   
+ - **All remaining instructions take a minimum of 1 clk cycle**   
 
 ## Supported Features of Zicsr Extension Module
  - **CSR instructions**: `CSRRW`, `CSRRS`, `CSRRC`, `CSRRWI`, `CSRRSI`, `CSRRCI`
@@ -50,8 +50,7 @@ The RISCV toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and `
 
 Below is the expected output after running `$ ./test.sh`:   
  
-![script_updated](https://user-images.githubusercontent.com/87559347/175277402-d0fbb6ba-53c4-4457-8730-0ce0b3c58a43.png)  
- 
+![script_updated](https://user-images.githubusercontent.com/87559347/175321267-a22a95d9-5ed2-448f-aa32-1e9f5e56f579.png)
 
 ## Goal Checklist
  :white_check_mark: Add more testcases for the testbench    
