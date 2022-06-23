@@ -12,7 +12,9 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
     input wire[31:0] i_data_load, //data to be loaded to base reg
     input wire[31:0] i_csr_out, //CSR value to be loaded to basereg
     output reg[31:0] o_rd, //value to be written back to destination register
+    output reg[31:0] o_rd_d, //next value to be written back to destination register
     output wire[31:0] o_next_pc, //new pc value
+    output wire o_change_pc, //high if PC needs to jump
     output reg o_wr_rd, //write rd to the base reg if enabled
     // Trap-Handler
     input wire i_go_to_trap, //high before going to trap (if exception/interrupt detected)
@@ -41,7 +43,6 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
         o_ce = 0;
     end
 
-    reg[31:0] rd_d;
     reg[31:0] pc=0,pc_d;
     reg wr_rd_d;
     reg[31:0] a;
@@ -57,7 +58,7 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
         end
         else begin
             if(i_ce) begin //update register only if this stage is enabled
-                o_rd <= rd_d;
+                o_rd <= o_rd_d;
                 pc <= pc_d;
                 o_wr_rd <= wr_rd_d; 
             end
@@ -67,37 +68,38 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
 
     //determine next value of pc and o_rd
     always @* begin
-        rd_d = 0;
+        o_rd_d = 0;
         pc_d = pc + 32'd4;
         wr_rd_d = 0;
         a = pc;
 
-        if(i_go_to_trap) pc_d = i_trap_address;  //interrupt or exception detected
+        if(i_go_to_trap) pc_d = i_trap_address;  //interrupt or exception detected so go to trap address (mtvec value)
         
-        else if(i_return_from_trap) pc_d = i_return_address; //return from trap via mret
+        else if(i_return_from_trap) pc_d = i_return_address; //return from trap via mret (mepc value)
         
         else begin //normal operation
-            if(i_opcode_rtype || i_opcode_itype) rd_d = i_alu_out;
-            if(i_opcode_load) rd_d = i_data_load;
+            if(i_opcode_rtype || i_opcode_itype) o_rd_d = i_alu_out;
+            if(i_opcode_load) o_rd_d = i_data_load;
             if(i_opcode_branch && i_alu_out[0]) pc_d = sum; //branch iff value of ALU is 1(true)
             if(i_opcode_jal || i_opcode_jalr) begin
-                rd_d = pc_d;
-                pc_d = sum;
+                o_rd_d = pc_d; //register the next pc value to destination register
+                pc_d = sum; //jump to new PC
                 if(i_opcode_jalr) a = i_rs1;
             end 
-            if(i_opcode_jalr) a = i_rs1;
-            if(i_opcode_lui) rd_d = i_imm;
-            if(i_opcode_auipc) rd_d = sum;
+            //if(i_opcode_jalr) a = i_rs1;
+            if(i_opcode_lui) o_rd_d = i_imm;
+            if(i_opcode_auipc) o_rd_d = sum;
             if(i_opcode_system && i_funct3!=0) begin //CSR write
-                rd_d = i_csr_out; 
+                o_rd_d = i_csr_out; 
             end
             
-            if(i_opcode_branch || i_opcode_store || (i_opcode_system && i_funct3 == 0) || i_opcode_fence ) wr_rd_d = 0; //i_funct3==0 are the non-csr system instructions
+            if(i_opcode_branch || i_opcode_store || (i_opcode_system && i_funct3 == 0) || i_opcode_fence ) wr_rd_d = 0; //i_funct3==0 are the non-csr system instructions 
             else wr_rd_d = 1; //always write to the destination reg except when instruction is BRANCH or STORE or SYSTEM(except CSR system instruction)  
         end
         
     end
     
     assign sum = a + i_imm; //share adder for all addition operation for less resource utilization
-    assign o_next_pc = pc_d;
+    assign o_next_pc = pc_d; //next PC value 
+    assign o_change_pc = pc_d != pc + 32'd4; //high if PC needs to jump
 endmodule
