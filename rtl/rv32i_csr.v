@@ -1,4 +1,4 @@
-// control logic for Control and Status Registers (CSR)
+// control logic for Control and Status Registers (CSR) [ZICSR EXTENSION]
 
 `timescale 1ns / 1ps
 `default_nettype none
@@ -31,7 +31,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire[11:0] i_csr_index, // immediate value from decoder
     input wire[31:0] i_imm, //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
     input wire[31:0] i_rs1, //Source register 1 value (new value to be stored to CSR)
-    output wire[31:0] o_csr_out, //CSR value to be loaded to basereg
+    output reg[31:0] o_csr_out, //CSR value to be loaded to basereg
     // Trap-Handler 
     input wire[31:0] i_pc, //Program Counter 
     output reg[31:0] o_return_address, //mepc CSR
@@ -40,6 +40,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     output reg o_return_from_trap_q, //high before returning from trap (via mret)
     input wire i_minstret_inc, //increment minstret after executing an instruction
     /// Pipeline Control ///
+    input wire i_change_pc, //high if PC needs to jump
     input wire i_ce // input clk enable for pipeline stalling of this stage
 );
                //CSR operation type
@@ -93,7 +94,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     
     reg[31:0] csr_in; //value to be stored to CSR
     reg[31:0] csr_data; //value at current CSR address
-    wire csr_enable = i_opcode_system && i_funct3!=0 && i_ce; //csr operation is enabled only at this conditions
+    wire csr_enable = i_opcode_system && i_funct3!=0 && i_ce && !i_change_pc; //csr read/write operation is enabled only at this conditions
     reg[1:0] new_pc = 0; //last two bits of i_pc that will be used in taken branch and jumps
     reg go_to_trap; //high before going to trap (if exception/interrupt detected)
     reg return_from_trap; //high before returning from trap (via mret)
@@ -133,7 +134,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     reg mcountinhibit_cy = 0; //controls increment of mcycle
     reg mcountinhibit_ir = 0; //controls increment of minstret
     
-    //logic for load/store/instruction misaligned exception
+    //control logic for load/store/instruction misaligned exception detection
     always @* begin
         is_load_addr_misaligned = 0;
         is_store_addr_misaligned = 0;
@@ -164,7 +165,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         
     end
     
-    //control logic for all CSRs
+    //control logic for writing to CSRs
     always @(posedge i_clk,negedge i_rst_n) begin
         if(!i_rst_n) begin
             mstatus_mie <= 0;
@@ -191,8 +192,206 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             mcountinhibit_cy <= 0;
             mcountinhibit_ir <= 0;
         end
- 
-        /********************************************** control logic for trap-handling sequence **********************************************/
+        else begin
+            /***************************************************** CSR control logic *****************************************************/
+            //MSTATUS (controls hart's current operating state (mie and mpie are the only configurable bits))
+            if(i_csr_index == MSTATUS && csr_enable) begin 
+                mstatus_mie <= csr_in[3];
+                mstatus_mpie <= csr_in[7];
+                //mstatus_mpp <= csr_in[12:11];
+            end
+            else begin
+                if(go_to_trap && !o_go_to_trap_q) begin
+                    /* Volume 2 pg. 21: xPIE holds the value of the interrupt-enable bit active prior to the trap. 
+                    When a trap is taken from privilege mode y into privilege mode x,xPIE is set to the value of x IE;
+                    x IE is set to 0; and xPP is set to y. */
+                    mstatus_mie <= 0; 
+                    mstatus_mpie <= mstatus_mie; 
+                    mstatus_mpp <= 2'b11;
+                end
+                else if(return_from_trap) begin
+                    /* Volume 2 pg. 21: An MRET or SRET instruction is used to return from a trap in M-mode or S-mode respectively. 
+                    When executing an xRET instruction, supposing xPP holds the value y, xIE is set to xPIE; the
+                    privilege mode is changed to y; xPIE is set to 1; */
+                    mstatus_mie <= mstatus_mpie; 
+                    mstatus_mpie <= 1;
+                    mstatus_mpp <= 2'b11;
+                end
+            end
+     
+     
+            //MIE (interrupt enable bits)
+            if(i_csr_index == MIE && csr_enable) begin   
+                mie_msie <= csr_in[3]; 
+                mie_mtie <= csr_in[7]; 
+                mie_meie <= csr_in[11]; 
+            end  
+            
+            
+            //MTVEC (trap vector configuration (base+mode))
+            if(i_csr_index == MTVEC && csr_enable) begin
+                mtvec_base <= csr_in[31:2];
+                mtvec_mode <= csr_in[1:0]; 
+            end
+            
+            
+            //MSCRATCH (dedicated for use by machine code)   
+            if(i_csr_index == MSCRATCH && csr_enable) begin
+                mscratch <= csr_in;
+            end
+            
+            
+            //MEPC (address of interrupted instruction)
+            if(i_csr_index == MEPC && csr_enable) begin 
+                mepc <= {csr_in[31:2],2'b00};
+            end
+            /* Volume 2 pg. 38: When a trap is taken into M-mode, mepc is written with the virtual address of the 
+             instruction that was interrupted or that encountered the exception */
+            if(go_to_trap && !o_go_to_trap_q) mepc <= i_pc; 
+            
+            
+            //MCAUSE (indicates cause of trap(either interrupt or exception))
+            if(i_csr_index == MCAUSE && csr_enable) begin
+               mcause_intbit <= csr_in[31];
+               mcause_code <= csr_in[3:0];         
+            end
+            /* Volume 2 pg. 38: When a trap is taken into M-mode, mcause is written with a code indicating the event that caused the trap */
+            // Interrupts have priority (external first, then s/w, then timer---[2] sec 3.1.9), then synchronous traps.
+            if(go_to_trap && !o_go_to_trap_q) begin
+                if(external_interrupt_pending) begin 
+                    mcause_code <= MACHINE_EXTERNAL_INTERRUPT; 
+                    mcause_intbit <= 1;
+                end
+                else if(software_interrupt_pending) begin
+                    mcause_code <= MACHINE_SOFTWARE_INTERRUPT; 
+                    mcause_intbit <= 1;
+                end
+                else if(timer_interrupt_pending) begin 
+                    mcause_code <= MACHINE_TIMER_INTERRUPT; 
+                    mcause_intbit <= 1;
+                end
+                else if(i_is_inst_illegal) begin
+                    mcause_code <= ILLEGAL_INSTRUCTION;
+                    mcause_intbit <= 0 ;
+                end
+                else if(is_inst_addr_misaligned) begin
+                    mcause_code <= INSTRUCTION_ADDRESS_MISALIGNED;
+                    mcause_intbit <= 0;
+                end
+                else if(i_is_ecall) begin 
+                    mcause_code <= ECALL;
+                    mcause_intbit <= 0;
+                end
+                else if(i_is_ebreak) begin
+                    mcause_code <= EBREAK;
+                    mcause_intbit <= 0;
+                end
+                else if(is_load_addr_misaligned) begin
+                    mcause_code <= LOAD_ADDRESS_MISALIGNED;
+                    mcause_intbit <= 0;
+                end
+                else if(is_store_addr_misaligned) begin
+                    mcause_code <= STORE_ADDRESS_MISALIGNED;
+                    mcause_intbit <= 0;
+                end
+            end
+            
+            
+            //MTVAL (exception-specific information to assist software in handling trap)
+            if(i_csr_index == MTVAL && csr_enable) begin
+                mtval <= csr_in;
+            end
+            /*If mtval is written with a nonzero value when a breakpoint, address-misaligned, access-fault, or
+            page-fault exception occurs on an instruction fetch, load, or store, then mtval will contain the
+            faulting virtual address.*/
+            if(go_to_trap && !o_go_to_trap_q) begin
+                if(is_load_addr_misaligned || is_store_addr_misaligned) mtval <= i_alu_sum;
+            end           
+            
+            
+            //MCYCLE (counts number of i_clk cycle executed by core [LOWER HALF])
+            if(i_csr_index == MCYCLE && csr_enable) begin
+                mcycle[31:0] <= csr_in; 
+            end
+            
+            
+            //MCYCLEH (counts number of i_clk cycle executed by core [UPPER HALF])
+            if(i_csr_index == MCYCLEH && csr_enable) begin
+                mcycle[63:32] <= csr_in; 
+            end
+            mcycle <= mcountinhibit_cy? mcycle : mcycle + 1; //increments mcycle every clock cycle
+            
+            
+            //MTIME (real-time counter [millisecond increment])
+            /* Volume 2 pg. 44: Platforms provide a real-time counter, exposed as a memory-mapped machine-mode
+             read-write register, mtime. mtime must increment at constant frequency, and the platform must provide a
+            mechanism for determining the period of an mtime tick. */
+            if(i_mtime_wr) begin 
+                mtime<=i_mtime_din;
+                millisec <= 0;
+            end
+            else begin
+                millisec <= (millisec == MILLISEC_WRAP)? 0 : millisec + 1'b1;  //mod-one-millisecond counter
+                mtime <= mtime + ((millisec==MILLISEC_WRAP)? 1:0); //counter that increments every 1 millisecond
+            end
+            /* Volume 2 pg. 44: Platforms provide a 64-bit memory-mapped machine-mode timer compare register (mtimecmp). 
+            A machine timer interrupt becomes pending whenever mtime contains a value greater than or equal to mtimecmp, 
+            treating the values as unsigned integers. The interrupt remains posted until mtimecmp becomes greater than
+            mtime (typically as a result of writing mtimecmp). */
+            if(i_mtimecmp_wr) begin
+                mtimecmp <= i_mtimecmp_din;
+            end
+            timer_interrupt = (mtime >= mtimecmp)? 1:0;
+                   
+                            
+            //MIP (pending interrupts)       
+            mip_msip <= i_software_interrupt;
+            mip_mtip <= timer_interrupt;
+            mip_meip <= i_external_interrupt;
+            
+            
+            //MINSTRET (counts number instructions retired/executed by core [upper half])       
+            if(i_csr_index == MINSTRET && csr_enable) begin
+                minstret[31:0] <= csr_in; 
+            end
+            
+            
+            //MINSTRETH (counts number instructions retired/executed by core [lower half])       
+            if(i_csr_index == MINSTRETH && csr_enable) begin
+                minstret[63:32] <= csr_in; 
+            end
+             minstret <= mcountinhibit_ir? minstret : minstret + (i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q); //increment minstret every instruction
+             
+             
+            //MCOUNTINHIBIT (controls which hardware performance-monitoring counters can increment)
+            if(i_csr_index == MCOUNTINHIBIT && csr_enable) begin
+                mcountinhibit_cy <= csr_in[0];
+                mcountinhibit_ir <= csr_in[2];
+            end
+
+             /****************************************************************************************************************************/
+             
+             /************************************** Registered Outputs for Trap Handlers ************************************************/
+             if(i_ce) begin
+                 o_go_to_trap_q <= go_to_trap;
+                 o_return_from_trap_q <= return_from_trap;
+                 o_return_address <= mepc;
+                 /* Volume 2 pg. 30: When MODE=Direct (0), all traps into machine mode cause the i_pc to be set to the address in the  
+                 BASE field. When MODE=Vectored (1), all synchronous exceptions into machine mode cause the i_pc to be set to the address 
+                 in the BASE field, whereas interrupts cause the i_pc to be set to the address in the BASE field plus four times the
+                 interrupt cause number */
+                 if(mtvec_mode[1] && is_interrupt) o_trap_address <= {mtvec_base,2'b00} + mcause_code<<2;
+                 else o_trap_address = {mtvec_base,2'b00};
+                 
+                 /****************************************************************************************************************************/
+                 
+                 o_csr_out <= csr_data;
+              end
+        end
+    end
+
+   always @* begin
+        /************************************************** control logic for trap detection **************************************************/
         external_interrupt_pending = 0;
         software_interrupt_pending = 0;
         timer_interrupt_pending = 0;
@@ -200,10 +399,6 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         is_exception = 0;
         is_trap = 0;
         go_to_trap = 0;
-        o_return_address = 0;
-        o_trap_address = 0;
-        o_go_to_trap_q = 0;
-        o_return_from_trap_q = 0;
         return_from_trap = 0;
         
         if(i_ce) begin
@@ -217,23 +412,13 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
              go_to_trap = is_trap; //a trap is taken, save i_pc, and go to trap address
              return_from_trap = i_is_mret; // return from trap, go back to saved i_pc
              
-             //registered outputs
-             o_go_to_trap_q = go_to_trap;
-             o_return_from_trap_q = return_from_trap;
-             o_return_address = mepc;
-             /* Volume 2 pg. 30: When MODE=Direct (0), all traps into machine mode cause the i_pc to be set to the address in the  
-             BASE field. When MODE=Vectored (1), all synchronous exceptions into machine mode cause the i_pc to be set to the address 
-             in the BASE field, whereas interrupts cause the i_pc to be set to the address in the BASE field plus four times the
-             interrupt cause number */
-             if(mtvec_mode[1] && is_interrupt) o_trap_address = {mtvec_base,2'b00} + mcause_code<<2;
-             else o_trap_address = {mtvec_base,2'b00};
          end
          /*************************************************************************************************************************************/
          
          
         csr_data = 0;
         csr_in = 0;
-        /******************************** specify csr_data (data CURRENTLY stored at the CSR) *********************************************/
+        /************************************ specify csr_data (data CURRENTLY stored at the CSR) *********************************************/
         case(i_csr_index)
             //machine info
             MVENDORID: csr_data = 32'h0;  //MVENDORID (JEDEC manufacturer ID)
@@ -334,187 +519,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
            CSRRCI: csr_in = csr_data & (~i_imm); //csr read-clear immediate
         endcase
         /*****************************************************************************************************************************/
-        
-        
-        
-        /***************************************************** CSR control logic *****************************************************/
-        //MSTATUS (controls hart's current operating state (mie and mpie are the only configurable bits))
-        if(i_csr_index == MSTATUS && csr_enable) begin 
-            mstatus_mie <= csr_in[3];
-            mstatus_mpie <= csr_in[7];
-            //mstatus_mpp <= csr_in[12:11];
-        end
-        else begin
-            if(go_to_trap) begin
-                /* Volume 2 pg. 21: xPIE holds the value of the interrupt-enable bit active prior to the trap. 
-                When a trap is taken from privilege mode y into privilege mode x,xPIE is set to the value of x IE;
-                x IE is set to 0; and xPP is set to y. */
-                mstatus_mie <= 0; 
-                mstatus_mpie <= mstatus_mie; 
-                mstatus_mpp <= 2'b11;
-            end
-            else if(return_from_trap) begin
-                /* Volume 2 pg. 21: An MRET or SRET instruction is used to return from a trap in M-mode or S-mode respectively. 
-                When executing an xRET instruction, supposing xPP holds the value y, xIE is set to xPIE; the
-                privilege mode is changed to y; xPIE is set to 1; */
-                mstatus_mie <= mstatus_mpie; 
-                mstatus_mpie <= 1;
-                mstatus_mpp <= 2'b11;
-            end
-        end
- 
- 
-        //MIE (interrupt enable bits)
-        if(i_csr_index == MIE && csr_enable) begin   
-            mie_msie <= csr_in[3]; 
-            mie_mtie <= csr_in[7]; 
-            mie_meie <= csr_in[11]; 
-        end  
-        
-        
-        //MTVEC (trap vector configuration (base+mode))
-        if(i_csr_index == MTVEC && csr_enable) begin
-            mtvec_base <= csr_in[31:2];
-            mtvec_mode <= csr_in[1:0]; 
-        end
-        
-        
-        //MSCRATCH (dedicated for use by machine code)   
-        if(i_csr_index == MSCRATCH && csr_enable) begin
-            mscratch <= csr_in;
-        end
-        
-        
-        //MEPC (address of interrupted instruction)
-        if(i_csr_index == MEPC && csr_enable) begin 
-            mepc <= {csr_in[31:2],2'b00};
-        end
-        /* Volume 2 pg. 38: When a trap is taken into M-mode, mepc is written with the virtual address of the 
-         instruction that was interrupted or that encountered the exception */
-        if(go_to_trap) mepc <= i_pc; 
-        
-        
-        //MCAUSE (indicates cause of trap(either interrupt or exception))
-        if(i_csr_index == MCAUSE && csr_enable) begin
-           mcause_intbit <= csr_in[31];
-           mcause_code <= csr_in[3:0];         
-        end
-        /* Volume 2 pg. 38: When a trap is taken into M-mode, mcause is written with a code indicating the event that caused the trap */
-        // Interrupts have priority (external first, then s/w, then timer---[2] sec 3.1.9), then synchronous traps.
-        if(go_to_trap) begin
-            if(external_interrupt_pending) begin 
-                mcause_code <= MACHINE_EXTERNAL_INTERRUPT; 
-                mcause_intbit <= 1;
-            end
-            else if(software_interrupt_pending) begin
-                mcause_code <= MACHINE_SOFTWARE_INTERRUPT; 
-                mcause_intbit <= 1;
-            end
-            else if(timer_interrupt_pending) begin 
-                mcause_code <= MACHINE_TIMER_INTERRUPT; 
-                mcause_intbit <= 1;
-            end
-            else if(i_is_inst_illegal) begin
-                mcause_code <= ILLEGAL_INSTRUCTION;
-                mcause_intbit <= 0 ;
-            end
-            else if(is_inst_addr_misaligned) begin
-                mcause_code <= INSTRUCTION_ADDRESS_MISALIGNED;
-                mcause_intbit <= 0;
-            end
-            else if(i_is_ecall) begin 
-                mcause_code <= ECALL;
-                mcause_intbit <= 0;
-            end
-            else if(i_is_ebreak) begin
-                mcause_code <= EBREAK;
-                mcause_intbit <= 0;
-            end
-            else if(is_load_addr_misaligned) begin
-                mcause_code <= LOAD_ADDRESS_MISALIGNED;
-                mcause_intbit <= 0;
-            end
-            else if(is_store_addr_misaligned) begin
-                mcause_code <= STORE_ADDRESS_MISALIGNED;
-                mcause_intbit <= 0;
-            end
-        end
-        
-        
-        //MTVAL (exception-specific information to assist software in handling trap)
-        if(i_csr_index == MTVAL && csr_enable) begin
-            mtval <= csr_in;
-        end
-        /*If mtval is written with a nonzero value when a breakpoint, address-misaligned, access-fault, or
-        page-fault exception occurs on an instruction fetch, load, or store, then mtval will contain the
-        faulting virtual address.*/
-        if(go_to_trap) begin
-            if(is_load_addr_misaligned || is_store_addr_misaligned) mtval <= i_alu_sum;
-        end           
-        
-        
-        //MCYCLE (counts number of i_clk cycle executed by core [LOWER HALF])
-        if(i_csr_index == MCYCLE && csr_enable) begin
-            mcycle[31:0] <= csr_in; 
-        end
-        
-        
-        //MCYCLEH (counts number of i_clk cycle executed by core [UPPER HALF])
-        if(i_csr_index == MCYCLEH && csr_enable) begin
-            mcycle[63:32] <= csr_in; 
-        end
-        mcycle <= mcountinhibit_cy? mcycle : mcycle + 1; //increments mcycle every clock cycle
-        
-        
-        //MTIME (real-time counter [millisecond increment])
-        /* Volume 2 pg. 44: Platforms provide a real-time counter, exposed as a memory-mapped machine-mode
-         read-write register, mtime. mtime must increment at constant frequency, and the platform must provide a
-        mechanism for determining the period of an mtime tick. */
-        if(i_mtime_wr) begin 
-            mtime<=i_mtime_din;
-            millisec <= 0;
-        end
-        else begin
-            millisec <= (millisec == MILLISEC_WRAP)? 0 : millisec + 1'b1;  //mod-one-millisecond counter
-            mtime <= mtime + ((millisec==MILLISEC_WRAP)? 1:0); //counter that increments every 1 millisecond
-        end
-        /* Volume 2 pg. 44: Platforms provide a 64-bit memory-mapped machine-mode timer compare register (mtimecmp). 
-        A machine timer interrupt becomes pending whenever mtime contains a value greater than or equal to mtimecmp, 
-        treating the values as unsigned integers. The interrupt remains posted until mtimecmp becomes greater than
-        mtime (typically as a result of writing mtimecmp). */
-        if(i_mtimecmp_wr) begin
-            mtimecmp <= i_mtimecmp_din;
-        end
-        timer_interrupt = (mtime >= mtimecmp)? 1:0;
-               
-                        
-        //MIP (pending interrupts)       
-        mip_msip <= i_software_interrupt;
-        mip_mtip <= timer_interrupt;
-        mip_meip <= i_external_interrupt;
-        
-        
-        //MINSTRET (counts number instructions retired/executed by core [upper half])       
-        if(i_csr_index == MINSTRET && csr_enable) begin
-            minstret[31:0] <= csr_in; 
-        end
-        
-        
-        //MINSTRETH (counts number instructions retired/executed by core [lower half])       
-        if(i_csr_index == MINSTRETH && csr_enable) begin
-            minstret[63:32] <= csr_in; 
-        end
-         minstret <= mcountinhibit_ir? minstret : minstret + (i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q); //increment minstret every instruction
-         
-         
-        //MCOUNTINHIBIT (controls which hardware performance-monitoring counters can increment)
-        if(i_csr_index == MCOUNTINHIBIT && csr_enable) begin
-            mcountinhibit_cy <= csr_in[0];
-            mcountinhibit_ir <= csr_in[2];
-        end
-
-         /****************************************************************************************************************************/
-    end
-   assign o_csr_out = csr_data;
+   
+   end
     
 endmodule
