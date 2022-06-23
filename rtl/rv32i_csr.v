@@ -43,6 +43,14 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire i_change_pc, //high if PC needs to jump
     input wire i_ce // input clk enable for pipeline stalling of this stage
 );
+    initial begin
+        o_csr_out = 0;
+        o_return_address = 0;
+        o_trap_address = 0;
+        o_go_to_trap_q = 0;
+        o_return_from_trap_q = 0;        
+    end
+    
                //CSR operation type
     localparam CSRRW = 3'b001,
                CSRRS = 3'b010,
