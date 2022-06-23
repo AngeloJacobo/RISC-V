@@ -41,6 +41,7 @@ module rv32i_soc_TB #(parameter MEMORY);
     end
     /***********************************************************************************************/
     reg[1024:0] cause;
+    
     initial begin
         clk=0;
         rst_n=0;
@@ -56,7 +57,7 @@ module rv32i_soc_TB #(parameter MEMORY);
 
             
         while(  `ifdef HALT_ON_ILLEGAL_INSTRUCTION
-                    uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.m6.i_is_inst_illegal && uut.m0.m6.i_csr_stage) //exception testing (halt core only when instruction is illegal)
+                    uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.m6.i_is_inst_illegal && uut.m0.m6.i_ce) //exception testing (halt core only when instruction is illegal)
                 `elsif HALT_ON_EBREAK
                     !uut.m0.is_ebreak_memoryaccess //ebreak test (halt core on ebreak)
                 `elsif HALT_ON_ECALL
@@ -68,19 +69,23 @@ module rv32i_soc_TB #(parameter MEMORY);
 
             @(negedge clk);
             #1;
-            if(uut.m0.ce_writeback && uut.m0.ce_global) begin
-                    if(uut.m0.opcode_rtype_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"RTYPE"); //Display PC and instruction 
-                    else if(uut.m0.opcode_itype_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"ITYPE"); //Display PC and instruction          
-                    else if(uut.m0.opcode_load_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"LOAD"); //Display PC and instruction 
-                    else if(uut.m0.opcode_store_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"STORE"); //Display PC and instruction 
-                    else if(uut.m0.opcode_branch_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"BRANCH"); //Display PC and instruction 
-                    else if(uut.m0.opcode_jal_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"JAL"); //Display PC and instruction 
-                    else if(uut.m0.opcode_jalr_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"JALR"); //Display PC and instruction 
-                    else if(uut.m0.opcode_lui_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"LUI"); //Display PC and instruction 
-                    else if(uut.m0.opcode_auipc_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"AUIPC"); //Display PC and instruction 
-                    else if(uut.m0.opcode_system_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"SYSTEM"); //Display PC and instruction 
-                    else if(uut.m0.opcode_fence_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"FENCE"); //Display PC and instruction 
-                    else $display("\nPC: %h    %h [%s]", uut.m0.pc-16, uut.m1.memory_regfile[{uut.m0.pc-16}>>2],"UNKNOWN INSTRUCTION"); //Display PC and instruction 
+             if(uut.m0.ce_stage4 && !uut.m0.stall[4] && uut.m0.m6.csr_enable) begin //csr is written
+                $display("\nPC: %h    %h [%s]\n  [CSR] address:0x%0h   value:0x%h ",uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"SYSTEM",uut.m0.m6.i_csr_index,uut.m0.m6.csr_in); //display address of csr changed and its new value
+            end
+            
+            if(uut.m0.ce_stage5) begin
+                    if(uut.m0.opcode_rtype_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"RTYPE"); //Display PC and instruction 
+                    else if(uut.m0.opcode_itype_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"ITYPE"); //Display PC and instruction          
+                    else if(uut.m0.opcode_load_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"LOAD"); //Display PC and instruction 
+                    else if(uut.m0.opcode_store_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"STORE"); //Display PC and instruction 
+                    else if(uut.m0.opcode_branch_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"BRANCH"); //Display PC and instruction 
+                    else if(uut.m0.opcode_jal_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"JAL"); //Display PC and instruction 
+                    else if(uut.m0.opcode_jalr_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"JALR"); //Display PC and instruction 
+                    else if(uut.m0.opcode_lui_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"LUI"); //Display PC and instruction 
+                    else if(uut.m0.opcode_auipc_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"AUIPC"); //Display PC and instruction 
+                    else if(uut.m0.opcode_system_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"SYSTEM"); //Display PC and instruction 
+                    else if(uut.m0.opcode_fence_memoryaccess) $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"FENCE"); //Display PC and instruction 
+                    else $display("\nPC: %h    %h [%s]", uut.m0.m5.pc, uut.m1.memory_regfile[{uut.m0.m5.pc}>>2],"UNKNOWN INSTRUCTION"); //Display PC and instruction 
                     
                 #1;
                 
@@ -104,12 +109,8 @@ module rv32i_soc_TB #(parameter MEMORY);
                     $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.i_data_addr,uut.m1.i_data_in,uut.m1.i_wr_mask); //display address of memory changed and its new value
                 end
                 
-                if(uut.m0.m4.wr_rd_d && uut.m0.rd_addr_memoryaccess!=0) begin //base register is written
-                    $display("  [BASEREG] address:0x%0d   value:0x%h",uut.m0.rd_addr_memoryaccess,uut.m0.m4.rd_d); //display address of base reg changed and its new value
-                end
-                
-                if(uut.m0.m6.csr_enable) begin //csr is written
-                    $display("  [CSR] address:0x%0h   value:0x%h",uut.m0.m6.i_csr_index,uut.m0.m6.csr_in); //display address of csr changed and its new value
+                if(uut.m0.m5.wr_rd_d && uut.m0.rd_addr_memoryaccess!=0) begin //base register is written
+                    $display("  [BASEREG] address:0x%0d   value:0x%h",uut.m0.rd_addr_memoryaccess,uut.m0.m5.o_rd_d); //display address of base reg changed and its new value
                 end
                 
                 if(uut.m0.return_from_trap) begin
@@ -117,8 +118,13 @@ module rv32i_soc_TB #(parameter MEMORY);
                 end
                 
             end
-        end
+            
+
         
+        end
+
+        
+        @(negedge clk);
         $display("\nAll instructions executed......");
         
         /************* Dump Base Register and Memory Values *******************/
@@ -154,14 +160,14 @@ module rv32i_soc_TB #(parameter MEMORY);
     initial begin   //external interrupt at 5 ms
         #5_005_000; //(5ms)
         external_interrupt = 1;
-        wait(uut.m0.ce_writeback && uut.m0.go_to_trap);
+        wait(uut.m0.ce_stage5 && uut.m0.go_to_trap);
         external_interrupt = 0;
     end
     
     initial begin   //software interrupt at 10 ms
         #10_005_000; //(5ms)
         software_interrupt = 1;
-        wait(uut.m0.ce_writeback && uut.m0.go_to_trap);
+        wait(uut.m0.ce_stage5 && uut.m0.go_to_trap);
         software_interrupt = 0;
     end
     
