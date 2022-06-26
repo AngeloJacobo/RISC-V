@@ -16,7 +16,7 @@ module rv32i_fetch (
         o_inst = 0;
     end
     
-    always @(posedge i_clk,i_rst_n) begin
+    always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
             o_ce <= 0;
             o_inst <= 0;
