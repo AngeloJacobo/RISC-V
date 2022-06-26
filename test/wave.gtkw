@@ -1,0 +1,237 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Sat Jun 25 10:14:07 2022
+[*]
+[dumpfile] "/home/angelo/Desktop/RISC-V/test/wave.vcd"
+[dumpfile_mtime] "Sat Jun 25 10:13:44 2022"
+[dumpfile_size] 768206
+[savefile] "/home/angelo/Desktop/RISC-V/test/wave.gtkw"
+[timestart] 1389800
+[size] 1848 1126
+[pos] -1 -1
+*-15.205254 1491000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] rv32i_soc_TB.
+[treeopen] rv32i_soc_TB.uut.
+[treeopen] rv32i_soc_TB.uut.m0.
+[treeopen] rv32i_soc_TB.uut.m0.m3.
+[sst_width] 297
+[signals_width] 552
+[sst_expanded] 1
+[sst_vpaned_height] 455
+@28
+rv32i_soc_TB.clk
+rv32i_soc_TB.rst_n
+@200
+-Core Interface
+@c00022
+rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+@28
+(0)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(1)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(2)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(3)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(4)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(5)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(6)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(7)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(8)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(9)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(10)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(11)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(12)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(13)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(14)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(15)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(16)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(17)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(18)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(19)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(20)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(21)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(22)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(23)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(24)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(25)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(26)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(27)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(28)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(29)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(30)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+(31)rv32i_soc_TB.uut.m0.o_iaddr[31:0]
+@1401200
+-group_end
+@c00022
+rv32i_soc_TB.uut.m0.i_inst[31:0]
+@28
+(0)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(1)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(2)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(3)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(4)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(5)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(6)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(7)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(8)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(9)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(10)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(11)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(12)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(13)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(14)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(15)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(16)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(17)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(18)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(19)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(20)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(21)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(22)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(23)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(24)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(25)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(26)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(27)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(28)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(29)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(30)rv32i_soc_TB.uut.m0.i_inst[31:0]
+(31)rv32i_soc_TB.uut.m0.i_inst[31:0]
+@1401200
+-group_end
+@c00022
+rv32i_soc_TB.uut.m0.o_daddr[31:0]
+@28
+(0)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(1)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(2)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(3)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(4)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(5)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(6)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(7)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(8)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(9)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(10)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(11)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(12)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(13)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(14)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(15)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(16)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(17)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(18)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(19)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(20)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(21)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(22)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(23)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(24)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(25)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(26)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(27)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(28)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(29)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(30)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+(31)rv32i_soc_TB.uut.m0.o_daddr[31:0]
+@1401200
+-group_end
+@22
+rv32i_soc_TB.uut.m0.i_din[31:0]
+rv32i_soc_TB.uut.m0.o_dout[31:0]
+rv32i_soc_TB.uut.m0.o_wr_mask[3:0]
+@28
+rv32i_soc_TB.uut.m0.o_wr_en
+@200
+-Core Registers
+@28
+rv32i_soc_TB.uut.m0.opcode_auipc
+rv32i_soc_TB.uut.m0.opcode_branch
+rv32i_soc_TB.uut.m0.opcode_fence
+rv32i_soc_TB.uut.m0.opcode_itype
+rv32i_soc_TB.uut.m0.opcode_jal
+rv32i_soc_TB.uut.m0.opcode_jalr
+rv32i_soc_TB.uut.m0.opcode_load
+rv32i_soc_TB.uut.m0.opcode_lui
+rv32i_soc_TB.uut.m0.opcode_rtype
+rv32i_soc_TB.uut.m0.opcode_store
+rv32i_soc_TB.uut.m0.opcode_system
+@c00028
+rv32i_soc_TB.uut.m0.stall[4:0]
+@28
+(0)rv32i_soc_TB.uut.m0.stall[4:0]
+(1)rv32i_soc_TB.uut.m0.stall[4:0]
+(2)rv32i_soc_TB.uut.m0.stall[4:0]
+(3)rv32i_soc_TB.uut.m0.stall[4:0]
+(4)rv32i_soc_TB.uut.m0.stall[4:0]
+@1401200
+-group_end
+@28
+rv32i_soc_TB.uut.m0.ce_stage1
+rv32i_soc_TB.uut.m0.ce_stage2
+rv32i_soc_TB.uut.m0.ce_stage3
+rv32i_soc_TB.uut.m0.ce_stage4
+rv32i_soc_TB.uut.m0.ce_stage5
+rv32i_soc_TB.uut.m0.m3.i_alu_add
+rv32i_soc_TB.uut.m0.m3.i_alu_and
+rv32i_soc_TB.uut.m0.m3.i_alu_eq
+rv32i_soc_TB.uut.m0.m3.i_alu_ge
+rv32i_soc_TB.uut.m0.m3.i_alu_geu
+rv32i_soc_TB.uut.m0.m3.i_alu_neq
+rv32i_soc_TB.uut.m0.m3.i_alu_or
+rv32i_soc_TB.uut.m0.m3.i_alu_sll
+rv32i_soc_TB.uut.m0.m3.i_alu_slt
+rv32i_soc_TB.uut.m0.m3.i_alu_sltu
+rv32i_soc_TB.uut.m0.m3.i_alu_sra
+rv32i_soc_TB.uut.m0.m3.i_alu_srl
+rv32i_soc_TB.uut.m0.m3.i_alu_sub
+rv32i_soc_TB.uut.m0.m3.i_alu_xor
+@22
+rv32i_soc_TB.uut.m0.m5.o_next_pc[31:0]
+@28
+rv32i_soc_TB.uut.m0.m5.o_change_pc
+@200
+-Decoder Outputs
+@420
+rv32i_soc_TB.uut.m0.rs1_addr[4:0]
+rv32i_soc_TB.uut.m0.rs2_addr[4:0]
+@22
+rv32i_soc_TB.uut.m0.rs1[31:0]
+rv32i_soc_TB.uut.m0.rs2[31:0]
+@28
+rv32i_soc_TB.uut.m0.m2.o_is_ebreak
+rv32i_soc_TB.uut.m0.m2.o_is_ecall
+rv32i_soc_TB.uut.m0.m2.o_is_inst_illegal
+rv32i_soc_TB.uut.m0.m2.o_is_mret
+@29
+rv32i_soc_TB.uut.m0.m2.valid_opcode
+@28
+rv32i_soc_TB.uut.m0.m2.illegal_shift
+@200
+-ALU
+@22
+rv32i_soc_TB.uut.m0.rs1_orig[31:0]
+rv32i_soc_TB.uut.m0.rs2_orig[31:0]
+rv32i_soc_TB.uut.m0.m3.a[31:0]
+rv32i_soc_TB.uut.m0.m3.b[31:0]
+rv32i_soc_TB.uut.m0.m3.o_y[31:0]
+@200
+-WriteBack
+@22
+rv32i_soc_TB.uut.m0.m5.pc[31:0]
+@28
+rv32i_soc_TB.uut.m0.m5.o_wr_rd
+@22
+rv32i_soc_TB.uut.m0.rd_addr_memoryaccess[4:0]
+@200
+-MEMORY
+@22
+rv32i_soc_TB.uut.m1.i_data_addr[12:0]
+rv32i_soc_TB.uut.m1.i_data_in[31:0]
+rv32i_soc_TB.uut.m1.o_data_out[31:0]
+rv32i_soc_TB.uut.m1.o_data_out[31:0]
+rv32i_soc_TB.uut.m1.o_inst_out[31:0]
+@28
+rv32i_soc_TB.uut.m1.i_wr_en
+@22
+rv32i_soc_TB.uut.m1.i_wr_mask[3:0]
+[pattern_trace] 1
+[pattern_trace] 0
