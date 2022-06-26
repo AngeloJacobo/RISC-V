@@ -1,10 +1,12 @@
-`timescale 1ns / 1ps
+`timescale 1ns / 1ns
+
 //`define HALT_ON_ILLEGAL_INSTRUCTION // stop core when instruction is illegal
 // `define HALT_ON_EBREAK // halt core on ebreak
 // `define HALT_ON_ECALL // halt core on ecall
 
 
-module rv32i_soc_TB #(parameter MEMORY);
+module rv32i_soc_TB;
+    parameter MEMORY="memory.mem";
 
     /******************************* MODIFY ****************************************/
     localparam MEMORY_DEPTH = 8192, //number of memory bytes
@@ -43,6 +45,8 @@ module rv32i_soc_TB #(parameter MEMORY);
     reg[1024:0] cause;
     
     initial begin
+        $dumpfile("wave.vcd");
+        $dumpvars(0,rv32i_soc_TB);
         clk=0;
         rst_n=0;
         #100;
