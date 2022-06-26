@@ -82,9 +82,9 @@ module rv32i_writeback #(parameter PC_RESET = 32'h00_00_00_00) (
             if(i_opcode_load) o_rd_d = i_data_load;
             if(i_opcode_branch && i_alu_out[0]) pc_d = sum; //branch iff value of ALU is 1(true)
             if(i_opcode_jal || i_opcode_jalr) begin
+                if(i_opcode_jalr) a = i_rs1;
                 o_rd_d = pc_d; //register the next pc value to destination register
                 pc_d = sum; //jump to new PC
-                if(i_opcode_jalr) a = i_rs1;
             end 
             //if(i_opcode_jalr) a = i_rs1;
             if(i_opcode_lui) o_rd_d = i_imm;
