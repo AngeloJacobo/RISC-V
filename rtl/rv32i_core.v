@@ -347,7 +347,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     rv32i_alu m3( //ALU combinational logic [EXECUTE STAGE , STAGE 3]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_pc({pc-8}), //Program Counter (two stages had already been filled [fetch -> decode])
+        .i_pc({pc-32'd8}), //Program Counter (two stages had already been filled [fetch -> decode])
         .i_rs1(rs1), //Source register 1 value
         .i_rs2(rs2), //Source Register 2 value
         .i_imm(imm), //Immediate value
@@ -461,7 +461,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_rs1(rs1_alu), //Source register 1 value (new value to be stored to CSR)
         .o_csr_out(csr_out), //CSR value to be loaded to basereg
         // Trap-Handler 
-        .i_pc({pc-12}), //Program Counter  (three stages had already been filled [fetch -> decode -> execute ])
+        .i_pc({pc-32'd12}), //Program Counter  (three stages had already been filled [fetch -> decode -> execute ])
         .o_return_address(return_address), //mepc CSR
         .o_trap_address(trap_address), //mtvec CSR
         .o_go_to_trap_q(go_to_trap), //high before going to trap (if exception/interrupt detected)
