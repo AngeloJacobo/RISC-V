@@ -77,7 +77,7 @@ then
             vdel -all -lib work # delete old library folder
         fi
         vlib work
-        vlog ${rtlfiles}
+        vlog +incdir+../rtl/ ${rtlfiles}
     else 
         rm -f testbench.vvp # remove previous occurence of vvp file  
         iverilog -I "../rtl/" $rtlfiles
@@ -135,12 +135,12 @@ then
                 vlib work
                 if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile name has word "exception" then that testfile will not halt on ebreak/ecall
                 then
-                    vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
+                    vlog -quiet +incdir+../rtl/ +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
                 elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
                 then
-                    vlog -quiet +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
+                    vlog -quiet +incdir+../rtl/ +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
                 else
-                    vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
+                    vlog -quiet +incdir+../rtl/ ${rtlfiles} # current testfile will halt on both ebreak/ecall 
                 fi
                 
                 a=$(vsim -quiet -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
@@ -276,12 +276,12 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
             
             if (( $(grep "exception" -c <<< $1) != 0 ))
             then
-                vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only      
+                vlog -quiet +incdir+../rtl/ +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only      
             elif (( $(grep "sbreak" -c <<< $1) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
             then
-                vlog -quiet +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
+                vlog -quiet +incdir+../rtl/ +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
             else
-                vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
+                vlog -quiet +incdir+../rtl/ ${rtlfiles} # current testfile will halt on both ebreak/ecall 
             fi
             vsim $2 -G MEMORY="${MEMORY}" rv32i_soc_TB -do "do wave.do;run -all"
             a=$(vsim -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
