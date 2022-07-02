@@ -1,8 +1,8 @@
 #! /bin/bash
 
 # Configurables
-#INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32mi  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
-INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+#INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+ INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
 
 # Compilation parameters for RISC-V toolchain
 PREFIX=riscv64-unknown-elf-
@@ -45,16 +45,17 @@ fi
 
 
 # verilog rtl files of the RISC-V core
-rtlfiles="../rtl/rv32i_alu.v 
+rtlfiles="../rtl/rv32i_forwarding.v
           ../rtl/rv32i_basereg.v 
           ../rtl/rv32i_fetch.v
           ../rtl/rv32i_decoder.v 
+          ../rtl/rv32i_alu.v 
           ../rtl/rv32i_memoryaccess.v 
           ../rtl/rv32i_writeback.v
           ../rtl/rv32i_csr.v
           ../rtl/rv32i_core.v
           ../rtl/rv32i_soc.v
-          ./rv32i_soc_TB.v"
+          ../test/rv32i_soc_TB.v"
 
             
 countfile=0     # stores total number of testfiles
@@ -79,7 +80,7 @@ then
         vlog ${rtlfiles}
     else 
         rm -f testbench.vvp # remove previous occurence of vvp file  
-        iverilog $rtlfiles
+        iverilog -I "../rtl/" $rtlfiles
     fi
     
 elif [ "$1" == "rv32ui" ] || [ "$1" == "rv32mi" ] || [ "$1" == "extra" ] || [ "$1" == "all" ] || [ "$1" == "" ] # regression tests
@@ -149,12 +150,12 @@ then
 
                 if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile name has word "exception" then that testfile will not halt on ebreak/ecall
                 then
-                    iverilog -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
                 elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
                 then
-                    iverilog -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
                 else
-                    iverilog -o testbench.vvp $rtlfiles
+                    iverilog -I "../rtl/" -o testbench.vvp $rtlfiles
                 fi
                 a=$(vvp -n testbench.vvp | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
             fi
@@ -291,12 +292,12 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
 
             if (( $(grep "exception" -c <<< $1) != 0 ))
             then
-                iverilog -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
+                iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
             elif (( $(grep "sbreak" -c <<< $1) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
             then
-                iverilog -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
+                iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
             else
-                iverilog -o testbench.vvp $rtlfiles # current testfile will halt on both ebreak/ecall 
+                iverilog -I "../rtl/" -o testbench.vvp $rtlfiles # current testfile will halt on both ebreak/ecall 
             fi
             vvp -n testbench.vvp
             if [ "$2" == "-gui" ]
@@ -322,8 +323,6 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         printf "\e[31m\tTESTFILE DOES NOT EXIST\n\n\e[0m"    # testfile is missing
     fi
 fi
-
-
 
 # HOW TO USE
 # $ ./test.sh = use the official tests from RISCV [rv32ui and rv32mi]
