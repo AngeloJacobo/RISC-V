@@ -8,7 +8,7 @@
 
 module rv32i_soc_TB;
     parameter MEMORY="memory.mem";
-    parameter ZICSR_EXTENSION = 0;
+    parameter ZICSR_EXTENSION = 1;
     /******************************* MODIFY ****************************************/
     localparam MEMORY_DEPTH = 8192, //number of memory bytes
                DATA_START_ADDR = 32'h1080; //starting address of data memory to be displayed
