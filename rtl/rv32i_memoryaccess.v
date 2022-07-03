@@ -36,34 +36,18 @@ module rv32i_memoryaccess(
     input wire i_flush, //flush this stage
     output reg o_flush //flush previous stages
 );
-    initial begin
-        o_data_store = 0;
-        o_data_load = 0;
-        o_wr_mask = 0;
-        o_wr_mem = 0;
-        o_ce = 0;
-    end
     
     reg[31:0] data_store_d; //data to be stored to memory
     reg[31:0] data_load_d; //data to be loaded to basereg
     reg[3:0] wr_mask_d; 
     wire[1:0] addr_2 = i_y[1:0]; //last 2  bits of data memory address
-    reg delay=0; //1 clk delay needed for load operation
+    reg delay; //1 clk delay needed for load operation
     wire stall_bit =i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
 
     //register the outputs of this module
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
-            o_y <= 0;
-            o_rd_addr <= 0;
-            o_funct3 <= 0;
-            o_opcode <= 0;
-            o_pc <= 0;
             o_wr_rd <= 0;
-            o_rd <= 0;
-            o_data_store <= 0;
-            o_data_load <= 0;
-            o_wr_mask <= 0;
             o_wr_mem <= 0;
             delay <= 0;
             o_ce <= 0;
@@ -88,7 +72,7 @@ module rv32i_memoryaccess(
                 o_ce <= i_ce;
             end
             else if(stall_bit && !i_stall[`WRITEBACK]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
-                                                                                //clock enable of next stage at next clock cycle
+                                                                        //clock enable of next stage at next clock cycle (pipeline bubble)
             o_y <= i_y; //data memory address
 
             //1 clk delay logic to register the data memory address
@@ -102,7 +86,7 @@ module rv32i_memoryaccess(
 
     //determine data to be loaded to basereg or stored to data memory 
     always @* begin
-        o_stall = ((i_opcode[`LOAD] && i_ce && !delay) || i_stall[`WRITEBACK]) && !i_flush; //stall while retrieving data from memory(dont stall when need to flush)
+        o_stall = ((i_opcode[`LOAD] && i_ce && !delay) || i_stall[`WRITEBACK]) && !i_flush; //stall while retrieving data from memory(dont stall when need to flush by next stage)
         o_flush = i_flush; //flush this stage along with previous stages
         data_store_d = 0;
         data_load_d = 0;
@@ -132,8 +116,6 @@ module rv32i_memoryaccess(
                     data_store_d = i_rs2;
                    end
         endcase
-        //stall logic for retrieving data from memory
-    
     end
 
 
