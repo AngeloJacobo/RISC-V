@@ -4,7 +4,7 @@
 `default_nettype none
 `include "rv32i_header.vh"
 
-module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) ( 
+module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0, ZICSR_EXTENSION = 1) ( 
     input wire i_clk, i_rst_n,
     //Instruction Memory Interface (32 bit rom)
     input wire[31:0] i_inst, //32-bit instruction
@@ -29,6 +29,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     //wires for basereg
     wire[31:0] rs1_orig,rs2_orig;   
     wire[31:0] rs1,rs2;  
+    wire ce_read;
 
     //wires for rv32i_fetch
      wire[31:0] fetch_pc;
@@ -83,9 +84,9 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     //wires for rv32i_writeback
     wire writeback_wr_rd; 
     wire[4:0] writeback_rd_addr; 
-    wire[31:0] writeback_rd; //rd = data about to be written at current clk cycle
-    wire[31:0] writeback_next_pc; //next value of program counter (PC)
-    wire writeback_change_pc; // high if PC needs to jump (pipeline must be flushed)
+    wire[31:0] writeback_rd;
+    wire[31:0] writeback_next_pc;
+    wire writeback_change_pc;
     wire writeback_ce;
     wire writeback_flush;
 
@@ -96,9 +97,9 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire csr_go_to_trap; //high before going to trap (if exception/interrupt detected)
     wire csr_return_from_trap; //high before returning from trap (via mret)
     
-    wire[`STALL_WIDTH-1:0] stall;
+    wire[`STALL_WIDTH-1:0] stall; //control stall of each pipeline stages
     assign o_wr_en = memoryaccess_wr_mem && !csr_go_to_trap; //only write to data memory if there is no trap
-
+    assign ce_read = decoder_ce && !stall[`DECODER]; //reads basereg only decoder is not stalled 
 
     //module instantiations
     rv32i_forwarding operand_forwarding ( //logic for operand forwarding
@@ -127,7 +128,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
 
     rv32i_basereg m0( //regfile controller for the 32 integer base registers
         .i_clk(i_clk),
-        .i_ce_read(decoder_ce && !stall[`DECODER]), //clock enable for reading from basereg [STAGE 2]
+        .i_ce_read(ce_read), //clock enable for reading from basereg [STAGE 2]
         .i_rs1_addr(decoder_rs1_addr), //source register 1 address
         .i_rs2_addr(decoder_rs2_addr), //source register 2 address
         .i_rd_addr(writeback_rd_addr), //destination register address
@@ -287,41 +288,51 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_flush(writeback_flush) //flushes previous stages 
     );
     
-    rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6( // control logic for Control and Status Registers (CSR) [STAGE 4]
-        .i_clk(i_clk),
-        .i_rst_n(i_rst_n),
-        // Interrupts
-        .i_external_interrupt(i_external_interrupt), //interrupt from external source
-        .i_software_interrupt(i_software_interrupt), //interrupt from software
-        // Timer Interrupt
-        .i_mtime_wr(i_mtime_wr), //write to mtime
-        .i_mtimecmp_wr(i_mtimecmp_wr), //write to mtimecmp
-        .i_mtime_din(i_mtime_din), //data to be written to mtime
-        .i_mtimecmp_din(i_mtimecmp_din), //data to be written to mtimecmp
-        /// Exceptions ///
-        .i_is_inst_illegal(alu_exception[`ILLEGAL]), //illegal instruction
-        .i_is_ecall(alu_exception[`ECALL]), //ecall instruction
-        .i_is_ebreak(alu_exception[`EBREAK]), //ebreak instruction
-        .i_is_mret(alu_exception[`MRET]), //mret (return from trap) instruction
-        /// Load/Store Misaligned Exception///
-        .i_opcode(alu_opcode), //opcode type from alu stage
-        .i_y(alu_y), //y value from ALU (address used in load/store/jump/branch)
-        /// CSR instruction ///
-        .i_funct3(alu_funct3), // CSR instruction operation
-        .i_csr_index(alu_imm[11:0]), //immediate value decoded by decoder
-        .i_imm({27'b0,alu_rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
-        .i_rs1(alu_rs1), //Source register 1 value (new value to be stored to CSR)
-        .o_csr_out(csr_out), //CSR value to be loaded to basereg
-        // Trap-Handler 
-        .i_pc(alu_pc), //Program Counter  (three stages had already been filled [fetch -> decode -> execute ])
-        .o_return_address(csr_return_address), //mepc CSR
-        .o_trap_address(csr_trap_address), //mtvec CSR
-        .o_go_to_trap_q(csr_go_to_trap), //high before going to trap (if exception/interrupt detected)
-        .o_return_from_trap_q(csr_return_from_trap), //high before returning from trap (via mret)
-        .i_minstret_inc(memoryaccess_ce), //high for one clock cycle at the end of every instruction
-        /// Pipeline Control ///
-        .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
-        .i_stall(stall) //informs this stage to stall
-    );
+    // removable extensions
+    if(ZICSR_EXTENSION == 1) begin: zicsr
+        rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6( // control logic for Control and Status Registers (CSR) [STAGE 4]
+            .i_clk(i_clk),
+            .i_rst_n(i_rst_n),
+            // Interrupts
+            .i_external_interrupt(i_external_interrupt), //interrupt from external source
+            .i_software_interrupt(i_software_interrupt), //interrupt from software
+            // Timer Interrupt
+            .i_mtime_wr(i_mtime_wr), //write to mtime
+            .i_mtimecmp_wr(i_mtimecmp_wr), //write to mtimecmp
+            .i_mtime_din(i_mtime_din), //data to be written to mtime
+            .i_mtimecmp_din(i_mtimecmp_din), //data to be written to mtimecmp
+            /// Exceptions ///
+            .i_is_inst_illegal(alu_exception[`ILLEGAL]), //illegal instruction
+            .i_is_ecall(alu_exception[`ECALL]), //ecall instruction
+            .i_is_ebreak(alu_exception[`EBREAK]), //ebreak instruction
+            .i_is_mret(alu_exception[`MRET]), //mret (return from trap) instruction
+            /// Load/Store Misaligned Exception///
+            .i_opcode(alu_opcode), //opcode type from alu stage
+            .i_y(alu_y), //y value from ALU (address used in load/store/jump/branch)
+            /// CSR instruction ///
+            .i_funct3(alu_funct3), // CSR instruction operation
+            .i_csr_index(alu_imm[11:0]), //immediate value decoded by decoder
+            .i_imm({27'b0,alu_rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
+            .i_rs1(alu_rs1), //Source register 1 value (new value to be stored to CSR)
+            .o_csr_out(csr_out), //CSR value to be loaded to basereg
+            // Trap-Handler 
+            .i_pc(alu_pc), //Program Counter  (three stages had already been filled [fetch -> decode -> execute ])
+            .o_return_address(csr_return_address), //mepc CSR
+            .o_trap_address(csr_trap_address), //mtvec CSR
+            .o_go_to_trap_q(csr_go_to_trap), //high before going to trap (if exception/interrupt detected)
+            .o_return_from_trap_q(csr_return_from_trap), //high before returning from trap (via mret)
+            .i_minstret_inc(memoryaccess_ce), //high for one clock cycle at the end of every instruction
+            /// Pipeline Control ///
+            .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
+            .i_stall(stall) //informs this stage to stall
+        );
+    end
+    else begin: zicsr
+        assign csr_out = 0;
+        assign csr_return_address = 0;
+        assign csr_trap_address = 0;
+        assign csr_go_to_trap = 0;
+        assign csr_return_from_trap = 0;
+    end
       
 endmodule
