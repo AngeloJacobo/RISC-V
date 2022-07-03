@@ -16,14 +16,9 @@ module rv32i_basereg
         output wire[31:0] o_rs2 //source register 2 value
     );
     
-    reg[5:0] i = 0;
-    reg[4:0] rs1_addr_q = 0,rs2_addr_q = 0;
+    reg[4:0] rs1_addr_q, rs2_addr_q;
     reg[31:0] base_regfile[31:1]; //base register file (base_regfile[0] is hardwired to zero)
     wire write_to_basereg;
-    
-    initial begin //initialize all basereg to zero
-        for(i=0 ; i<32 ; i=i+1) base_regfile[i]=0; 
-    end
     
     always @(posedge i_clk) begin
         if(write_to_basereg) begin //only write to register if stage 5 is previously enabled (output of stage 5[WRITEBACK] is registered so delayed by 1 clk)
