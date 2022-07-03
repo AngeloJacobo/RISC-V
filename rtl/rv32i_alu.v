@@ -42,10 +42,7 @@ module rv32i_alu(
     input wire i_flush, //flush this stage
     output reg o_flush //flush previous stages
 );
-    initial begin
-        o_y = 0;
-        o_ce = 0;
-    end
+
     wire alu_add = i_alu[`ADD];
     wire alu_sub = i_alu[`SUB];
     wire alu_slt = i_alu[`SLT];
@@ -85,19 +82,8 @@ module rv32i_alu(
     //register the output of i_alu
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
-            o_opcode <= 0;
             o_exception <= 0;
-            o_y <= 0;
-            o_rs1_addr <= 0;
-            o_rs1 <= 0;
-            o_rs2 <= 0;
-            o_rd_addr <= 0;
-            o_imm <= 0;
-            o_funct3 <= 0;
             o_ce <= 0;
-            o_rd <= 0;
-            o_wr_rd <= 0;
-            o_pc <= 0;
         end
         else begin
             if(i_ce && !stall_bit) begin //update register only if this stage is enabled
@@ -122,7 +108,7 @@ module rv32i_alu(
                 o_ce <= i_ce;
             end
             else if(stall_bit && !i_stall[`MEMORYACCESS]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
-                                                                    //clock enable of next stage at next clock cycle
+                                                                    //clock enable of next stage at next clock cycle (pipeline bubble)
         end
         
     end 
