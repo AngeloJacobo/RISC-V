@@ -8,7 +8,7 @@
 
 module rv32i_soc_TB;
     parameter MEMORY="memory.mem";
-
+    parameter ZICSR_EXTENSION = 1;
     /******************************* MODIFY ****************************************/
     localparam MEMORY_DEPTH = 8192, //number of memory bytes
                DATA_START_ADDR = 32'h1080; //starting address of data memory to be displayed
@@ -18,9 +18,8 @@ module rv32i_soc_TB;
     reg external_interrupt=0,software_interrupt=0;
     reg mtime_wr=0,mtimecmp_wr=0;
     reg[63:0] mtime_din,mtimecmp_din=0;
-    reg HALT_CONDITION = 0;
     integer i,j;          
-    rv32i_soc #(.PC_RESET(32'h00_00_00_00), .MEMORY_DEPTH(MEMORY_DEPTH), .CLK_FREQ_MHZ(100), .TRAP_ADDRESS(32'h00000004)) uut (
+    rv32i_soc #(.PC_RESET(32'h00_00_00_00), .MEMORY_DEPTH(MEMORY_DEPTH), .CLK_FREQ_MHZ(100), .TRAP_ADDRESS(32'h00000004), .ZICSR_EXTENSION(ZICSR_EXTENSION)) uut (
         .i_clk(clk),
         .i_rst_n(rst_n),
         //Interrupts
@@ -70,7 +69,9 @@ module rv32i_soc_TB;
         /**************************************************************************************************************************/
 
         while(  `ifdef HALT_ON_ILLEGAL_INSTRUCTION
-                    uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.m6.i_is_inst_illegal && uut.m0.m6.i_ce) //exception testing (halt core only when instruction is illegal)
+                    if(ZICSR_EXTENSION != 0) begin
+                        uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.zicsr.m6.i_is_inst_illegal && uut.m0.zicsr.m6.i_ce) //exception testing (halt core only when instruction is illegal)
+                    end
                 `elsif HALT_ON_EBREAK
                     !uut.m0.alu_exception[`EBREAK] //ebreak test (halt core on ebreak)
                 `elsif HALT_ON_ECALL
@@ -82,8 +83,10 @@ module rv32i_soc_TB;
 
             @(negedge clk);
             #1;
-             if(!uut.m0.stall[`MEMORYACCESS] && uut.m0.m6.csr_enable) begin //csr is written
-                $display("\nPC: %h    %h [%s]\n  [CSR] address:0x%0h   value:0x%h ",uut.m0.m6.i_pc, uut.m1.memory_regfile[{uut.m0.m6.i_pc}>>2],"SYSTEM",uut.m0.m6.i_csr_index,uut.m0.m6.csr_in); //display address of csr changed and its new value
+            if(ZICSR_EXTENSION != 0) begin
+                if(!uut.m0.stall[`MEMORYACCESS] && uut.m0.zicsr.m6.csr_enable) begin //csr is written
+                    $display("\nPC: %h    %h [%s]\n  [CSR] address:0x%0h   value:0x%h ",uut.m0.zicsr.m6.i_pc, uut.m1.memory_regfile[{uut.m0.zicsr.m6.i_pc}>>2],"SYSTEM",uut.m0.zicsr.m6.i_csr_index,uut.m0.zicsr.m6.csr_in); //display address of csr changed and its new value
+                end
             end
             
             if(uut.m0.writeback_ce && !uut.m0.stall[`WRITEBACK]) begin
@@ -101,22 +104,22 @@ module rv32i_soc_TB;
                     else $display("\nPC: %h    %h [%s]", uut.m0.m5.i_pc, uut.m1.memory_regfile[{uut.m0.m5.i_pc}>>2],"UNKNOWN INSTRUCTION"); //Display PC and instruction 
                     
                 #1;
-                
-                 if(uut.m0.csr_go_to_trap) begin //exception or interrupt detected
-                    case({uut.m0.m6.mcause_intbit,uut.m0.m6.mcause_code})
-                        {1'b1,4'd3}: $display("  GO TO TRAP: %s","SOFTWARE INTERRUPT");
-                        {1'b1,4'd7}: $display("  GO TO TRAP: %s","TIMER INTERRUPT");
-                       {1'b1,4'd11}: $display("  GO TO TRAP: %s","EXTERNAL INTERRUPT"); 
-                        {1'b0,4'd0}: $display("  GO TO TRAP: %s","INSTRUCTION ADDRESS MISALIGNED");
-                        {1'b0,4'd2}: $display("  GO TO TRAP: %s","ILLEGAL INSTRUCTION");
-                        {1'b0,4'd3}: $display("  GO TO TRAP: %s","EBREAK"); 
-                        {1'b0,4'd4}: $display("  GO TO TRAP: %s","LOAD ADDRESS MISALIGNED"); 
-                        {1'b0,4'd6}: $display("  GO TO TRAP: %s","STORE ADDRESS MISALIGNED"); 
-                       {1'b0,4'd11}: $display("  GO TO TRAP: %s","ECALL");
-                            default: $display("  GO TO TRAP: %s","UNKNOWN TRAP");
-                    endcase
+                if(ZICSR_EXTENSION != 0) begin
+                     if(uut.m0.csr_go_to_trap) begin //exception or interrupt detected
+                        case({uut.m0.zicsr.m6.mcause_intbit,uut.m0.zicsr.m6.mcause_code})
+                            {1'b1,4'd3}: $display("  GO TO TRAP: %s","SOFTWARE INTERRUPT");
+                            {1'b1,4'd7}: $display("  GO TO TRAP: %s","TIMER INTERRUPT");
+                           {1'b1,4'd11}: $display("  GO TO TRAP: %s","EXTERNAL INTERRUPT"); 
+                            {1'b0,4'd0}: $display("  GO TO TRAP: %s","INSTRUCTION ADDRESS MISALIGNED");
+                            {1'b0,4'd2}: $display("  GO TO TRAP: %s","ILLEGAL INSTRUCTION");
+                            {1'b0,4'd3}: $display("  GO TO TRAP: %s","EBREAK"); 
+                            {1'b0,4'd4}: $display("  GO TO TRAP: %s","LOAD ADDRESS MISALIGNED"); 
+                            {1'b0,4'd6}: $display("  GO TO TRAP: %s","STORE ADDRESS MISALIGNED"); 
+                           {1'b0,4'd11}: $display("  GO TO TRAP: %s","ECALL");
+                                default: $display("  GO TO TRAP: %s","UNKNOWN TRAP");
+                        endcase
+                     end
                  end
-                 
                  if(uut.m1.i_wr_en) begin //data memory is written
                     $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.i_data_addr,uut.m1.i_data_in,uut.m1.i_wr_mask); //display address of memory changed and its new value
                 end
@@ -154,15 +157,26 @@ module rv32i_soc_TB;
         end
        
         /***********************************************************************/
-        
-        if(uut.m0.m0.base_regfile[17] == 32'h5d) begin //Exit test using RISC-V International's riscv-tests pass/fail criteria
-            if(uut.m0.m0.base_regfile[10] == 0)
-                $display("\nPASS: exit code = 0x%h \n[%0d instructions in %0d clk cycles]\n",uut.m0.m0.base_regfile[10]>>1,uut.m0.m6.minstret,uut.m0.m6.mcycle);
-            else begin
-                $display("\nFAIL: exit code = 0x%h \n[%0d instructions in %0d clk cycles]\n",uut.m0.m0.base_regfile[10]>>1,uut.m0.m6.minstret,uut.m0.m6.mcycle);
+        if(ZICSR_EXTENSION != 0) begin
+            if(uut.m0.m0.base_regfile[17] == 32'h5d) begin //Exit test using RISC-V International's riscv-tests pass/fail criteria
+                if(uut.m0.m0.base_regfile[10] == 0)
+                    $display("\nPASS: exit code = 0x%h \n[%0d instructions in %0d clk cycles]\n",uut.m0.m0.base_regfile[10]>>1,uut.m0.zicsr.m6.minstret,uut.m0.zicsr.m6.mcycle);
+                else begin
+                    $display("\nFAIL: exit code = 0x%h \n[%0d instructions in %0d clk cycles]\n",uut.m0.m0.base_regfile[10]>>1,uut.m0.zicsr.m6.minstret,uut.m0.zicsr.m6.mcycle);
+                end
             end
+            else $display("\nUNKNOWN: basereg[17] = 0x%h (must be 0x0000005d)",uut.m0.m0.base_regfile[17]);
         end
-        else $display("\nUNKNOWN: basereg[17] = 0x%h (must be 0x0000005d)",uut.m0.m0.base_regfile[17]);
+        else begin
+            if(uut.m0.m0.base_regfile[17] == 32'h5d) begin //Exit test using RISC-V International's riscv-tests pass/fail criteria
+                if(uut.m0.m0.base_regfile[10] == 0)
+                    $display("\nPASS: exit code = 0x%h\n",uut.m0.m0.base_regfile[10]>>1);
+                else begin
+                    $display("\nFAIL: exit code = 0x%h\n",uut.m0.m0.base_regfile[10]>>1);
+                end
+            end
+            else $display("\nUNKNOWN: basereg[17] = 0x%h (must be 0x0000005d)",uut.m0.m0.base_regfile[17]);
+        end
         $stop;
         
         /**************************************************************************************************************************/
