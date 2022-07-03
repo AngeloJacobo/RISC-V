@@ -1,8 +1,8 @@
 #! /bin/bash
 
 # Configurables
-#INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
- INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+#INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
 
 # Compilation parameters for RISC-V toolchain
 PREFIX=riscv64-unknown-elf-
@@ -54,7 +54,7 @@ rtlfiles="../rtl/rv32i_forwarding.v
           ../rtl/rv32i_writeback.v
           ../rtl/rv32i_csr.v
           ../rtl/rv32i_core.v
-          ../rtl/rv32i_soc.v
+          ../test/rv32i_soc.v
           ../test/rv32i_soc_TB.v"
 
             
