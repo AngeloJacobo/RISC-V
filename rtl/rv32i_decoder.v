@@ -28,41 +28,6 @@ module rv32i_decoder(
     output reg o_flush //flush previous stages
 );
 
-    localparam R_TYPE = 7'b011_0011, //instruction types and its corresponding opcode
-               I_TYPE = 7'b001_0011,
-                 LOAD = 7'b000_0011,
-                STORE = 7'b010_0011,
-               BRANCH = 7'b110_0011,
-                  JAL = 7'b110_1111,
-                 JALR = 7'b110_0111,
-                  LUI = 7'b011_0111,
-                AUIPC = 7'b001_0111,
-               SYSTEM = 7'b111_0011,
-                FENCE = 7'b000_1111;
-
-    localparam ADD  = 3'b000, //ALU operations and its corresponding o_funct3 code
-               SLT  = 3'b010, 
-               SLTU = 3'b011,
-               XOR  = 3'b100,
-               OR   = 3'b110,
-               AND  = 3'b111,
-               SLL  = 3'b001,
-               SRA  = 3'b101,
-               EQ   = 3'b000,
-               NEQ  = 3'b001,
-               LT   = 3'b100,
-               GE   = 3'b101,
-               LTU  = 3'b110,
-               GEU  = 3'b111;
-                      
-    initial begin
-        o_ce = 0;
-        o_pc = 0;
-        o_rd_addr = 0;
-        o_funct3   = 0;
-        o_imm      = 0; 
-    end
-
     assign o_rs2_addr = i_inst[24:20]; //o_rs1_addrando_rs2_addr are not registered 
     assign o_rs1_addr = i_inst[19:15];   //since rv32i_basereg module do the registering itself
     
@@ -101,21 +66,12 @@ module rv32i_decoder(
     reg system_noncsr = 0;
     reg valid_opcode = 0;
     reg illegal_shift = 0;
-    wire stall_bit = i_stall[`DECODER] || i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
+    wire stall_bit = i_stall[`DECODER] || i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall this stage when next stages are stalled
 
     //register the outputs of this decoder module for shorter combinational timing paths
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
-            o_ce       <= 0;
-            o_pc       <= 0;
-            o_rs1_addr_q <= 0;
-            o_rs2_addr_q <= 0;
-            o_rd_addr  <= 0;
-            o_funct3   <= 0;
-            o_imm      <= 0; 
-            o_exception <= 0;
-            o_opcode <= 0;
-            o_alu <= 0;
+            o_ce <= 0;
         end
         else begin
             if(i_ce && !stall_bit) begin //update registers only if this stage is enabled and pipeline is not stalled
@@ -143,17 +99,17 @@ module rv32i_decoder(
                 o_alu[`GEU]  <= alu_geu_d;
                 
                 //// Opcode Type ////
-                opcode_rtype_d  = opcode == R_TYPE;
-                opcode_itype_d  = opcode == I_TYPE;
-                opcode_load_d   = opcode == LOAD;
-                opcode_store_d  = opcode == STORE;
-                opcode_branch_d = opcode == BRANCH;
-                opcode_jal_d    = opcode == JAL;
-                opcode_jalr_d   = opcode == JALR;
-                opcode_lui_d    = opcode == LUI;
-                opcode_auipc_d  = opcode == AUIPC;
-                opcode_system_d = opcode == SYSTEM;
-                opcode_fence_d  = opcode == FENCE;
+                opcode_rtype_d  = opcode == `OPCODE_RTYPE;
+                opcode_itype_d  = opcode == `OPCODE_ITYPE;
+                opcode_load_d   = opcode == `OPCODE_LOAD;
+                opcode_store_d  = opcode == `OPCODE_STORE;
+                opcode_branch_d = opcode == `OPCODE_BRANCH;
+                opcode_jal_d    = opcode == `OPCODE_JAL;
+                opcode_jalr_d   = opcode == `OPCODE_JALR;
+                opcode_lui_d    = opcode == `OPCODE_LUI;
+                opcode_auipc_d  = opcode == `OPCODE_AUIPC;
+                opcode_system_d = opcode == `OPCODE_SYSTEM;
+                opcode_fence_d  = opcode == `OPCODE_FENCE;
                 
                 o_opcode[`RTYPE]  <= opcode_rtype_d;
                 o_opcode[`ITYPE]  <= opcode_itype_d;
@@ -168,7 +124,7 @@ module rv32i_decoder(
                 o_opcode[`FENCE]  <= opcode_fence_d;
                 
                 /*********************** decode possible exceptions ***********************/
-                system_noncsr = opcode == SYSTEM && funct3_d == 0 ; //system instruction but not CSR operation
+                system_noncsr = opcode == `OPCODE_SYSTEM && funct3_d == 0 ; //system instruction but not CSR operation
                 
                 // Check if instruction is illegal    
                 valid_opcode = (opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d);
@@ -192,13 +148,13 @@ module rv32i_decoder(
                 o_ce <= i_ce;
             end
             else if(stall_bit && !i_stall[`ALU]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
-                                                                    //clock enable of next stage at next clock cycle
+                                                                    //clock enable of next stage at next clock cycle (pipeline bubble)
         end
     end
 
      //decode operation for ALU and the extended value of immediate
     always @* begin
-        o_stall = i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall when decoder needs wait time
+        o_stall = i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall previous stage when decoder needs wait time
         o_flush = i_flush; //flush this stage along with the previous stages 
         imm_d = 0;
         alu_add_d = 0;
@@ -217,29 +173,29 @@ module rv32i_decoder(
         alu_geu_d = 0;
         
         /********** Decode ALU Operation **************/
-        if(opcode == R_TYPE || opcode == I_TYPE) begin
-            if(opcode == R_TYPE) begin
-                alu_add_d = funct3_d == ADD ? !i_inst[30] : 0; //add and sub has same o_funct3 code
-                alu_sub_d = funct3_d == ADD ? i_inst[30] : 0;      //differs on i_inst[30]
+        if(opcode == `OPCODE_RTYPE || opcode == `OPCODE_ITYPE) begin
+            if(opcode == `OPCODE_RTYPE) begin
+                alu_add_d = funct3_d == `FUNCT3_ADD ? !i_inst[30] : 0; //add and sub has same o_funct3 code
+                alu_sub_d = funct3_d == `FUNCT3_ADD ? i_inst[30] : 0;      //differs on i_inst[30]
             end
-            else alu_add_d = funct3_d == ADD;
-            alu_slt_d = funct3_d == SLT;
-            alu_sltu_d = funct3_d == SLTU;
-            alu_xor_d = funct3_d == XOR;
-            alu_or_d = funct3_d == OR;
-            alu_and_d = funct3_d == AND;
-            alu_sll_d = funct3_d == SLL;
-            alu_srl_d = funct3_d == SRA ? !i_inst[30]:0; //srl and sra has same o_funct3 code
-            alu_sra_d = funct3_d == SRA ? i_inst[30]:0 ;      //differs on i_inst[30]
+            else alu_add_d = funct3_d == `FUNCT3_ADD;
+            alu_slt_d = funct3_d == `FUNCT3_SLT;
+            alu_sltu_d = funct3_d == `FUNCT3_SLTU;
+            alu_xor_d = funct3_d == `FUNCT3_XOR;
+            alu_or_d = funct3_d == `FUNCT3_OR;
+            alu_and_d = funct3_d == `FUNCT3_AND;
+            alu_sll_d = funct3_d == `FUNCT3_SLL;
+            alu_srl_d = funct3_d == `FUNCT3_SRA ? !i_inst[30]:0; //srl and sra has same o_funct3 code
+            alu_sra_d = funct3_d == `FUNCT3_SRA ? i_inst[30]:0 ;      //differs on i_inst[30]
         end
 
-        else if(opcode == BRANCH) begin
-           alu_eq_d = funct3_d == EQ;
-           alu_neq_d = funct3_d == NEQ;    
-           alu_slt_d = funct3_d == LT;
-           alu_ge_d = funct3_d == GE;
-           alu_sltu_d = funct3_d == LTU;
-           alu_geu_d= funct3_d == GEU;
+        else if(opcode == `OPCODE_BRANCH) begin
+           alu_eq_d = funct3_d == `FUNCT3_EQ;
+           alu_neq_d = funct3_d == `FUNCT3_NEQ;    
+           alu_slt_d = funct3_d == `FUNCT3_LT;
+           alu_ge_d = funct3_d == `FUNCT3_GE;
+           alu_sltu_d = funct3_d == `FUNCT3_LTU;
+           alu_geu_d= funct3_d == `FUNCT3_GEU;
         end
 
         else alu_add_d = 1'b1; //add operation for all remaining instructions
@@ -247,12 +203,12 @@ module rv32i_decoder(
 
         /************************** extend the immediate (o_imm) *********************/
         case(opcode)
-        I_TYPE , LOAD , JALR: imm_d = {{20{i_inst[31]}},i_inst[31:20]}; 
-                       STORE: imm_d = {{20{i_inst[31]}},i_inst[31:25],i_inst[11:7]};
-                      BRANCH: imm_d = {{19{i_inst[31]}},i_inst[31],i_inst[7],i_inst[30:25],i_inst[11:8],1'b0};
-                         JAL: imm_d = {{11{i_inst[31]}},i_inst[31],i_inst[19:12],i_inst[20],i_inst[30:21],1'b0};
-                 LUI , AUIPC: imm_d = {i_inst[31:12],12'h000};
-              SYSTEM , FENCE: imm_d = {20'b0,i_inst[31:20]};   
+        `OPCODE_ITYPE , `OPCODE_LOAD , `OPCODE_JALR: imm_d = {{20{i_inst[31]}},i_inst[31:20]}; 
+                                      `OPCODE_STORE: imm_d = {{20{i_inst[31]}},i_inst[31:25],i_inst[11:7]};
+                                     `OPCODE_BRANCH: imm_d = {{19{i_inst[31]}},i_inst[31],i_inst[7],i_inst[30:25],i_inst[11:8],1'b0};
+                                        `OPCODE_JAL: imm_d = {{11{i_inst[31]}},i_inst[31],i_inst[19:12],i_inst[20],i_inst[30:21],1'b0};
+                        `OPCODE_LUI , `OPCODE_AUIPC: imm_d = {i_inst[31:12],12'h000};
+                     `OPCODE_SYSTEM , `OPCODE_FENCE: imm_d = {20'b0,i_inst[31:20]};   
                      default: imm_d = 0;
         endcase
         /**************************************************************************/
