@@ -8,7 +8,7 @@
 
 module rv32i_soc_TB;
     parameter MEMORY="memory.mem";
-    parameter ZICSR_EXTENSION = 1;
+    parameter ZICSR_EXTENSION = 0;
     /******************************* MODIFY ****************************************/
     localparam MEMORY_DEPTH = 8192, //number of memory bytes
                DATA_START_ADDR = 32'h1080; //starting address of data memory to be displayed
@@ -69,9 +69,7 @@ module rv32i_soc_TB;
         /**************************************************************************************************************************/
 
         while(  `ifdef HALT_ON_ILLEGAL_INSTRUCTION
-                    if(ZICSR_EXTENSION != 0) begin
-                        uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.zicsr.m6.i_is_inst_illegal && uut.m0.zicsr.m6.i_ce) //exception testing (halt core only when instruction is illegal)
-                    end
+                    uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.zicsr.m6.i_is_inst_illegal && uut.m0.zicsr.m6.i_ce) //exception testing (halt core only when instruction is illegal)
                 `elsif HALT_ON_EBREAK
                     !uut.m0.alu_exception[`EBREAK] //ebreak test (halt core on ebreak)
                 `elsif HALT_ON_ECALL
@@ -208,6 +206,10 @@ module rv32i_soc_TB;
         mtimecmp_wr = 1;
     #1000
         mtimecmp_wr = 0;
+    end
+    initial begin
+        #11_000_000;
+        $finish;
     end
 endmodule
 
