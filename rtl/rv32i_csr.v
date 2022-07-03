@@ -39,13 +39,6 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire i_ce, // input clk enable for pipeline stalling of this stage
     input wire[`STALL_WIDTH-1:0] i_stall //informs this stage to stall
 );
-    initial begin
-        o_csr_out = 0;
-        o_return_address = 0;
-        o_trap_address = 0;
-        o_go_to_trap_q = 0;
-        o_return_from_trap_q = 0;        
-    end
     
                //CSR operation type
     localparam CSRRW = 3'b001,
@@ -121,29 +114,29 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     wire stall_bit =i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
 
     // CSR register bits
-    reg mstatus_mie = 0; //Machine Interrupt Enable
-    reg mstatus_mpie = 0; //Machine Previous Interrupt Enable
-    reg[1:0] mstatus_mpp = 2'b11; //MPP
-    reg mie_meie = 0; //machine external interrupt enable
-    reg mie_mtie = 0; //machine timer interrupt enable
-    reg mie_msie = 0; //machine software interrupt enable
-    reg[29:0] mtvec_base = TRAP_ADDRESS[31:2]; //address of i_pc after returning from interrupt (via MRET)
-    reg[1:0] mtvec_mode = TRAP_ADDRESS[1:0]; //vector mode addressing 
-    reg[31:0] mscratch = 0; //dedicated for use by machine code
-    reg[31:0] mepc = 0; //machine exception i_pc (address of interrupted instruction)
-    reg mcause_intbit = 0; //interrupt(1) or exception(0)
-    reg[3:0] mcause_code = 0; //indicates event that caused the trap
-    reg[31:0] mtval = 0; //exception-specific infotmation to assist software in handling trap
-    reg mip_meip = 0; //machine external interrupt pending
-    reg mip_mtip = 0; //machine timer interrupt pending
-    reg mip_msip = 0; //machine software interrupt pending
-    reg[63:0] mcycle = 0; //counts number of i_clk cycle executed by core
-    reg[63:0] mtime = 0; //real-time i_clk (millisecond increment)
-    reg[$clog2(MILLISEC_WRAP)-1:0] millisec = 0;  //counter with period of 1 millisec
-    reg[63:0] mtimecmp = 0; //compare register for mtime
-    reg[63:0] minstret = 0; //counts number instructions retired/executed by core
-    reg mcountinhibit_cy = 0; //controls increment of mcycle
-    reg mcountinhibit_ir = 0; //controls increment of minstret
+    reg mstatus_mie; //Machine Interrupt Enable
+    reg mstatus_mpie; //Machine Previous Interrupt Enable
+    reg[1:0] mstatus_mpp; //MPP
+    reg mie_meie; //machine external interrupt enable
+    reg mie_mtie; //machine timer interrupt enable
+    reg mie_msie; //machine software interrupt enable
+    reg[29:0] mtvec_base; //address of i_pc after returning from interrupt (via MRET)
+    reg[1:0] mtvec_mode; //vector mode addressing 
+    reg[31:0] mscratch; //dedicated for use by machine code
+    reg[31:0] mepc; //machine exception i_pc (address of interrupted instruction)
+    reg mcause_intbit; //interrupt(1) or exception(0)
+    reg[3:0] mcause_code; //indicates event that caused the trap
+    reg[31:0] mtval; //exception-specific infotmation to assist software in handling trap
+    reg mip_meip; //machine external interrupt pending
+    reg mip_mtip; //machine timer interrupt pending
+    reg mip_msip; //machine software interrupt pending
+    reg[63:0] mcycle; //counts number of i_clk cycle executed by core
+    reg[63:0] mtime; //real-time i_clk (millisecond increment)
+    reg[$clog2(MILLISEC_WRAP)-1:0] millisec;  //counter with period of 1 millisec
+    reg[63:0] mtimecmp; //compare register for mtime
+    reg[63:0] minstret; //counts number instructions retired/executed by core
+    reg mcountinhibit_cy; //controls increment of mcycle
+    reg mcountinhibit_ir; //controls increment of minstret
     
     //control logic for load/store/instruction misaligned exception detection
     always @* begin
@@ -179,6 +172,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     //control logic for writing to CSRs
     always @(posedge i_clk,negedge i_rst_n) begin
         if(!i_rst_n) begin
+            o_go_to_trap_q = 0;
+            o_return_from_trap_q = 0;        
             mstatus_mie <= 0;
             mstatus_mpie <= 0;
             mstatus_mpp <= 2'b11;
