@@ -59,11 +59,11 @@ module rv32i_writeback (
         end
         
         else begin //normal operation
-            if(i_opcode_load) o_rd = i_data_load;
+            if(i_opcode_load) o_rd = i_data_load; //load data from memory to basereg
             else if(i_opcode_system && i_funct3!=0) begin //CSR write
                 o_rd = i_csr_out; 
             end
-            else o_rd = i_rd;
+            else o_rd = i_rd; //rd value is already computed at ALU stage
         end
         
     end
