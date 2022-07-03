@@ -2,6 +2,7 @@
 
 `timescale 1ns / 1ps
 `default_nettype none
+`include "rv32i_header.vh"
 
 module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
     input wire i_clk,i_rst_n,
@@ -21,21 +22,15 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
     output reg o_stall, //informs previous stages to stall
     input wire i_flush //flush this stage
 );
-    initial begin
-        o_ce = 0;
-        o_inst = 0;
-        o_iaddr = PC_RESET;
-    end
+
     reg[31:0] iaddr_d;
     reg ce_d;
-    wire stall_bit = i_stall[`FETCH] || i_stall[`DECODER] ||i_stall[`ALU] || i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
+    wire stall_bit = i_stall[`FETCH] || i_stall[`DECODER] ||i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall this stage when next stages are stalled
 
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
             o_ce <= 0;
             o_iaddr <= PC_RESET;
-            o_pc <= 0;
-            o_inst <= 0;
         end
         else begin
             if(i_ce && !stall_bit) begin //update registers only if this stage is enabled and next stages are not stalled
@@ -43,21 +38,21 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
                 o_pc <= o_iaddr;
                 o_inst <= i_inst;
             end
-            if(i_flush && !stall_bit) begin //flush this stage so clock-enable of next stage is disabled at next clock cycle
+            if(i_flush && !stall_bit) begin //flush this stage(only when not stalled) so that clock-enable of next stage is disabled at next clock cycle
                 o_ce <= 0;
             end
             else if(!stall_bit) begin //clock-enable will change only when not stalled
                 o_ce <= ce_d;
             end
             else if(stall_bit && !i_stall[`DECODER]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
-                                                                    //clock enable of next stage at next clock cycle
+                                                                    //clock enable of next stage at next clock cycle (pipeline bubble)
         end
     end
     // logic for PC and pipeline clock_enable control
     always @* begin
         iaddr_d = 0;
         ce_d = 0;
-        o_stall = i_stall[`DECODER] ||i_stall[`ALU] || i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall when retrieving instructions need wait time
+        o_stall = i_stall[`DECODER] || i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall when retrieving instructions need wait time
 
         if(i_writeback_change_pc) begin
             iaddr_d = i_writeback_next_pc;
