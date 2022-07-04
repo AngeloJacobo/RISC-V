@@ -15,6 +15,7 @@ module rv32i_soc_TB;
     /*******************************************************************************/
    
     reg clk,rst_n;
+    reg temp;
     reg external_interrupt=0,software_interrupt=0;
     reg mtime_wr=0,mtimecmp_wr=0;
     reg[63:0] mtime_din,mtimecmp_din=0;
@@ -183,15 +184,18 @@ module rv32i_soc_TB;
     
     initial begin   //external interrupt at 5 ms
     external_interrupt = 0;
+    temp = 0;
         #5_005_000; //(5ms)
         external_interrupt = 1;
         wait(uut.m0.writeback_ce && uut.m0.csr_go_to_trap);
+        temp = 1;
         external_interrupt = 0;
     end
     
     initial begin   //software interrupt at 10 ms
     software_interrupt = 0;
         #10_005_000; //(10ms)
+        if(temp == 0) $stop;
         software_interrupt = 1;
         wait(uut.m0.writeback_ce && uut.m0.csr_go_to_trap);
         software_interrupt = 0;
@@ -206,10 +210,6 @@ module rv32i_soc_TB;
         mtimecmp_wr = 1;
     #1000
         mtimecmp_wr = 0;
-    end
-    initial begin
-        #11_000_000;
-        $finish;
     end
 endmodule
 
