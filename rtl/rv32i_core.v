@@ -2,8 +2,9 @@
 
 `timescale 1ns / 1ps
 `default_nettype none
+`include "rv32i_header.vh"
 
-module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) ( 
+module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0, ZICSR_EXTENSION = 1) ( 
     input wire i_clk, i_rst_n,
     //Instruction Memory Interface (32 bit rom)
     input wire[31:0] i_inst, //32-bit instruction
@@ -23,453 +24,501 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     input wire[63:0] i_mtime_din, //data to be written to mtime
     input wire[63:0] i_mtimecmp_din //data to be written to mtimecmp
 );
+    
    
     //wires for basereg
-    wire[31:0] rs1_orig,rs2_orig,rd,rd_d; //value of source register 1 and 2 and destination register, _orig = no operation forwarding yet so values might not be updated   
-                                             //rd = data about to be written at current clk cycle, rd_d = next data to be written to base reg
- 
+    wire[31:0] rs1_orig,rs2_orig;   
+    wire[31:0] rs1,rs2;  
+    wire ce_read;
+
     //wires for rv32i_fetch
-     wire[31:0] inst;
+     wire[31:0] fetch_pc;
+     wire[31:0] fetch_inst;
+     wire fetch_ce;
 
     //wires for rv32i_decoder
-    wire[31:0] imm; 
-    wire[4:0] rs1_addr, rs2_addr;
-    wire[4:0] rd_addr; 
-    wire[2:0] funct3;
-    wire alu_add;
-    wire alu_sub;
-    wire alu_slt;
-    wire alu_sltu;
-    wire alu_xor;
-    wire alu_or;
-    wire alu_and;
-    wire alu_sll;
-    wire alu_srl;
-    wire alu_sra;
-    wire alu_eq; 
-    wire alu_neq;
-    wire alu_ge; 
-    wire alu_geu;
-    wire opcode_rtype;
-    wire opcode_itype;
-    wire opcode_load;
-    wire opcode_store;
-    wire opcode_branch;
-    wire opcode_jal;
-    wire opcode_jalr;
-    wire opcode_lui;
-    wire opcode_auipc;
-    wire opcode_system;
-    wire opcode_fence; 
-    wire is_inst_illegal;
-    wire is_ecall;
-    wire is_ebreak;
-    wire is_mret;
-  
+    wire[`ALU_WIDTH-1:0] decoder_alu;
+    wire[`OPCODE_WIDTH-1:0] decoder_opcode;
+    wire[31:0] decoder_pc;
+    wire[4:0] decoder_rs1_addr, decoder_rs2_addr;
+    wire[4:0] decoder_rs1_addr_q, decoder_rs2_addr_q;
+    wire[4:0] decoder_rd_addr; 
+    wire[31:0] decoder_imm; 
+    wire[2:0] decoder_funct3;
+    wire[`EXCEPTION_WIDTH-1:0] decoder_exception;
+    wire decoder_ce;
+    wire decoder_flush;
+
     //wires for rv32i_alu
-    reg[31:0] rs1, rs2;
-    wire[31:0] a,b;
-    wire[31:0] y;
+    wire[`OPCODE_WIDTH-1:0] alu_opcode;
+    wire[4:0] alu_rs1_addr;
+    wire[31:0] alu_rs1;
+    wire[31:0] alu_rs2;
+    wire[31:0] alu_imm;
+    wire[2:0] alu_funct3;
+    wire[31:0] alu_y;
+    wire[31:0] alu_pc;
+    wire[31:0] alu_next_pc;
+    wire alu_change_pc;
+    wire alu_wr_rd;
+    wire[4:0] alu_rd_addr;
+    wire[31:0] alu_rd;
+    wire alu_rd_valid;
+    wire[`EXCEPTION_WIDTH-1:0] alu_exception;
+    wire alu_ce;
+    wire alu_flush;
+    wire alu_force_stall;
+
+    //wires for rv32i_memoryaccess
+    wire[`OPCODE_WIDTH-1:0] memoryaccess_opcode;
+    wire[2:0] memoryaccess_funct3;
+    wire[31:0] memoryaccess_pc;
+    wire memoryaccess_wr_rd;
+    wire[4:0] memoryaccess_rd_addr;
+    wire[31:0] memoryaccess_rd;
+    wire[31:0] memoryaccess_data_load;
+    wire memoryaccess_wr_mem;
+    wire memoryaccess_ce;
+    wire memoryaccess_flush;
 
     //wires for rv32i_writeback
-    wire[31:0] data_load; //data to be loaded to base reg
-    wire[31:0] next_pc; //next value of program counter (PC)
-    wire change_pc; // high if PC needs to jump (pipeline must be flushed)
-    wire wr_rd; //write to rd if enabled
+    wire writeback_wr_rd; 
+    wire[4:0] writeback_rd_addr; 
+    wire[31:0] writeback_rd;
+    wire[31:0] writeback_next_pc;
+    wire writeback_change_pc;
+    wire writeback_ce;
+    wire writeback_flush;
 
     //wires for rv32i_csr
     wire[31:0] csr_out; //CSR value to be stored to basereg
-    wire[31:0] return_address; //mepc CSR
-    wire[31:0] trap_address; //mtvec CSR
-    wire go_to_trap; //high before going to trap (if exception/interrupt detected)
-    wire return_from_trap; //high before returning from trap (via mret)
+    wire[31:0] csr_return_address; //mepc CSR
+    wire[31:0] csr_trap_address; //mtvec CSR
+    wire csr_go_to_trap; //high before going to trap (if exception/interrupt detected)
+    wire csr_return_from_trap; //high before returning from trap (via mret)
     
-    //wires for rv32i_memoryaccess
-    wire wr_mem; //write to data memory if enabled
+    wire[`STALL_WIDTH-1:0] stall; //control stall of each pipeline stages
+    assign ce_read = decoder_ce && !stall[`DECODER]; //reads basereg only decoder is not stalled 
+    assign o_wr_en = memoryaccess_wr_mem && !writeback_change_pc; 
 
+    //module instantiations
+    rv32i_forwarding operand_forwarding ( //logic for operand forwarding
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n),
+        .i_rs1_orig(rs1_orig), //current rs1 value saved in basereg
+        .i_rs2_orig(rs2_orig), //current rs2 value saved in basereg
+        .i_decoder_rs1_addr_q(decoder_rs1_addr_q), //address of operand rs1 used in ALU stage
+        .i_decoder_rs2_addr_q(decoder_rs2_addr_q), //address of operand rs2 used in ALU stage
+        .o_alu_force_stall(alu_force_stall), //high to force ALU stage to stall
+        .o_rs1(rs1), //rs1 value with Operand Forwarding
+        .o_rs2(rs2), //rs2 value with Operand Forwarding
+        .o_fetch_ce(fetch_ce),
+        // Stage 4 [MEMORYACCESS]
+        .i_alu_rd_addr(alu_rd_addr), //destination register address
+        .i_alu_wr_rd(alu_wr_rd), //high if rd_addr will be written
+        .i_alu_rd_valid(alu_rd_valid), //high if rd is already valid at this stage (not LOAD nor CSR instruction)
+        .i_alu_rd(alu_rd), //rd value in stage 4
+        .i_memoryaccess_ce(memoryaccess_ce), //high if stage 4 is enabled
+        // Stage 5 [WRITEBACK]
+        .i_memoryaccess_rd_addr(memoryaccess_rd_addr), //destination register address
+        .i_memoryaccess_wr_rd(memoryaccess_wr_rd), //high if rd_addr will be written
+        .i_writeback_rd(writeback_rd), //rd value in stage 5
+        .i_writeback_ce(writeback_ce) //high if stage 4 is enabled
+    );
 
-    //pipeline registers
-    reg ce_stage1=0, ce_stage2=0, ce_stage3=0, ce_stage4=0, ce_stage5=0;
-    reg ce_stage2_d, ce_stage3_d, ce_stage4_d, ce_stage5_d;
-    reg[4:0] stall,stall_q=0;
-    reg opcode_rtype_alu=0,opcode_rtype_memoryaccess=0;
-    reg opcode_itype_alu=0,opcode_itype_memoryaccess=0;
-    reg opcode_load_alu=0, opcode_load_memoryaccess=0;
-    reg opcode_store_alu=0, opcode_store_memoryaccess=0;
-    reg opcode_branch_alu=0, opcode_branch_memoryaccess=0;
-    reg opcode_jal_alu=0, opcode_jal_memoryaccess=0;
-    reg opcode_jalr_alu=0, opcode_jalr_memoryaccess=0;
-    reg opcode_lui_alu=0, opcode_lui_memoryaccess=0;
-    reg opcode_auipc_alu=0, opcode_auipc_memoryaccess=0;
-    reg opcode_system_alu=0, opcode_system_memoryaccess=0;
-    reg opcode_fence_alu=0, opcode_fence_memoryaccess=0;
-    reg is_inst_illegal_alu=0, is_inst_illegal_memoryaccess=0;
-    reg is_ecall_alu=0, is_ecall_memoryaccess=0;
-    reg is_ebreak_alu=0, is_ebreak_memoryaccess=0;
-    reg is_mret_alu=0, is_mret_memoryaccess=0;
-    reg[2:0] funct3_alu=0, funct3_memoryaccess=0;
-    reg[31:0] imm_alu=0, imm_memoryaccess=0; 
-    reg[4:0] rs1_addr_decoder=0,rs1_addr_alu=0, rs1_addr_memoryaccess=0;
-    reg[4:0] rs2_addr_decoder=0;
-    reg[4:0] rd_addr_alu=0, rd_addr_memoryaccess=0, rd_addr_writeback=0;
-    reg wr_rd_alu=0,wr_rd_memoryaccess=0, wr_rd_writeback=0;
-    reg[31:0] rs1_alu=0,rs1_memoryaccess=0;
-    reg[31:0] rs2_alu=0;
-    reg[31:0] y_memoryaccess=0;
-    reg[31:0] pc=0;
-    reg[31:0] daddr=0;
-    
-    /*********************************************************** PIPELINE CONTROL LOGIC ***********************************************************/ 
-    always @(posedge i_clk, negedge i_rst_n) begin
-        if(!i_rst_n) begin
-            ce_stage1 <= 0; //[FETCH]
-            ce_stage2 <= 0; //[DECODE]
-            ce_stage3 <= 0; //[EXECUTE]
-            ce_stage4 <= 0; //[MEMORY ACCESS]
-            ce_stage5 <= 0; //[WRITEBACK]
-            stall_q <= 0;
-            daddr <= 0;
-            pc <= PC_RESET;
-        end
-        else begin               
-            // Pipeline register flow
-            if(ce_stage2 && !stall[1]) begin //Pipeline Registers for Decode Stage
-                rs1_addr_decoder <= rs1_addr;
-                rs2_addr_decoder <= rs2_addr;
-            end
-            if(ce_stage3 && !stall[2]) begin //Pipeline Registers for Execute Stage
-                opcode_rtype_alu <= opcode_rtype;
-                opcode_itype_alu <= opcode_itype;
-                opcode_load_alu <= opcode_load;
-                opcode_store_alu <= opcode_store;
-                opcode_branch_alu <= opcode_branch;
-                opcode_jal_alu <= opcode_jal;
-                opcode_jalr_alu <= opcode_jalr;
-                opcode_lui_alu <= opcode_lui;
-                opcode_auipc_alu <= opcode_auipc;
-                opcode_system_alu <= opcode_system;
-                opcode_fence_alu <= opcode_fence;
-                is_inst_illegal_alu <= is_inst_illegal;
-                is_ecall_alu <= is_ecall;
-                is_ebreak_alu <= is_ebreak;
-                is_mret_alu <= is_mret;
-                funct3_alu <= funct3;
-                imm_alu <= imm;
-                rs1_addr_alu <= rs1_addr_decoder;
-                rd_addr_alu <= rd_addr; 
-                wr_rd_alu <= !(opcode_branch || opcode_store || (opcode_system && funct3 == 0) || opcode_fence); // write to base reg only when high 
-                rs1_alu <= rs1;
-                rs2_alu <= rs2;
-            end
-            if(ce_stage4 && !stall[3]) begin //Pipeline Registers for MemoryAccess Stage
-                opcode_rtype_memoryaccess <= opcode_rtype_alu;
-                opcode_itype_memoryaccess <= opcode_itype_alu;
-                opcode_load_memoryaccess <= opcode_load_alu;
-                opcode_store_memoryaccess <= opcode_store_alu;
-                opcode_branch_memoryaccess <= opcode_branch_alu;
-                opcode_jal_memoryaccess <= opcode_jal_alu;
-                opcode_jalr_memoryaccess <= opcode_jalr_alu;
-                opcode_lui_memoryaccess <= opcode_lui_alu;
-                opcode_auipc_memoryaccess <= opcode_auipc_alu;
-                opcode_system_memoryaccess <= opcode_system_alu;
-                opcode_fence_memoryaccess <= opcode_fence;
-                is_inst_illegal_memoryaccess <= is_inst_illegal_alu;
-                is_ecall_memoryaccess <= is_ecall_alu;
-                is_ebreak_memoryaccess <= is_ebreak_alu;
-                is_mret_memoryaccess <= is_mret_alu;
-                funct3_memoryaccess <= funct3_alu;
-                imm_memoryaccess <= imm_alu;
-                rs1_addr_memoryaccess <= rs1_addr_alu;
-                rd_addr_memoryaccess <= rd_addr_alu;
-                wr_rd_memoryaccess <= wr_rd_alu;
-                rs1_memoryaccess <= rs1_alu; 
-                y_memoryaccess <= y;
-            end           
-            if(ce_stage5 && !stall[4]) begin //Pipeline Registers for Writeback Stage
-                rd_addr_writeback <= rd_addr_memoryaccess;
-                wr_rd_writeback <= wr_rd_memoryaccess;
-            end
-            
-            // BRANCH HAZARD (PC must jump but pipeline is already filled)
-            if(ce_stage5 && !stall[4] && change_pc) begin  //if next PC is wrong, we must flush the pipeline then jump to the correct PC
-                ce_stage1 <= 0; 
-                ce_stage2 <= 0; 
-                ce_stage3 <= 0; 
-                ce_stage4 <= 0;
-                ce_stage5 <= 0;
-                pc <= next_pc;     
-            end
-            
-            // Normal Operation
-            else begin
-                ce_stage1 <= 1; //ce_stage1 must only be high if instruction can already be retrieved from the memory 
-                ce_stage2 <= stall[1]? ce_stage2:ce_stage2_d;  //if stage is in stall, then ce must not change state on next clk cycle
-                ce_stage3 <= stall[2]? ce_stage3:ce_stage3_d; 
-                ce_stage4 <= stall[3]? ce_stage4:ce_stage4_d; 
-                ce_stage5 <= stall[4]? ce_stage5:ce_stage5_d; 
-                if(ce_stage1 && !stall[0]) pc <= pc + 4; //advance PC as long as stage1 is currently not on stall
-            end
-            stall_q <= stall;      
-            daddr <= y; //advance y to Stage4 [Memory Access] even if stage4 is in stall (which is necessary since y will be used as data address 
-        end                 //on next clock cycle). So in nxt clk cycle, the i_data from memory will then be available and this all happens while stage4 is stalled
-    end
-    
-    always @* begin
-        rs1 = 0;
-        rs2 = 0;
-        stall = 0;
-        ce_stage2_d = ce_stage1;
-        ce_stage3_d = ce_stage2;
-        ce_stage4_d = ce_stage3;
-        ce_stage5_d = ce_stage4;
-        
-        // Load Instructions will stall the whole pipeline until the data to be loaded from memory to basereg is available
-        if(opcode_load_alu && ce_stage4 && stall_q!=5'b11111) begin //impossible to have same consecutive stall sequence or else the
-            stall = 5'b11111; //stall all stages                        // pipeline will be stucked and not move
-        end
-        
-        
-        /***************************************************** DATA HAZARD CONTROL LOGIC ************************************************************/ 
-        // Data Hazard = Register value is about to be overwritten by previous instructions but are still on the pipeline and are not yet written to basereg
-        // The solution is either to stall the pipeline until the basereg is updated (very inefficient) or use Operation Forwarding
-        else begin
-            if(!(opcode_jal || opcode_auipc) && rs1_addr_decoder!=0) begin //value of rs1 will be used only on these conditions, check if Operation Forwarding is necessary wherein the next value of rs1 is still on the pipeline
-                if(rs1_addr_decoder == rd_addr_alu && ce_stage4 && stall_q!=5'b00111 && wr_rd_alu) begin //next value of rs1 is currently on stage 4, we must stall the pipeline once to transfer the data to stage 5
-                    stall = 5'b00111; //stall from third stage [EXECUTE]                                  // since the logic for processing the new value of rs1 (or "rd") is only available on stage 5 [WRITEBACK]
-                    ce_stage4_d = 0 ; //stage4 will be empty next time due to stalling
-                end
-                else if(rs1_addr_decoder == rd_addr_memoryaccess && ce_stage5 && wr_rd_memoryaccess) begin //next value of rs1 is currently on stage 5
-                    rs1 = rd_d;
-                end
-                else if(rs1_addr_decoder == rd_addr_writeback && wr_rd_writeback) begin //next value of rs1 is about to be written on basereg
-                    rs1 = rd;
-                end
-                else rs1 = rs1_orig; //no operation forwarding needed
-            end
-            
-            if((opcode_rtype || opcode_branch || opcode_store) && rs2_addr_decoder!=0)begin //value of rs2 will be used only on these conditions, check if Operation Forwarding is necessary wherein the next value of rs2 is still on the pipeline
-                if(rs2_addr_decoder == rd_addr_alu && ce_stage4 && stall_q!=5'b00111 && wr_rd_alu) begin //next value of rs2 is currently on stage 4, we must stall the pipeline once to transfer the data to stage 5
-                    stall = 5'b00111; //stall from third stage [EXECUTE]                                 // since the logic for processing the new value of rs2 (or "rd") is only available on stage 5 [WRITEBACK]
-                    ce_stage4_d = 0 ; //stage4 will be empty next time due to stalling
-                end
-                else if(rs2_addr_decoder == rd_addr_memoryaccess && wr_rd_memoryaccess) begin //next value of rs2 is currently on stage 5
-                    rs2 = rd_d;
-                end
-                else if(rs2_addr_decoder == rd_addr_writeback && wr_rd_writeback) begin //next value of rs2 is about to be written on basereg
-                    rs2 = rd;
-                end 
-                else rs2 = rs2_orig; //no operation forwarding needed
-            end     
-       end
-       /***************************************************** end of DATA HAZARD CONTROL LOGIC ************************************************************/ 
-       
-    end
-    
-    /********************************************************** end PIPELINE CONTROL LOGIC*****************************************************************/ 
-    
-    assign o_iaddr = pc; //instruction address
-    assign o_daddr = daddr; //data address
-    assign o_wr_en = wr_mem && !go_to_trap; //only write to data memory if there is no trap
-    
-    
-    
-    
-    //module instantiations (all outputs are registered)
     rv32i_basereg m0( //regfile controller for the 32 integer base registers
         .i_clk(i_clk),
-        .i_ce_read(ce_stage2 && !stall[1]), //clock enable for reading from basereg [STAGE 2]
-        .i_ce_write(1'b1), //clock enable for writing to basereg [AFTER STAGE 5]
-        .i_rs1_addr(rs1_addr), //source register 1 address
-        .i_rs2_addr(rs2_addr), //source register 2 address
-        .i_rd_addr(rd_addr_writeback), //destination register address
-        .i_rd(rd), //data to be written to destination register
-        .i_wr(wr_rd), //write enable
+        .i_ce_read(ce_read), //clock enable for reading from basereg [STAGE 2]
+        .i_rs1_addr(decoder_rs1_addr), //source register 1 address
+        .i_rs2_addr(decoder_rs2_addr), //source register 2 address
+        .i_rd_addr(writeback_rd_addr), //destination register address
+        .i_rd(writeback_rd), //data to be written to destination register
+        .i_wr(writeback_wr_rd), //write enable
         .o_rs1(rs1_orig), //source register 1 value
         .o_rs2(rs2_orig) //source register 2 value
     );
     
-    rv32i_fetch m1( // logic for fetching instruction [FETCH STAGE , STAGE 1]
+    rv32i_fetch #(.PC_RESET(PC_RESET)) m1( // logic for fetching instruction [FETCH STAGE , STAGE 1]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
+        .o_iaddr(o_iaddr), //Instruction address
+        .o_pc(fetch_pc), //PC value of o_inst
         .i_inst(i_inst), // retrieved instruction from Memory
-        .o_inst(inst), // instruction sent to pipeline
+        .o_inst(fetch_inst), // instruction
+        // PC Control
+        .i_writeback_change_pc(writeback_change_pc), //high when PC needs to change when going to trap or returning from trap
+        .i_writeback_next_pc(writeback_next_pc), //next PC due to trap
+        .i_alu_change_pc(alu_change_pc), //high when PC needs to change for taken branches and jumps
+        .i_alu_next_pc(alu_next_pc), //next PC due to branch or jump
         /// Pipeline Control ///
-        .i_ce(ce_stage1 && !stall[0]), // input clk enable for pipeline stalling of this stage
-        .o_ce() // output clk enable for pipeline stalling of next stage
+        .i_ce(fetch_ce), // input clk enable for pipeline stalling of this stage
+        .o_ce(decoder_ce), // output clk enable for pipeline stalling of next stage
+        .i_stall(stall), //informs this stage to stall
+        .o_stall(stall[`FETCH]), //informs pipeline to stall
+        .i_flush(decoder_flush) //flush this stage
     ); 
-    
+  
     rv32i_decoder m2( //logic for the decoding of the 32 bit instruction [DECODE STAGE , STAGE 2]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_inst(inst), //32 bit instruction
-        .o_rs1_addr(rs1_addr),// address for register source 1
-        .o_rs2_addr(rs2_addr), // address for register source 2
-        .o_rd_addr(rd_addr), // address for destination address   
-        .o_imm(imm), // extended value for immediate
-        .o_funct3(funct3), // function type
-        /// ALU Operations ///
-        .o_alu_add(alu_add), //addition
-        .o_alu_sub(alu_sub), //subtraction
-        .o_alu_slt(alu_slt), //set if less than
-        .o_alu_sltu(alu_sltu), //set if less than unsigned     
-        .o_alu_xor(alu_xor), //bitwise xor
-        .o_alu_or(alu_or),  //bitwise or
-        .o_alu_and(alu_and), //bitwise and
-        .o_alu_sll(alu_sll), //shift left logical
-        .o_alu_srl(alu_srl), //shift right logical
-        .o_alu_sra(alu_sra), //shift right arithmetic
-        .o_alu_eq(alu_eq),  //equal
-        .o_alu_neq(alu_neq), //not equal
-        .o_alu_ge(alu_ge),  //greater than or equal
-        .o_alu_geu(alu_geu), //greater than or equal unsigned
-        //// Opcode Type ////
-        .o_opcode_rtype(opcode_rtype),
-        .o_opcode_itype(opcode_itype),
-        .o_opcode_load(opcode_load),
-        .o_opcode_store(opcode_store),
-        .o_opcode_branch(opcode_branch),
-        .o_opcode_jal(opcode_jal),
-        .o_opcode_jalr(opcode_jalr),
-        .o_opcode_lui(opcode_lui),
-        .o_opcode_auipc(opcode_auipc),
-        .o_opcode_system(opcode_system),
-        .o_opcode_fence(opcode_fence),  
-        /// Exceptions ///
-        .o_is_inst_illegal(is_inst_illegal), //illegal instruction
-        .o_is_ecall(is_ecall), //ecall instruction
-        .o_is_ebreak(is_ebreak), //ebreak instruction
-        .o_is_mret(is_mret), //mret (return from trap) instruction
+        .i_inst(fetch_inst), //32 bit instruction
+        .i_pc(fetch_pc), //PC value from fetch stage
+        .o_pc(decoder_pc), //PC value
+        .o_rs1_addr(decoder_rs1_addr),// address for register source 1
+        .o_rs1_addr_q(decoder_rs1_addr_q), // registered address for register source 1
+        .o_rs2_addr(decoder_rs2_addr), // address for register source 2
+        .o_rs2_addr_q(decoder_rs2_addr_q), // registered address for register source 2
+        .o_rd_addr(decoder_rd_addr), // address for destination register
+        .o_imm(decoder_imm), // extended value for immediate
+        .o_funct3(decoder_funct3), // function type
+        .o_alu(decoder_alu), //alu operation type
+        .o_opcode(decoder_opcode), //opcode type
+        .o_exception(decoder_exception), //exceptions: illegal inst, ecall, ebreak, mret
          /// Pipeline Control ///
-        .i_ce(ce_stage2 && !stall[1]), // input clk enable for pipeline stalling of this stage
-        .o_ce() // output clk enable for pipeline stalling of next stage
+        .i_ce(decoder_ce), // input clk enable for pipeline stalling of this stage
+        .o_ce(alu_ce), // output clk enable for pipeline stalling of next stage
+        .i_stall(stall), //informs this stage to stall
+        .o_stall(stall[`DECODER]), //informs pipeline to stall
+        .i_flush(alu_flush), //flush this stage
+        .o_flush(decoder_flush) //flushes previous stages
     );
 
     rv32i_alu m3( //ALU combinational logic [EXECUTE STAGE , STAGE 3]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_pc({pc-8}), //Program Counter (two stages had already been filled [fetch -> decode])
+        .i_alu(decoder_alu), //alu operation type
+        .i_rs1_addr(decoder_rs1_addr_q), //address for register source 1
+        .o_rs1_addr(alu_rs1_addr), //address for register source 1
         .i_rs1(rs1), //Source register 1 value
+        .o_rs1(alu_rs1), //Source register 1 value
         .i_rs2(rs2), //Source Register 2 value
-        .i_imm(imm), //Immediate value
-        .o_y(y), //result of arithmetic operation
-        /// ALU Operations ///
-        .i_alu_add(alu_add), //addition
-        .i_alu_sub(alu_sub), //subtraction
-        .i_alu_slt(alu_slt), //set if less than
-        .i_alu_sltu(alu_sltu), //set if less than unsigned    
-        .i_alu_xor(alu_xor), //bitwise xor
-        .i_alu_or(alu_or),  //bitwise or
-        .i_alu_and(alu_and), //bitwise and
-        .i_alu_sll(alu_sll), //shift left logical
-        .i_alu_srl(alu_srl), //shift right logical
-        .i_alu_sra(alu_sra), //shift right arithmetic
-        .i_alu_eq(alu_eq),  //equal
-        .i_alu_neq(alu_neq), //not equal
-        .i_alu_ge(alu_ge),  //greater than or equal
-        .i_alu_geu(alu_geu), //greater than or equal unsigned
-        //// Opcode Type ////
-        .i_opcode_rtype(opcode_rtype),
-        .i_opcode_branch(opcode_branch),
-        .i_opcode_jal(opcode_jal),
-        .i_opcode_auipc(opcode_auipc),
+        .o_rs2(alu_rs2), //Source Register 2 value
+        .i_imm(decoder_imm), //Immediate value from previous stage
+        .o_imm(alu_imm), //Immediate value
+        .i_funct3(decoder_funct3), //function type from decoder stage
+        .o_funct3(alu_funct3), //function type
+        .i_opcode(decoder_opcode), //opcode type from previous stage
+        .o_opcode(alu_opcode), //opcode type
+        .i_exception(decoder_exception), //exception from decoder stage
+        .o_exception(alu_exception), //exception: illegal inst,ecall,ebreak,mret
+        .o_y(alu_y), //result of arithmetic operation
+        // PC Control
+        .i_pc(decoder_pc), //pc from decoder stage
+        .o_pc(alu_pc), // current pc 
+        .o_next_pc(alu_next_pc), //next pc 
+        .o_change_pc(alu_change_pc), //change pc if high
+        // Basereg Control
+        .o_wr_rd(alu_wr_rd), //write rd to basereg if enabled
+        .i_rd_addr(decoder_rd_addr), //address for destination register (from previous stage)
+        .o_rd_addr(alu_rd_addr), //address for destination register
+        .o_rd(alu_rd), //value to be written back to destination register
+        .o_rd_valid(alu_rd_valid), //high if o_rd is valid (not load nor csr instruction)
          /// Pipeline Control ///
-        .i_ce(ce_stage3 && !stall[2]), // input clk enable for pipeline stalling of this stage
-        .o_ce() // output clk enable for pipeline stalling of next stage
+        .i_ce(alu_ce), // input clk enable for pipeline stalling of this stage
+        .o_ce(memoryaccess_ce), // output clk enable for pipeline stalling of next stage
+        .i_stall(stall), //informs this stage to stall
+        .i_force_stall(alu_force_stall), //force this stage to stall
+        .o_stall(stall[`ALU]), //informs pipeline to stall
+        .i_flush(memoryaccess_flush), //flush this stage
+        .o_flush(alu_flush) //flushes previous stages
     );
     
     rv32i_memoryaccess m4( //logic controller for data memory access (load/store) [MEMORY STAGE , STAGE 4]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_rs2(rs2_alu), //data to be stored to memory is always rs2
+        .i_rs2(alu_rs2), //data to be stored to memory is always rs2
         .i_din(i_din), //data retrieve from memory 
-        .i_addr_2(y[1:0]), //last 2 bits of address of data to be stored or loaded (always comes from ALU)
-        .i_funct3(funct3_alu), //byte,half-word,word
-        .i_opcode_store(opcode_store_alu), //determines if data_store will be to stored to data memory
+        .i_y(alu_y), //y value from ALU (address of data to memory be stored or loaded)
+        .o_y(o_daddr), //y value used as data memory address
+        .i_funct3(alu_funct3), //funct3 from previous stage
+        .o_funct3(memoryaccess_funct3), //funct3 (byte,halfword,word)
+        .i_opcode(alu_opcode), //opcode type from previous stage
+        .o_opcode(memoryaccess_opcode), //opcode type
+        .i_pc(alu_pc), //PC from previous stage
+        .o_pc(memoryaccess_pc), //PC value
+        // Basereg Control
+        .i_wr_rd(alu_wr_rd), //write rd to base reg is enabled (from memoryaccess stage)
+        .o_wr_rd(memoryaccess_wr_rd), //write rd to the base reg if enabled
+        .i_rd_addr(alu_rd_addr), //address for destination register (from previous stage)
+        .o_rd_addr(memoryaccess_rd_addr), //address for destination register
+        .i_rd(alu_rd), //value to be written back to destination reg
+        .o_rd(memoryaccess_rd), //value to be written back to destination register
+        // Data Memory Control
         .o_data_store(o_dout), //data to be stored to memory (mask-aligned)
-        .o_data_load(data_load), //data to be loaded to base reg (z-or-s extended) 
+        .o_data_load(memoryaccess_data_load), //data to be loaded to base reg (z-or-s extended) 
         .o_wr_mask(o_wr_mask), //write mask {byte3,byte2,byte1,byte0}
-        .o_wr_mem(wr_mem), //write to data memory if enabled
+        .o_wr_mem(memoryaccess_wr_mem), //write to data memory if enabled
          /// Pipeline Control ///
-        .i_ce(ce_stage4 && !stall[3]), // input clk enable for pipeline stalling of this stage
-        .o_ce() // output clk enable for pipeline stalling of next stage
+        .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
+        .o_ce(writeback_ce), // output clk enable for pipeline stalling of next stage
+        .i_stall(stall), //informs this stage to stall
+        .o_stall(stall[`MEMORYACCESS]), //informs pipeline to stall
+        .i_flush(writeback_flush), //flush this stage
+        .o_flush(memoryaccess_flush) //flushes previous stages
     );
     
-    rv32i_writeback #(.PC_RESET(PC_RESET)) m5( //logic controller for the next PC and rd value [WRITEBACK STAGE , STAGE 5]
+    rv32i_writeback m5( //logic controller for the next PC and rd value [WRITEBACK STAGE , STAGE 5]
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
-        .i_funct3(funct3_memoryaccess), //function type
-        .i_alu_out(y_memoryaccess), //output of ALU
-        .i_imm(imm_memoryaccess), //immediate value
-        .i_rs1(rs1_memoryaccess), //source register 1 value
-        .i_data_load(data_load), //data to be loaded to base reg
+        .i_funct3(memoryaccess_funct3), //function type
+        .i_data_load(memoryaccess_data_load), //data to be loaded to base reg (from previous stage)
         .i_csr_out(csr_out), //CSR value to be loaded to basereg
-        .o_rd(rd), //value to be written back to destination register
-        .o_rd_d(rd_d), //next value to be written back to destination register
-        .o_next_pc(next_pc), //new PC value
-        .o_change_pc(change_pc), //high if PC needs to jump
-        .o_wr_rd(wr_rd), //write rd to the base reg if enabled
+        .i_opcode_load(memoryaccess_opcode[`LOAD]),
+        .i_opcode_system(memoryaccess_opcode[`SYSTEM]), 
+        // Basereg Control
+        .i_wr_rd(memoryaccess_wr_rd), //write rd to base reg is enabled (from memoryaccess stage)
+        .o_wr_rd(writeback_wr_rd), //write rd to the base reg if enabled
+        .i_rd_addr(memoryaccess_rd_addr), //address for destination register (from previous stage)
+        .o_rd_addr(writeback_rd_addr), //address for destination register
+        .i_rd(memoryaccess_rd), //value to be written back to destination reg
+        .o_rd(writeback_rd), //value to be written back to destination register
+        // PC Control
+        .i_pc(memoryaccess_pc), //pc value
+        .o_next_pc(writeback_next_pc), //new PC value
+        .o_change_pc(writeback_change_pc), //high if PC needs to jump
         // Trap-Handler
-        .i_go_to_trap(go_to_trap), //high before going to trap (if exception/interrupt detected)
-        .i_return_from_trap(return_from_trap), //high before returning from trap (via mret)
-        .i_return_address(return_address), //mepc CSR
-        .i_trap_address(trap_address), //mtvec CSR
-         //// Opcode Type ////
-        .i_opcode_rtype(opcode_rtype_memoryaccess),
-        .i_opcode_itype(opcode_itype_memoryaccess),
-        .i_opcode_load(opcode_load_memoryaccess),
-        .i_opcode_store(opcode_store_memoryaccess),
-        .i_opcode_branch(opcode_branch_memoryaccess),
-        .i_opcode_jal(opcode_jal_memoryaccess),
-        .i_opcode_jalr(opcode_jalr_memoryaccess),
-        .i_opcode_lui(opcode_lui_memoryaccess),
-        .i_opcode_auipc(opcode_auipc_memoryaccess),
-        .i_opcode_system(opcode_system_memoryaccess),
-        .i_opcode_fence(opcode_fence_memoryaccess), 
+        .i_go_to_trap(csr_go_to_trap), //high before going to trap (if exception/interrupt detected)
+        .i_return_from_trap(csr_return_from_trap), //high before returning from trap (via mret)
+        .i_return_address(csr_return_address), //mepc CSR
+        .i_trap_address(csr_trap_address), //mtvec CSR
         /// Pipeline Control ///
-        .i_ce(ce_stage5 && !stall[4]), // input clk enable for pipeline stalling of this stage
-        .o_ce() // output last clk enable for pipeline stalling
+        .i_ce(writeback_ce), // input clk enable for pipeline stalling of this stage
+        .i_stall(stall), //informs this stage to stall
+        .o_stall(stall[`WRITEBACK]), //informs pipeline to stall
+        .o_flush(writeback_flush) //flushes previous stages 
     );
     
-    rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6( // control logic for Control and Status Registers (CSR) [STAGE 4]
-        .i_clk(i_clk),
-        .i_rst_n(i_rst_n),
-        // Interrupts
-        .i_external_interrupt(i_external_interrupt), //interrupt from external source
-        .i_software_interrupt(i_software_interrupt), //interrupt from software
-        // Timer Interrupt
-        .i_mtime_wr(i_mtime_wr), //write to mtime
-        .i_mtimecmp_wr(i_mtimecmp_wr), //write to mtimecmp
-        .i_mtime_din(i_mtime_din), //data to be written to mtime
-        .i_mtimecmp_din(i_mtimecmp_din), //data to be written to mtimecmp
-        /// Exceptions ///
-        .i_is_inst_illegal(is_inst_illegal_alu), //illegal instruction
-        .i_is_ecall(is_ecall_alu), //ecall instruction
-        .i_is_ebreak(is_ebreak_alu), //ebreak instruction
-        .i_is_mret(is_mret_alu), //mret (return from trap) instruction
-        /// Load/Store Misaligned Exception///
-        .i_opcode_store(opcode_store_alu), 
-        .i_opcode_load(opcode_load_alu),
-        .i_opcode_branch(opcode_branch_alu),
-        .i_opcode_jal(opcode_jal_alu),
-        .i_opcode_jalr(opcode_jalr_alu),
-        .i_alu_sum(y), //sum from ALU (address used in load/store/jump/branch)
-        /// CSR instruction ///
-        .i_opcode_system(opcode_system_alu),
-        .i_funct3(funct3_alu), // CSR instruction operation
-        .i_csr_index(imm_alu[11:0]), //immediate value decoded by decoder
-        .i_imm({27'b0,rs1_addr_alu}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
-        .i_rs1(rs1_alu), //Source register 1 value (new value to be stored to CSR)
-        .o_csr_out(csr_out), //CSR value to be loaded to basereg
-        // Trap-Handler 
-        .i_pc({pc-12}), //Program Counter  (three stages had already been filled [fetch -> decode -> execute ])
-        .o_return_address(return_address), //mepc CSR
-        .o_trap_address(trap_address), //mtvec CSR
-        .o_go_to_trap_q(go_to_trap), //high before going to trap (if exception/interrupt detected)
-        .o_return_from_trap_q(return_from_trap), //high before returning from trap (via mret)
-        .i_minstret_inc(ce_stage4 && !stall[3]), //high for one clock cycle at the end of every instruction
-        /// Pipeline Control ///
-        .i_change_pc(change_pc), //high if PC needs to jump
-        .i_ce(ce_stage4 && !stall[3]) // input clk enable for pipeline stalling of this stage
-    );
-      
+    // removable extensions
+    if(ZICSR_EXTENSION == 1) begin: zicsr
+        rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6( // control logic for Control and Status Registers (CSR) [STAGE 4]
+            .i_clk(i_clk),
+            .i_rst_n(i_rst_n),
+            // Interrupts
+            .i_external_interrupt(i_external_interrupt), //interrupt from external source
+            .i_software_interrupt(i_software_interrupt), //interrupt from software
+            // Timer Interrupt
+            .i_mtime_wr(i_mtime_wr), //write to mtime
+            .i_mtimecmp_wr(i_mtimecmp_wr), //write to mtimecmp
+            .i_mtime_din(i_mtime_din), //data to be written to mtime
+            .i_mtimecmp_din(i_mtimecmp_din), //data to be written to mtimecmp
+            /// Exceptions ///
+            .i_is_inst_illegal(alu_exception[`ILLEGAL]), //illegal instruction
+            .i_is_ecall(alu_exception[`ECALL]), //ecall instruction
+            .i_is_ebreak(alu_exception[`EBREAK]), //ebreak instruction
+            .i_is_mret(alu_exception[`MRET]), //mret (return from trap) instruction
+            /// Load/Store Misaligned Exception///
+            .i_opcode(alu_opcode), //opcode type from alu stage
+            .i_y(alu_y), //y value from ALU (address used in load/store/jump/branch)
+            /// CSR instruction ///
+            .i_funct3(alu_funct3), // CSR instruction operation
+            .i_csr_index(alu_imm[11:0]), //immediate value decoded by decoder
+            .i_imm({27'b0,alu_rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
+            .i_rs1(alu_rs1), //Source register 1 value (new value to be stored to CSR)
+            .o_csr_out(csr_out), //CSR value to be loaded to basereg
+            // Trap-Handler 
+            .i_pc(alu_pc), //Program Counter  (three stages had already been filled [fetch -> decode -> execute ])
+            .o_return_address(csr_return_address), //mepc CSR
+            .o_trap_address(csr_trap_address), //mtvec CSR
+            .o_go_to_trap_q(csr_go_to_trap), //high before going to trap (if exception/interrupt detected)
+            .o_return_from_trap_q(csr_return_from_trap), //high before returning from trap (via mret)
+            .i_minstret_inc(writeback_ce), //high for one clock cycle at the end of every instruction
+            /// Pipeline Control ///
+            .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
+            .i_stall(stall) //informs this stage to stall
+        );
+    end
+    else begin: zicsr
+        assign csr_out = 0;
+        assign csr_return_address = 0;
+        assign csr_trap_address = 0;
+        assign csr_go_to_trap = 0;
+        assign csr_return_from_trap = 0;
+    end
+     
+
+
+
+   `ifdef FORMAL 
+        //f_past_valid logic
+        reg f_past_valid = 0;
+        always @(posedge i_clk) f_past_valid <= 1;
+
+        // assume initial conditions
+        initial begin
+            assume(i_rst_n == 0);
+        end
+
+        // assumption on inputs(not more than one opcode and alu operation is high)
+        wire[4:0] f_alu=decoder_alu[`ADD]+decoder_alu[`SUB]+decoder_alu[`SLT]+decoder_alu[`SLTU]+decoder_alu[`XOR]+decoder_alu[`OR]+decoder_alu[`AND]+decoder_alu[`SLL]+decoder_alu[`SRL]+decoder_alu[`SRA]+decoder_alu[`EQ]+decoder_alu[`NEQ]+decoder_alu[`GE]+decoder_alu[`GEU]+0;
+        wire[4:0] f_opcode=decoder_opcode[`RTYPE]+decoder_opcode[`ITYPE]+decoder_opcode[`LOAD]+decoder_opcode[`STORE]+decoder_opcode[`BRANCH]+decoder_opcode[`JAL]+decoder_opcode[`JALR]+decoder_opcode[`LUI]+decoder_opcode[`AUIPC]+decoder_opcode[`SYSTEM]+decoder_opcode[`FENCE]+0;
+        always @* begin
+            assume(f_alu <= 1);
+            assume(f_opcode <= 1);
+            assume(i_mtime_wr == 0);
+            assume(i_mtimecmp_wr == 0);
+        end
+
+        //////////////////////////////////////////////// verify Operand Forwarding ///////////////////////////////////////////////////
+        reg[4:0] f_alu_rs2_addr;
+        reg[4:0] f_memoryaccess_rs1_addr; 
+        reg[4:0] f_memoryaccess_rs2_addr; 
+        reg[31:0] f_memoryaccess_rs1;
+        reg[31:0] f_memoryaccess_rs2;
+
+        always @(posedge i_clk) begin 
+            if(alu_ce && !(stall[`ALU] || stall[`MEMORYACCESS] || stall[`WRITEBACK])) begin //store rs2_addr pipeline register for ALU stage
+                f_alu_rs2_addr <= decoder_rs2_addr_q;
+            end
+            if(memoryaccess_ce && !(stall[`MEMORYACCESS] || stall[`WRITEBACK])) begin //store rs1_addr, rs2_addr, rs1, and rs2  pipeline registers for STAGE 4
+                f_memoryaccess_rs1_addr <= alu_rs1_addr;
+                f_memoryaccess_rs2_addr <= f_alu_rs2_addr;
+                f_memoryaccess_rs1 <= alu_rs1;
+                f_memoryaccess_rs2 <= alu_rs2;
+            end
+        end
+        always @(posedge i_clk) begin
+            if(writeback_ce) begin //Stage 5 is enabled
+                if(f_memoryaccess_rs1_addr != 0) begin
+                    assert(f_memoryaccess_rs1 == m0.base_regfile[f_memoryaccess_rs1_addr]); //verify that the rs1 value used from the ALU stage is the MOST updated value
+                end
+                else assert(f_memoryaccess_rs1 == 0);
+
+                if(f_memoryaccess_rs2_addr != 0) begin
+                    assert(f_memoryaccess_rs2 == m0.base_regfile[f_memoryaccess_rs2_addr]); //verify that the rs2 value used from the ALU stage is the MOST updated value
+                end
+                else assert(f_memoryaccess_rs2 == 0);
+            end
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        ///////////////////////////////// verify that taken branches, jumps, and traps will update PC ///////////////////////////////////
+        always @(posedge i_clk) begin
+            // change_pc in stage 5 (due to traps) will force first stage to change PC in next clk cycle and all _ce to be
+            // disabled (excecpt for fetch_ce which is always high)
+            if($past(writeback_change_pc) && $past(writeback_ce) && i_rst_n && f_past_valid) begin
+                assert(o_iaddr == $past(writeback_next_pc));  
+                assert({writeback_ce,memoryaccess_ce,alu_ce,decoder_ce,fetch_ce} == 5'b00001);
+            end
+
+            // change_pc in stage 3 (due to jumps and branches) will force first stage to change PC in next clock cycle unless
+            // stalled by stage 3(due to data dependency) or stage 4(due to load instruction) or be flushed by stage 5(due traps)
+            // and all _ce of previous stages of STAGE 3 to be disabled (except for fetch_ce which is always high)
+            else if($past(alu_change_pc) && $past(alu_ce) && !$past(stall[`ALU]) && i_rst_n && f_past_valid) begin
+                assert(o_iaddr == $past(alu_next_pc));         
+                assert({alu_ce,decoder_ce,fetch_ce} == 3'b001);
+            end
+            
+            // verify that if no taken branches,jumps,or traps then PC  will just be added by 4
+            if(!$past(writeback_change_pc) && !$past(alu_change_pc) && !$past(stall[`FETCH]) && $past(fetch_ce) && $past(i_rst_n) && i_rst_n && f_past_valid) begin 
+                assert(o_iaddr == $past(o_iaddr)+4);
+            end
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        //////////////////////////////////////// verify valid writes to basereg and data memory /////////////////////////////////////////
+        always @(posedge i_clk) begin
+            // verify that basereg will be written only if writeback_ce is high
+            if(writeback_wr_rd) assert(writeback_ce);
+            
+            // verify data memory will be written at next clk cycle only if memoryaccess_ce is high and stage 5 does not have to change PC
+            if(o_wr_en) assert($past(memoryaccess_ce) && !$past(writeback_change_pc) && !writeback_change_pc);
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        
+
+        /////////////////////////////////////////////////// verify pipeline stalls /////////////////////////////////////////////////////
+        reg cover_tick = 0;
+        always @(posedge i_clk) begin
+            // verify that when stalled, PC address and _ce will not change
+            if(($past(stall)!=0) && i_rst_n && f_past_valid) assert(o_iaddr == $past(o_iaddr));
+            if($past(stall[`WRITEBACK]) && i_rst_n && f_past_valid) begin
+               assert(writeback_ce == $past(writeback_ce));
+               assert(memoryaccess_ce == $past(memoryaccess_ce));
+               assert(alu_ce == $past(alu_ce));
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`MEMORYACCESS]) && i_rst_n && f_past_valid) begin
+               assert(memoryaccess_ce == $past(memoryaccess_ce));
+               assert(alu_ce == $past(alu_ce));
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`ALU]) && i_rst_n && f_past_valid) begin
+               assert(alu_ce == $past(alu_ce));
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`DECODER]) && i_rst_n && f_past_valid) begin
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`FETCH]) && i_rst_n && f_past_valid) begin
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            
+            //verify that output states of ALU stage will not change if pipeline is stalled
+            if($past(alu_ce) && $past(stall[`MEMORYACCESS]) && i_rst_n && f_past_valid) begin
+               assert(alu_change_pc == $past(alu_change_pc));
+               assert(alu_next_pc == $past(alu_next_pc));
+               assert(alu_force_stall == $past(alu_force_stall));
+            end
+
+            // verify that if a stage is stalled, then the previous stage should be stalled too
+            if(stall[`WRITEBACK]) assert(stall[`MEMORYACCESS]);
+            if(stall[`MEMORYACCESS] || (alu_force_stall && !writeback_change_pc)) assert(stall[`ALU]);
+            if(stall[`ALU]) assert(stall[`DECODER]);
+            if(stall[`DECODER]) assert(stall[`FETCH]);
+            if(writeback_change_pc) assert(stall == 0); //pipeline will never be stalled and flushed(by stage 5) at same time
+                                                        //No stall can stop flush from stage 5
+
+            // verify that if stage 4 is stalled while stage 5 is not, stage 5 will be disabled at next clk cycle (writeback_ce wil be low) (pipeline bubbling)
+            if($past(stall[`MEMORYACCESS]) && !$past(stall[`WRITEBACK]) && $past(i_rst_n) && i_rst_n && f_past_valid) begin
+                assert(memoryaccess_ce && !writeback_ce);
+            end 
+            // verify that if stage 3 is stalled while stage 4 is not, stage 4 will be disabled at next clk cycle (memoryaccess_ce will be low) (pipeline bubbling)
+           if($past(alu_force_stall) && !$past(stall[`MEMORYACCESS]) && $past(i_rst_n) && i_rst_n && !$past(writeback_change_pc) && f_past_valid) begin
+                assert(alu_ce && !memoryaccess_ce);
+           end
+
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        //////////////////////////////////////// verify increments of mcycle and minstret CSR ///////////////////////////////////////////
+        always @(posedge i_clk) begin
+            //verify mcycle will always increment
+            if(!$past(zicsr.m6.mcountinhibit_cy) && $past(i_rst_n) && i_rst_n && f_past_valid) begin
+                assert(zicsr.m6.mcycle == $past(zicsr.m6.mcycle) + 1);
+            end
+
+            //verify minstret will increment for every instruction executed (except for go_to_trap and return_from_trap)
+            if($past(!zicsr.m6.mcountinhibit_ir && writeback_ce && !stall[`WRITEBACK] && !csr_go_to_trap && !csr_return_from_trap && i_rst_n) && i_rst_n) begin
+              assert(zicsr.m6.minstret == $past(zicsr.m6.minstret) + 1);
+            end
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        ////////////////////////////////////////////////////// COVER STATEMENTS /////////////////////////////////////////////////////////
+        /*
+        always @(posedge i_clk) begin
+            // cover 10 instruction executed
+            cover(zicsr.m6.minstret == 10);
+            // cover write to basereg address 2
+            cover(($past(m0.base_regfile[2]) != m0.base_regfile[2]) && f_past_valid); 
+            // cover if basereg can change without the wr_rd enabled by writeback stage [FAIL]
+            //cover(($past(m0.base_regfile[3]) != m0.base_regfile[3] && f_past_valid) && !$past(writeback_wr_rd));
+        end
+        */
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    `endif
 endmodule
+

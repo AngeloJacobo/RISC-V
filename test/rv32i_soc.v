@@ -4,7 +4,7 @@
 `default_nettype none
 
 //complete package containing the rv32i_core and memory (Instruction and Data memory is combined)
-module rv32i_soc #(parameter CLK_FREQ_MHZ=100, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, MEMORY_DEPTH=1024) ( 
+module rv32i_soc #(parameter CLK_FREQ_MHZ=100, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=1024) ( 
     input wire i_clk,
     input wire i_rst_n,
     //Interrupts
@@ -27,7 +27,7 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=100, PC_RESET=32'h00_00_00_00, TRAP_AD
     wire[3:0] wr_mask; //write mask control
     wire wr_en; //write enable 
         
-    rv32i_core #(.PC_RESET(PC_RESET),.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m0( //main RV32I core
+    rv32i_core #(.PC_RESET(PC_RESET),.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS), .ZICSR_EXTENSION(ZICSR_EXTENSION)) m0( //main RV32I core
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
         //Instruction Memory Interface

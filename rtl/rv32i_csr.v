@@ -2,6 +2,7 @@
 
 `timescale 1ns / 1ps
 `default_nettype none
+`include "rv32i_header.vh"
 
 module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire i_clk, i_rst_n,
@@ -19,14 +20,9 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire i_is_ebreak, //ebreak instruction
     input wire i_is_mret, //mret (return from trap) instruction
     /// Instruction/Load/Store Misaligned Exception///
-    input wire i_opcode_store,
-    input wire i_opcode_load,
-    input wire i_opcode_branch,
-    input wire i_opcode_jal,
-    input wire i_opcode_jalr,
-    input wire[31:0] i_alu_sum, //sum from ALU (address used in load/store/jump/branch)
+    input wire[`OPCODE_WIDTH-1:0] i_opcode, //opcode types
+    input wire[31:0] i_y, //y value from ALU (address used in load/store/jump/branch)
     /// CSR instruction ///
-    input wire i_opcode_system,
     input wire[2:0] i_funct3, // CSR instruction operation
     input wire[11:0] i_csr_index, // immediate value from decoder
     input wire[31:0] i_imm, //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
@@ -40,16 +36,9 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     output reg o_return_from_trap_q, //high before returning from trap (via mret)
     input wire i_minstret_inc, //increment minstret after executing an instruction
     /// Pipeline Control ///
-    input wire i_change_pc, //high if PC needs to jump
-    input wire i_ce // input clk enable for pipeline stalling of this stage
+    input wire i_ce, // input clk enable for pipeline stalling of this stage
+    input wire[`STALL_WIDTH-1:0] i_stall //informs this stage to stall
 );
-    initial begin
-        o_csr_out = 0;
-        o_return_address = 0;
-        o_trap_address = 0;
-        o_go_to_trap_q = 0;
-        o_return_from_trap_q = 0;        
-    end
     
                //CSR operation type
     localparam CSRRW = 3'b001,
@@ -100,9 +89,15 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                //Wrap value for 1 millisecond
     localparam MILLISEC_WRAP =  (CLK_FREQ_MHZ*10**6)/1000;
     
+    wire opcode_store=i_opcode[`STORE];
+    wire opcode_load=i_opcode[`LOAD];
+    wire opcode_branch=i_opcode[`BRANCH];
+    wire opcode_jal=i_opcode[`JAL];
+    wire opcode_jalr=i_opcode[`JALR];
+    wire opcode_system=i_opcode[`SYSTEM];
     reg[31:0] csr_in; //value to be stored to CSR
     reg[31:0] csr_data; //value at current CSR address
-    wire csr_enable = i_opcode_system && i_funct3!=0 && i_ce && !i_change_pc; //csr read/write operation is enabled only at this conditions
+    wire csr_enable = opcode_system && i_funct3!=0 && i_ce; //csr read/write operation is enabled only at this conditions
     reg[1:0] new_pc = 0; //last two bits of i_pc that will be used in taken branch and jumps
     reg go_to_trap; //high before going to trap (if exception/interrupt detected)
     reg return_from_trap; //high before returning from trap (via mret)
@@ -116,31 +111,32 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     reg is_interrupt;
     reg is_exception;
     reg is_trap;
-    
+    wire stall_bit =i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
+
     // CSR register bits
-    reg mstatus_mie = 0; //Machine Interrupt Enable
-    reg mstatus_mpie = 0; //Machine Previous Interrupt Enable
-    reg[1:0] mstatus_mpp = 2'b11; //MPP
-    reg mie_meie = 0; //machine external interrupt enable
-    reg mie_mtie = 0; //machine timer interrupt enable
-    reg mie_msie = 0; //machine software interrupt enable
-    reg[29:0] mtvec_base = TRAP_ADDRESS[31:2]; //address of i_pc after returning from interrupt (via MRET)
-    reg[1:0] mtvec_mode = TRAP_ADDRESS[1:0]; //vector mode addressing 
-    reg[31:0] mscratch = 0; //dedicated for use by machine code
-    reg[31:0] mepc = 0; //machine exception i_pc (address of interrupted instruction)
-    reg mcause_intbit = 0; //interrupt(1) or exception(0)
-    reg[3:0] mcause_code = 0; //indicates event that caused the trap
-    reg[31:0] mtval = 0; //exception-specific infotmation to assist software in handling trap
-    reg mip_meip = 0; //machine external interrupt pending
-    reg mip_mtip = 0; //machine timer interrupt pending
-    reg mip_msip = 0; //machine software interrupt pending
-    reg[63:0] mcycle = 0; //counts number of i_clk cycle executed by core
-    reg[63:0] mtime = 0; //real-time i_clk (millisecond increment)
-    reg[$clog2(MILLISEC_WRAP)-1:0] millisec = 0;  //counter with period of 1 millisec
-    reg[63:0] mtimecmp = 0; //compare register for mtime
-    reg[63:0] minstret = 0; //counts number instructions retired/executed by core
-    reg mcountinhibit_cy = 0; //controls increment of mcycle
-    reg mcountinhibit_ir = 0; //controls increment of minstret
+    reg mstatus_mie; //Machine Interrupt Enable
+    reg mstatus_mpie; //Machine Previous Interrupt Enable
+    reg[1:0] mstatus_mpp; //MPP
+    reg mie_meie; //machine external interrupt enable
+    reg mie_mtie; //machine timer interrupt enable
+    reg mie_msie; //machine software interrupt enable
+    reg[29:0] mtvec_base; //address of i_pc after returning from interrupt (via MRET)
+    reg[1:0] mtvec_mode; //vector mode addressing 
+    reg[31:0] mscratch; //dedicated for use by machine code
+    reg[31:0] mepc; //machine exception i_pc (address of interrupted instruction)
+    reg mcause_intbit; //interrupt(1) or exception(0)
+    reg[3:0] mcause_code; //indicates event that caused the trap
+    reg[31:0] mtval; //exception-specific infotmation to assist software in handling trap
+    reg mip_meip; //machine external interrupt pending
+    reg mip_mtip; //machine timer interrupt pending
+    reg mip_msip; //machine software interrupt pending
+    reg[63:0] mcycle; //counts number of i_clk cycle executed by core
+    reg[63:0] mtime; //real-time i_clk (millisecond increment)
+    reg[$clog2(MILLISEC_WRAP)-1:0] millisec;  //counter with period of 1 millisec
+    reg[63:0] mtimecmp; //compare register for mtime
+    reg[63:0] minstret; //counts number instructions retired/executed by core
+    reg mcountinhibit_cy; //controls increment of mcycle
+    reg mcountinhibit_ir; //controls increment of minstret
     
     //control logic for load/store/instruction misaligned exception detection
     always @* begin
@@ -151,12 +147,12 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         
         // Misaligned Load/Store Address
         if(i_funct3[1:0] == 2'b01) begin //halfword load/store
-            is_load_addr_misaligned = i_opcode_load? i_alu_sum[0] : 0;
-            is_store_addr_misaligned = i_opcode_store? i_alu_sum[0] : 0;
+            is_load_addr_misaligned = opcode_load? i_y[0] : 0;
+            is_store_addr_misaligned = opcode_store? i_y[0] : 0;
         end
         if(i_funct3[1:0] == 2'b10) begin //word load/store
-            is_load_addr_misaligned = i_opcode_load? i_alu_sum[1:0]!=2'b00 : 0;
-            is_store_addr_misaligned = i_opcode_store? i_alu_sum[1:0]!=2'b00 : 0;
+            is_load_addr_misaligned = opcode_load? i_y[1:0]!=2'b00 : 0;
+            is_store_addr_misaligned = opcode_store? i_y[1:0]!=2'b00 : 0;
         end
         
         // Misaligned Instruction Address
@@ -165,9 +161,9 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         if the target address is not four-byte aligned. This exception is reported on the branch or jump
         instruction, not on the target instruction. No instruction-address-misaligned exception is generated
         for a conditional branch that is not taken. */
-        if((i_opcode_branch && i_alu_sum[0]) || i_opcode_jal || i_opcode_jalr) begin // branch or jump to new instruction
+        if((opcode_branch && i_y[0]) || opcode_jal || opcode_jalr) begin // branch or jump to new instruction
             new_pc = i_pc[1:0] + i_csr_index[1:0];
-            if(i_opcode_jalr) new_pc = i_rs1[1:0] +  i_csr_index[1:0];
+            if(opcode_jalr) new_pc = i_rs1[1:0] +  i_csr_index[1:0];
             is_inst_addr_misaligned = (new_pc == 2'b00)? 1'b0:1'b1; //i_pc (instruction address) must always be four bytes aligned
         end
         
@@ -176,6 +172,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     //control logic for writing to CSRs
     always @(posedge i_clk,negedge i_rst_n) begin
         if(!i_rst_n) begin
+            o_go_to_trap_q = 0;
+            o_return_from_trap_q = 0;        
             mstatus_mie <= 0;
             mstatus_mpie <= 0;
             mstatus_mpp <= 2'b11;
@@ -200,7 +198,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             mcountinhibit_cy <= 0;
             mcountinhibit_ir <= 0;
         end
-        else begin
+        else if(!stall_bit) begin
             /***************************************************** CSR control logic *****************************************************/
             //MSTATUS (controls hart's current operating state (mie and mpie are the only configurable bits))
             if(i_csr_index == MSTATUS && csr_enable) begin 
@@ -313,7 +311,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             page-fault exception occurs on an instruction fetch, load, or store, then mtval will contain the
             faulting virtual address.*/
             if(go_to_trap && !o_go_to_trap_q) begin
-                if(is_load_addr_misaligned || is_store_addr_misaligned) mtval <= i_alu_sum;
+                if(is_load_addr_misaligned || is_store_addr_misaligned) mtval <= i_y;
             end           
             
             
@@ -395,6 +393,11 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                  
                  o_csr_out <= csr_data;
               end
+        end
+        else begin
+            // this CSR will always be updated
+            mcycle <= mcountinhibit_cy? mcycle : mcycle + 1; //increments mcycle every clock cycle
+            minstret <= mcountinhibit_ir? minstret : minstret + (i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q); //increment minstret every instruction
         end
     end
 

@@ -7,7 +7,6 @@ module rv32i_basereg
     (
         input wire i_clk,
         input wire i_ce_read, //clock enable for reading from basereg [STAGE 2]
-        input wire i_ce_write, //clock enable for writing to basereg [AFTER STAGE 5]
         input wire[4:0] i_rs1_addr, //source register 1 address
         input wire[4:0] i_rs2_addr, //source register 2 address
         input wire[4:0] i_rd_addr, //destination register address
@@ -17,14 +16,9 @@ module rv32i_basereg
         output wire[31:0] o_rs2 //source register 2 value
     );
     
-    reg[5:0] i = 0;
-    reg[4:0] rs1_addr_q = 0,rs2_addr_q = 0;
+    reg[4:0] rs1_addr_q, rs2_addr_q;
     reg[31:0] base_regfile[31:1]; //base register file (base_regfile[0] is hardwired to zero)
     wire write_to_basereg;
-    
-    initial begin //initialize all basereg to zero
-        for(i=0 ; i<32 ; i=i+1) base_regfile[i]=0; 
-    end
     
     always @(posedge i_clk) begin
         if(write_to_basereg) begin //only write to register if stage 5 is previously enabled (output of stage 5[WRITEBACK] is registered so delayed by 1 clk)
@@ -36,9 +30,9 @@ module rv32i_basereg
         end
     end
     
-    assign write_to_basereg = i_wr && i_rd_addr!=0 && i_ce_write; //no need to write to basereg 0 (hardwired to zero) 
-    assign o_rs1 = rs1_addr_q==0? 0: ( rs1_addr_q == i_rd_addr && write_to_basereg? i_rd:base_regfile[rs1_addr_q] ); // if regfile is about to be written at the same time we read it
-    assign o_rs2 = rs2_addr_q==0? 0: ( rs2_addr_q == i_rd_addr && write_to_basereg? i_rd:base_regfile[rs2_addr_q] );    //then return the next value to be written to that address
+    assign write_to_basereg = i_wr && i_rd_addr!=0; //no need to write to basereg 0 (hardwired to zero) 
+    assign o_rs1 = rs1_addr_q==0? 0: base_regfile[rs1_addr_q]; // if regfile is about to be written at the same time we read it
+    assign o_rs2 = rs2_addr_q==0? 0: base_regfile[rs2_addr_q];    //then return the next value to be written to that address
     
 endmodule
 

@@ -1,13 +1,14 @@
 #! /bin/bash
 
 # Configurables
- INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
-#INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+#INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
 
 # Compilation parameters for RISC-V toolchain
 PREFIX=riscv64-unknown-elf-
 ONAME=test          # executable file name (xxxx.bin)
-MEMORY=memory.mem   # memory file name (extracted text and data sections from the executable file)
+MEMORY=memory.mem   # memory file name (extracted text and data sections from the executable file),filename used here must also be added to rv32i_soc_TB parameter for assurance
+FPIC="-fpic"        # enable PIC (Position Independent Code)
 #Note: Starting address of TEXT section is always zero. Starting address of DATA section depends on the testfile assembly
 
 
@@ -45,16 +46,17 @@ fi
 
 
 # verilog rtl files of the RISC-V core
-rtlfiles="../rtl/rv32i_alu.v 
+rtlfiles="../rtl/rv32i_forwarding.v
           ../rtl/rv32i_basereg.v 
           ../rtl/rv32i_fetch.v
           ../rtl/rv32i_decoder.v 
+          ../rtl/rv32i_alu.v 
           ../rtl/rv32i_memoryaccess.v 
           ../rtl/rv32i_writeback.v
           ../rtl/rv32i_csr.v
           ../rtl/rv32i_core.v
-          ../rtl/rv32i_soc.v
-          ./rv32i_soc_TB.v"
+          ../test/rv32i_soc.v
+          ../test/rv32i_soc_TB.v"
 
             
 countfile=0     # stores total number of testfiles
@@ -66,17 +68,35 @@ failedlist=""   # stores lists of testfiles that FAILED
 unknownlist=""  # stores lists of testfiles that has UNKNOWN output
 missinglist=""  # stores list of testfiles that are missing
  
+start_time=$SECONDS
 
 if [ "$1" == "compile" ] # compile-only the rtl files 
 then
-    if [ -d "./work/" ]  # check first if work library exists
-    then
-        vdel -all -lib work # delete old library folder
+    if [ $(command -v vlog) ] 
+    then                
+        if [ -d "./work/" ]  # check first if work library exists
+        then
+            vdel -all -lib work # delete old library folder
+        fi
+        vlib work
+        vlog +incdir+../rtl/ ${rtlfiles}
+    else 
+        rm -f testbench.vvp # remove previous occurence of vvp file  
+        iverilog -I "../rtl/" $rtlfiles
     fi
-    vlib work
-    vlog ${rtlfiles}
     
-    
+elif [ "$1" == "formal" ] # run formal verification
+then
+    sby -f rv32i_core.sby
+    elapsed_time=$(( SECONDS-$start_time ))
+    if [ -f "rv32i_core/PASS" ]
+    then
+        eval "printf \"\n\nPROOF: PASS (ELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec'))\n\n\""
+    else
+        eval "printf \"\n\nPROOF: FAIL (ELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec'))\n\n\""
+    fi
+
+
 elif [ "$1" == "rv32ui" ] || [ "$1" == "rv32mi" ] || [ "$1" == "extra" ] || [ "$1" == "all" ] || [ "$1" == "" ] # regression tests
 then
     printf "\n"
@@ -96,7 +116,7 @@ then
             ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
             printf "\tcompiling assembly file....."
             
-            ${PREFIX}gcc -c -g -march=rv32g -mabi=ilp32 \
+            ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
             -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar \
             ${testfile} -o ${ONAME}.o
 
@@ -108,7 +128,7 @@ then
             
             ####################################### EXTRACT TEXT AND DATA SECTIONS FROM BIN FILE #######################################
             printf "\textracting text and data sections....."
-            if (( $(python sections.py ${ONAME}.bin ${MEMORY}| grep DONE -c) != 0 )) # extract text section and data section from bin file
+            if (( $(python3 sections.py ${ONAME}.bin ${MEMORY}| grep DONE -c) != 0 )) # extract text section and data section from bin file
             then
                 printf "DONE!\n"
             else
@@ -118,24 +138,42 @@ then
            
            
             ################################################### TESTBENCH SIMULATION ###################################################
-            printf "\tsimulating with Modelsim....."
-            
-            if [ -d "./work/" ]  # check first if work library exists
-            then
-                vdel -all -lib work # delete old library folder
-            fi
-            vlib work
-            if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile name has word "exception" then that testfile will not halt on ebreak/ecall
-            then
-                vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
-            elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
-            then
-                vlog -quiet +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
+            if [ $(command -v vlog) ] 
+            then                
+                printf "\tsimulating with Modelsim....."
+                
+                if [ -d "./work/" ]  # check first if work library exists
+                then
+                    vdel -all -lib work # delete old library folder
+                fi
+                vlib work
+                if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile name has word "exception" then that testfile will not halt on ebreak/ecall
+                then
+                    vlog -quiet +incdir+../rtl/ +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only
+                elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
+                then
+                    vlog -quiet +incdir+../rtl/ +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
+                else
+                    vlog -quiet +incdir+../rtl/ ${rtlfiles} # current testfile will halt on both ebreak/ecall 
+                fi
+                
+                a=$(vsim -quiet -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
             else
-                vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
+                printf "\tsimulating with Icarus Verilog....."
+                rm -f testbench.vvp # remove previous occurence of vvp file  
+
+                if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile name has word "exception" then that testfile will not halt on ebreak/ecall
+                then
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
+                elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
+                then
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
+                else
+                    iverilog -I "../rtl/" -o testbench.vvp $rtlfiles
+                fi
+                a=$(vvp -n testbench.vvp | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
             fi
-            
-            a=$(vsim -quiet -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
+
             if (( $(grep "PASS:" -c <<< $a) != 0 ))
             then
                 status=$(tail -n 1 <<< $a)
@@ -162,6 +200,7 @@ then
         
     done
 
+    elapsed_time=$(( SECONDS-$start_time ))
     printf "\n%s\n" "--------------------------SUMMARY--------------------------"
     printf "$countfile TESTFILES"
     if [ "$1" == "rv32ui" ] 
@@ -202,6 +241,7 @@ then
     then
         printf ":\e[31m $missinglist\e[0m"
     fi
+    eval "printf \"\n\nELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec')\""
     printf "\n%s\n\n" "-----------------------------------------------------------"
 
 
@@ -213,7 +253,7 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
         printf "\tcompiling assembly file....."
         
-        ${PREFIX}gcc -c -g -march=rv32g -mabi=ilp32 \
+        ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
         -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar \
         ${INDIVIDUAL_TESTDIR}/${1} -o ${ONAME}.o
 
@@ -227,57 +267,81 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         
         ####################################### EXTRACT TEXT AND DATA SECTIONS FROM BIN FILE #######################################
         printf "\textracting text and data sections....."
-        if (( $(python sections.py ${ONAME}.bin ${MEMORY} | grep DONE -c) != 0 )) # extract text section and data section from bin file
+        if (( $(python3 sections.py ${ONAME}.bin ${MEMORY} | grep DONE -c) != 0 )) # extract text section and data section from bin file
         then
             printf "DONE!\n"
         else
             printf "\e[31mERROR!\n\e[0m"
         fi
         printf "\n##############################################################\n"
-        riscv64-unknown-elf-objdump -M numeric -D ${ONAME}.bin -h
+        #riscv64-unknown-elf-objdump -M numeric -D ${ONAME}.bin -h
+        python3 sections.py ${ONAME}.bin ${MEMORY}
         printf "\n##############################################################\n"
         ############################################################################################################################
        
        
+        if [ "$2" != "nosim" ]
+        then
         ################################################### TESTBENCH SIMULATION ###################################################
-        printf "\tsimulating with Modelsim.....\n"
-        printf "\n##############################################################\n"
-        if [ -d "./work/" ]  # check first if work library exists
-        then
-            vdel -all -lib work # delete old library folder
-        fi
-        vlib work
-        
-        if (( $(grep "exception" -c <<< $1) != 0 ))
-        then
-            vlog -quiet +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only      
-        elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
-        then
-            vlog -quiet +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
-        else
-            vlog -quiet ${rtlfiles} # current testfile will halt on both ebreak/ecall 
-        fi
-        vsim $2 -G MEMORY="${MEMORY}" rv32i_soc_TB -do "do wave.do;run -all"
-        a=$(vsim -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
-        printf "##############################################################\n"
-        if (( $(grep "PASS:" -c <<< $a) != 0 ))
-        then    
-            status=$(tail -n 1 <<< $a)
-            printf "PASS! $status\n\n"
-        elif (( $(grep "FAIL:" -c <<< $a) != 0 ))
-        then
-            printf "\e[31m$a\n\n\e[0m" # red text for FAILED
-        else
-            printf "\e[31m$a\n\n\e[0m" # red text for UNKNOWN
-        fi
+            if [ $(command -v vlog) ]
+            then
+                printf "\tsimulating with Modelsim.....\n"
+                printf "\n##############################################################\n"
+                if [ -d "./work/" ]  # check first if work library exists
+                then
+                    vdel -all -lib work # delete old library folder
+                fi
+                vlib work
+                
+                if (( $(grep "exception" -c <<< $1) != 0 ))
+                then
+                    vlog -quiet +incdir+../rtl/ +define+HALT_ON_ILLEGAL_INSTRUCTION ${rtlfiles} # current testfile will halt on illegal instruction only      
+                elif (( $(grep "sbreak" -c <<< $1) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
+                then
+                    vlog -quiet +incdir+../rtl/ +define+HALT_ON_ECALL ${rtlfiles} # halt core on ecall
+                else
+                    vlog -quiet +incdir+../rtl/ ${rtlfiles} # current testfile will halt on both ebreak/ecall 
+                fi
+                vsim $2 -G MEMORY="${MEMORY}" rv32i_soc_TB -do "do wave.do;run -all"
+                a=$(vsim -batch -G MEMORY="${MEMORY}" rv32i_soc_TB -do "run -all;exit" | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
+            else
+                printf "\tsimulating with Icarus Verilog.....\n"
+                printf "\n##############################################################\n"
+                rm -f ./testbench.vvp 
 
+                if (( $(grep "exception" -c <<< $1) != 0 ))
+                then
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
+                elif (( $(grep "sbreak" -c <<< $1) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
+                then
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
+                else
+                    iverilog -I "../rtl/" -o testbench.vvp $rtlfiles # current testfile will halt on both ebreak/ecall 
+                fi
+                vvp -n testbench.vvp
+                if [ "$2" == "-gui" ]
+                then
+                    gtkwave wave.gtkw
+                fi
+                a=$(vvp -n testbench.vvp | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
+            fi
+            printf "##############################################################\n"
+            if (( $(grep "PASS:" -c <<< $a) != 0 ))
+            then    
+                status=$(tail -n 1 <<< $a)
+                printf "PASS! $status\n\n"
+            elif (( $(grep "FAIL:" -c <<< $a) != 0 ))
+            then
+                printf "\e[31m$a\n\n\e[0m" # red text for FAILED
+            else
+                printf "\e[31m$a\n\n\e[0m" # red text for UNKNOWN
+            fi
+        fi
         ############################################################################################################################
     else
         printf "\e[31m\tTESTFILE DOES NOT EXIST\n\n\e[0m"    # testfile is missing
     fi
 fi
-
-
 
 # HOW TO USE
 # $ ./test.sh = use the official tests from RISCV [rv32ui and rv32mi]

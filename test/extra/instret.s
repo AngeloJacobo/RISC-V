@@ -23,7 +23,7 @@ main:
         nop
         
         csrr x1, minstret       # save retired instructions (5) to x1          
-        li x2, 5                # set x2 to 5 (expected value fot rdinstret)
+        li x2, 4                # set x2 to 5 (expected value fot rdinstret)
         beqz x2, fail0          # make sure x2 has value
         bne x1, x2, fail1       # branch to fail
          
