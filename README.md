@@ -1,5 +1,7 @@
 ## About
-Design implementation of the RISC-V Base 32 Integer core in Verilog HDL. This is a 5-stage pipeline processor core and supports the Zicsr (Control Status Registers) extension. This is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests)
+Design implementation of the RISC-V Base 32 Integer core in Verilog HDL. This is a 5-stage pipeline processor core and supports the Zicsr (Control Status Registers) extension. This is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests) Formal verification via [SymbiYosys](https://github.com/YosysHQ/sby) is also utilized to thoroughly test the pipeline design.  
+
+The RISC-V ISA implemented here is based on [Volume 1, Unprivileged Spec v. 20191213](https://github.com/riscv/riscv-isa-manual/releases/tag/Ratified-IMAFDQC) and [Volume 2, Privileged Spec v. 20211203.](https://github.com/riscv/riscv-isa-manual/releases/tag/Priv-v1.12) 
 
 Inside the `rtl/` folder are the following:  
  - `rv32i_core.v` = top module for the RV32I core and contains formal verification properties
@@ -10,7 +12,7 @@ Inside the `rtl/` folder are the following:
  - `rv32i_alu.v` =  execute arithmetic operations and determines next `PC` and `rd` values [EXECUTE STAGE]
  - `rv32i_memoryaccess.v` = sends and retrieves data to and from the memory [MEMORYACCESS STAGE]
  - `rv32i_csr.v` = Zicsr extension module [executes parallel to MEMORYACCESS STAGE]
- - `rv32i_writeback.v` = write `rd` to basereg and handles pipeline flushes due to traps [WRITEBACK STAGE]
+ - `rv32i_writeback.v` = writes `rd` to basereg and handles pipeline flushes due to traps [WRITEBACK STAGE]
  - `rv32i_header.vh` = header file which contains all necessary constants, magic numbers, and parameters
  
  Inside the `test/` folder are the following: 
@@ -18,7 +20,7 @@ Inside the `rtl/` folder are the following:
  - `sections.py` = python script used by `test.sh` to extract the text, data, and GOT sections from the binary file output of the compiler
  - `rv32i_core.sby` = SymbiYosys script for formal verification
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
- - `rv32i_soc.v` = complete package instantiating the `rv32i_core` and RAM module for the instructions and data
+ - `rv32i_soc.v` = complete package instantiating the `rv32i_core` and RAM module for the instructions and data memory
  - `wave.do` = Modelsim waveform file
  - `wave.gtkw` = GTKWave waveform file
  - `extra/` folder = contains my own assembly testfiles for all basic instructions, system instructions, and pipeline hazards
@@ -28,7 +30,7 @@ Inside the `rtl/` folder are the following:
  - Separate data and instruction memory interface **[Harvard architecture]**  
  - Load instructions take a minimum of 2 clk cycles   
  - Taken branch and jump instructions take a minimum of 3 clk cycles **[No Branch Prediction Used]**  
- - An instruction with data dependency to the next instruction which is a CSR write or Load instruction will take a minimum of 2 clk cycles. **[Operand Forwarding used]**   
+ - An instruction with data dependency to the next instruction that is a CSR write or Load instruction will take a minimum of 2 clk cycles **[Operand Forwarding used]**   
  - **All remaining instructions take a minimum of 1 clk cycle**   
 
 ## Supported Features of Zicsr Extension Module
@@ -59,7 +61,6 @@ Below is the expected output after running `$ ./test.sh`:
 
 
 ## Goal Checklist
- :white_check_mark: Add more testcases for the testbench    
  :white_check_mark: Automate the testbench   
  :white_check_mark: Add Zicsr extension   
  :white_check_mark: Pass the Official RISC-V International Tests   
