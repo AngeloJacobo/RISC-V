@@ -68,6 +68,7 @@ failedlist=""   # stores lists of testfiles that FAILED
 unknownlist=""  # stores lists of testfiles that has UNKNOWN output
 missinglist=""  # stores list of testfiles that are missing
  
+start_time=$SECONDS
 
 if [ "$1" == "compile" ] # compile-only the rtl files 
 then
@@ -87,11 +88,12 @@ then
 elif [ "$1" == "formal" ] # run formal verification
 then
     sby -f rv32i_core.sby
+    elapsed_time=$(( SECONDS-$start_time ))
     if [ -f "rv32i_core/PASS" ]
     then
-        printf "\n\nPROOF: PASS\n\n"
+        eval "printf \"\n\nPROOF: PASS (ELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec'))\n\n\""
     else
-        printf "\n\nPROOF: UNKNOWN\n\n" 
+        eval "printf \"\n\nPROOF: FAIL (ELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec'))\n\n\""
     fi
 
 
@@ -198,6 +200,7 @@ then
         
     done
 
+    elapsed_time=$(( SECONDS-$start_time ))
     printf "\n%s\n" "--------------------------SUMMARY--------------------------"
     printf "$countfile TESTFILES"
     if [ "$1" == "rv32ui" ] 
@@ -238,6 +241,7 @@ then
     then
         printf ":\e[31m $missinglist\e[0m"
     fi
+    eval "printf \"\n\nELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec')\""
     printf "\n%s\n\n" "-----------------------------------------------------------"
 
 
