@@ -98,8 +98,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire csr_return_from_trap; //high before returning from trap (via mret)
     
     wire[`STALL_WIDTH-1:0] stall; //control stall of each pipeline stages
-    assign o_wr_en = memoryaccess_wr_mem && !csr_go_to_trap; //only write to data memory if there is no trap
     assign ce_read = decoder_ce && !stall[`DECODER]; //reads basereg only decoder is not stalled 
+    assign o_wr_en = memoryaccess_wr_mem && !writeback_change_pc; 
 
     //module instantiations
     rv32i_forwarding operand_forwarding ( //logic for operand forwarding
@@ -321,7 +321,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
             .o_trap_address(csr_trap_address), //mtvec CSR
             .o_go_to_trap_q(csr_go_to_trap), //high before going to trap (if exception/interrupt detected)
             .o_return_from_trap_q(csr_return_from_trap), //high before returning from trap (via mret)
-            .i_minstret_inc(memoryaccess_ce), //high for one clock cycle at the end of every instruction
+            .i_minstret_inc(writeback_ce), //high for one clock cycle at the end of every instruction
             /// Pipeline Control ///
             .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
             .i_stall(stall) //informs this stage to stall
@@ -334,5 +334,191 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         assign csr_go_to_trap = 0;
         assign csr_return_from_trap = 0;
     end
-      
+     
+
+
+
+   `ifdef FORMAL 
+        //f_past_valid logic
+        reg f_past_valid = 0;
+        always @(posedge i_clk) f_past_valid <= 1;
+
+        // assume initial conditions
+        initial begin
+            assume(i_rst_n == 0);
+        end
+
+        // assumption on inputs(not more than one opcode and alu operation is high)
+        wire[4:0] f_alu=decoder_alu[`ADD]+decoder_alu[`SUB]+decoder_alu[`SLT]+decoder_alu[`SLTU]+decoder_alu[`XOR]+decoder_alu[`OR]+decoder_alu[`AND]+decoder_alu[`SLL]+decoder_alu[`SRL]+decoder_alu[`SRA]+decoder_alu[`EQ]+decoder_alu[`NEQ]+decoder_alu[`GE]+decoder_alu[`GEU]+0;
+        wire[4:0] f_opcode=decoder_opcode[`RTYPE]+decoder_opcode[`ITYPE]+decoder_opcode[`LOAD]+decoder_opcode[`STORE]+decoder_opcode[`BRANCH]+decoder_opcode[`JAL]+decoder_opcode[`JALR]+decoder_opcode[`LUI]+decoder_opcode[`AUIPC]+decoder_opcode[`SYSTEM]+decoder_opcode[`FENCE]+0;
+        always @* begin
+            assume(f_alu <= 1);
+            assume(f_opcode <= 1);
+            assume(i_mtime_wr == 0);
+            assume(i_mtimecmp_wr == 0);
+        end
+
+        //////////////////////////////////////////////// verify Operand Forwarding ///////////////////////////////////////////////////
+        reg[4:0] f_alu_rs2_addr;
+        reg[4:0] f_memoryaccess_rs1_addr; 
+        reg[4:0] f_memoryaccess_rs2_addr; 
+        reg[31:0] f_memoryaccess_rs1;
+        reg[31:0] f_memoryaccess_rs2;
+
+        always @(posedge i_clk) begin 
+            if(alu_ce && !(stall[`ALU] || stall[`MEMORYACCESS] || stall[`WRITEBACK])) begin //store rs2_addr pipeline register for ALU stage
+                f_alu_rs2_addr <= decoder_rs2_addr_q;
+            end
+            if(memoryaccess_ce && !(stall[`MEMORYACCESS] || stall[`WRITEBACK])) begin //store rs1_addr, rs2_addr, rs1, and rs2  pipeline registers for STAGE 4
+                f_memoryaccess_rs1_addr <= alu_rs1_addr;
+                f_memoryaccess_rs2_addr <= f_alu_rs2_addr;
+                f_memoryaccess_rs1 <= alu_rs1;
+                f_memoryaccess_rs2 <= alu_rs2;
+            end
+        end
+        always @(posedge i_clk) begin
+            if(writeback_ce) begin //Stage 5 is enabled
+                if(f_memoryaccess_rs1_addr != 0) begin
+                    assert(f_memoryaccess_rs1 == m0.base_regfile[f_memoryaccess_rs1_addr]); //verify that the rs1 value used from the ALU stage is the MOST updated value
+                end
+                else assert(f_memoryaccess_rs1 == 0);
+
+                if(f_memoryaccess_rs2_addr != 0) begin
+                    assert(f_memoryaccess_rs2 == m0.base_regfile[f_memoryaccess_rs2_addr]); //verify that the rs2 value used from the ALU stage is the MOST updated value
+                end
+                else assert(f_memoryaccess_rs2 == 0);
+            end
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        ///////////////////////////////// verify that taken branches, jumps, and traps will update PC ///////////////////////////////////
+        always @(posedge i_clk) begin
+            // change_pc in stage 5 (due to traps) will force first stage to change PC in next clk cycle and all _ce to be
+            // disabled (excecpt for fetch_ce which is always high)
+            if($past(writeback_change_pc) && $past(writeback_ce) && i_rst_n && f_past_valid) begin
+                assert(o_iaddr == $past(writeback_next_pc));  
+                assert({writeback_ce,memoryaccess_ce,alu_ce,decoder_ce,fetch_ce} == 5'b00001);
+            end
+
+            // change_pc in stage 3 (due to jumps and branches) will force first stage to change PC in next clock cycle unless
+            // stalled by stage 3(due to data dependency) or stage 4(due to load instruction) or be flushed by stage 5(due traps)
+            // and all _ce of previous stages of STAGE 3 to be disabled (except for fetch_ce which is always high)
+            else if($past(alu_change_pc) && $past(alu_ce) && !$past(stall[`ALU]) && i_rst_n && f_past_valid) begin
+                assert(o_iaddr == $past(alu_next_pc));         
+                assert({alu_ce,decoder_ce,fetch_ce} == 3'b001);
+            end
+            
+            // verify that if no taken branches,jumps,or traps then PC  will just be added by 4
+            if(!$past(writeback_change_pc) && !$past(alu_change_pc) && !$past(stall[`FETCH]) && $past(fetch_ce) && $past(i_rst_n) && i_rst_n && f_past_valid) begin 
+                assert(o_iaddr == $past(o_iaddr)+4);
+            end
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        //////////////////////////////////////// verify valid writes to basereg and data memory /////////////////////////////////////////
+        always @(posedge i_clk) begin
+            // verify that basereg will be written only if writeback_ce is high
+            if(writeback_wr_rd) assert(writeback_ce);
+            
+            // verify data memory will be written at next clk cycle only if memoryaccess_ce is high and stage 5 does not have to change PC
+            if(o_wr_en) assert($past(memoryaccess_ce) && !$past(writeback_change_pc) && !writeback_change_pc);
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        
+
+        /////////////////////////////////////////////////// verify pipeline stalls /////////////////////////////////////////////////////
+        reg cover_tick = 0;
+        always @(posedge i_clk) begin
+            // verify that when stalled, PC address and _ce will not change
+            if(($past(stall)!=0) && i_rst_n && f_past_valid) assert(o_iaddr == $past(o_iaddr));
+            if($past(stall[`WRITEBACK]) && i_rst_n && f_past_valid) begin
+               assert(writeback_ce == $past(writeback_ce));
+               assert(memoryaccess_ce == $past(memoryaccess_ce));
+               assert(alu_ce == $past(alu_ce));
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`MEMORYACCESS]) && i_rst_n && f_past_valid) begin
+               assert(memoryaccess_ce == $past(memoryaccess_ce));
+               assert(alu_ce == $past(alu_ce));
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`ALU]) && i_rst_n && f_past_valid) begin
+               assert(alu_ce == $past(alu_ce));
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`DECODER]) && i_rst_n && f_past_valid) begin
+               assert(decoder_ce == $past(decoder_ce));
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            if($past(stall[`FETCH]) && i_rst_n && f_past_valid) begin
+               assert(fetch_ce == $past(fetch_ce));
+            end
+            
+            //verify that output states of ALU stage will not change if pipeline is stalled
+            if($past(alu_ce) && $past(stall[`MEMORYACCESS]) && i_rst_n && f_past_valid) begin
+               assert(alu_change_pc == $past(alu_change_pc));
+               assert(alu_next_pc == $past(alu_next_pc));
+               assert(alu_force_stall == $past(alu_force_stall));
+            end
+
+            // verify that if a stage is stalled, then the previous stage should be stalled too
+            if(stall[`WRITEBACK]) assert(stall[`MEMORYACCESS]);
+            if(stall[`MEMORYACCESS] || (alu_force_stall && !writeback_change_pc)) assert(stall[`ALU]);
+            if(stall[`ALU]) assert(stall[`DECODER]);
+            if(stall[`DECODER]) assert(stall[`FETCH]);
+            if(writeback_change_pc) assert(stall == 0); //pipeline will never be stalled and flushed(by stage 5) at same time
+                                                        //No stall can stop flush from stage 5
+
+            // verify that if stage 4 is stalled while stage 5 is not, stage 5 will be disabled at next clk cycle (writeback_ce wil be low) (pipeline bubbling)
+            if($past(stall[`MEMORYACCESS]) && !$past(stall[`WRITEBACK]) && $past(i_rst_n) && i_rst_n && f_past_valid) begin
+                assert(memoryaccess_ce && !writeback_ce);
+            end 
+            // verify that if stage 3 is stalled while stage 4 is not, stage 4 will be disabled at next clk cycle (memoryaccess_ce will be low) (pipeline bubbling)
+           if($past(alu_force_stall) && !$past(stall[`MEMORYACCESS]) && $past(i_rst_n) && i_rst_n && !$past(writeback_change_pc) && f_past_valid) begin
+                assert(alu_ce && !memoryaccess_ce);
+           end
+
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        //////////////////////////////////////// verify increments of mcycle and minstret CSR ///////////////////////////////////////////
+        always @(posedge i_clk) begin
+            //verify mcycle will always increment
+            if(!$past(zicsr.m6.mcountinhibit_cy) && $past(i_rst_n) && i_rst_n && f_past_valid) begin
+                assert(zicsr.m6.mcycle == $past(zicsr.m6.mcycle) + 1);
+            end
+
+            //verify minstret will increment for every instruction executed (except for go_to_trap and return_from_trap)
+            if($past(!zicsr.m6.mcountinhibit_ir && writeback_ce && !stall[`WRITEBACK] && !csr_go_to_trap && !csr_return_from_trap && i_rst_n) && i_rst_n) begin
+              assert(zicsr.m6.minstret == $past(zicsr.m6.minstret) + 1);
+            end
+        end
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+        ////////////////////////////////////////////////////// COVER STATEMENTS /////////////////////////////////////////////////////////
+        /*
+        always @(posedge i_clk) begin
+            // cover 10 instruction executed
+            cover(zicsr.m6.minstret == 10);
+            // cover write to basereg address 2
+            cover(($past(m0.base_regfile[2]) != m0.base_regfile[2]) && f_past_valid); 
+            // cover if basereg can change without the wr_rd enabled by writeback stage [FAIL]
+            //cover(($past(m0.base_regfile[3]) != m0.base_regfile[3] && f_past_valid) && !$past(writeback_wr_rd));
+        end
+        */
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    `endif
 endmodule
+
