@@ -1,8 +1,8 @@
 #! /bin/bash
 
 # Configurables
-INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
-#INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+#INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
 
 # Compilation parameters for RISC-V toolchain
 PREFIX=riscv64-unknown-elf-
@@ -84,6 +84,17 @@ then
         iverilog -I "../rtl/" $rtlfiles
     fi
     
+elif [ "$1" == "formal" ] # run formal verification
+then
+    sby -f rv32i_core.sby
+    if [ -f "rv32i_core/PASS" ]
+    then
+        printf "\n\nPROOF: PASS\n\n"
+    else
+        printf "\n\nPROOF: UNKNOWN\n\n" 
+    fi
+
+
 elif [ "$1" == "rv32ui" ] || [ "$1" == "rv32mi" ] || [ "$1" == "extra" ] || [ "$1" == "all" ] || [ "$1" == "" ] # regression tests
 then
     printf "\n"
