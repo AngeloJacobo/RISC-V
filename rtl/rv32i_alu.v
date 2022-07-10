@@ -121,25 +121,19 @@ module rv32i_alu(
         b = (opcode_rtype || opcode_branch)? i_rs2:i_imm; // b can either be rs2 or imm 
         
         if(alu_add) y_d = a + b;
-        if(alu_sub) y_d = a - b;
-        if(alu_slt || alu_sltu) begin
-            y_d = a < b;
-            if(alu_slt) y_d = (a[31] ^ b[31])? a[31]:y_d;
-        end 
-        if(alu_xor) y_d = a ^ b;
-        if(alu_or)  y_d = a | b;
-        if(alu_and) y_d = a & b;
-        if(alu_sll) y_d = a << b[4:0];
-        if(alu_srl) y_d = a >> b[4:0];
-        if(alu_sra) y_d = $signed(a) >>> b[4:0];
-        if(alu_eq || alu_neq) begin
-            y_d = a == b;
-            if(alu_neq) y_d = !y_d;
-        end
-        if(alu_ge || alu_geu) begin
-            y_d = a >= b;
-            if(alu_ge) y_d = (a[31] ^ b[31])? b[31]:y_d;
-        end
+        else if(alu_sub) y_d = a - b;
+        else if(alu_slt) y_d = $signed(a) < $signed(b);
+        else if(alu_sltu) y_d = $unsigned(a) < $unsigned(b);
+        else if(alu_xor) y_d = a ^ b;
+        else if(alu_or)  y_d = a | b;
+        else if(alu_and) y_d = a & b;
+        else if(alu_sll) y_d = a << b[4:0];
+        else if(alu_srl) y_d = a >> b[4:0];
+        else if(alu_sra) y_d = $signed(a) >>> b[4:0];
+        else if(alu_eq) y_d = a == b;
+        else if(alu_neq) y_d = a != b;
+        else if(alu_ge) y_d = $signed(a) >=$signed(b);
+        else if(alu_geu) y_d = $unsigned(a) >= $unsigned(b);
     end
 
     
@@ -153,22 +147,28 @@ module rv32i_alu(
         wr_rd_d = 0;
         a_pc = i_pc;
         if(!i_flush) begin
-            if(opcode_rtype || opcode_itype) rd_d = y_d;
-            if(opcode_branch && y_d[0]) begin
-                    o_next_pc = sum; //branch iff value of ALU is 1(true)
-                    o_change_pc = i_ce; //change PC when ce of this stage is high (o_change_pc is valid)
-                    o_flush = i_ce;
+            if(opcode_lui) rd_d = i_imm;
+            else if(opcode_auipc) rd_d = sum;
+            else if(opcode_rtype || opcode_itype) rd_d = y_d;
+            else if(opcode_jal) begin
+                o_next_pc = sum; //jump to new PC
+                o_change_pc = i_ce; //change PC when ce of this stage is high (o_change_pc is valid)
+                o_flush = i_ce;
+                rd_d = i_pc + 4; //register the next pc value to destination register
             end
-            if(opcode_jal || opcode_jalr) begin
-                if(opcode_jalr) a_pc = i_rs1;
+            else if(opcode_jalr) begin
+                a_pc = i_rs1;
                 o_next_pc = sum; //jump to new PC
                 o_change_pc = i_ce; //change PC when ce of this stage is high (o_change_pc is valid)
                 o_flush = i_ce;
                 rd_d = i_pc + 4; //register the next pc value to destination register
             end 
+            else if(opcode_branch && y_d[0]) begin
+                    o_next_pc = sum; //branch iff value of ALU is 1(true)
+                    o_change_pc = i_ce; //change PC when ce of this stage is high (o_change_pc is valid)
+                    o_flush = i_ce;
+            end
         end
-        if(opcode_lui) rd_d = i_imm;
-        if(opcode_auipc) rd_d = sum;
 
         if(opcode_branch || opcode_store || (opcode_system && i_funct3 == 0) || opcode_fence ) wr_rd_d = 0; //i_funct3==0 are the non-csr system instructions 
         else wr_rd_d = 1; //always write to the destination reg except when instruction is BRANCH or STORE or SYSTEM(except CSR system instruction)  
