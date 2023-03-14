@@ -9,12 +9,16 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     //Instruction Memory Interface (32 bit rom)
     input wire[31:0] i_inst, //32-bit instruction
     output wire[31:0] o_iaddr, //address of instruction 
+    output wire o_stb_inst, //request for read access to instruction memory
+    input wire i_ack_inst, //ack (high if new instruction is ready)
     //Data Memory Interface (32 bit ram)
     input wire[31:0] i_din, //data retrieve from memory
     output wire[31:0] o_dout, //data to be stored to memory
     output wire[31:0] o_daddr, //address of data memory for store/load
     output wire[3:0] o_wr_mask, //write mask control
     output wire o_wr_en, //write enable 
+    output wire o_stb_data, //request for read/write access to data memory
+    input wire i_ack_data, //ack by data memory (high when read data is ready or when write data is already written)
     //Interrupts
     input wire i_external_interrupt, //interrupt from external source
     input wire i_software_interrupt, //interrupt from software
@@ -80,7 +84,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire memoryaccess_wr_mem;
     wire memoryaccess_ce;
     wire memoryaccess_flush;
-
+    wire o_stall_from_alu;
     //wires for rv32i_writeback
     wire writeback_wr_rd; 
     wire[4:0] writeback_rd_addr; 
@@ -145,6 +149,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_pc(fetch_pc), //PC value of o_inst
         .i_inst(i_inst), // retrieved instruction from Memory
         .o_inst(fetch_inst), // instruction
+        .o_stb_inst(o_stb_inst), // request for instruction
+        .i_ack_inst(i_ack_inst), //ack (high if new instruction is ready)
         // PC Control
         .i_writeback_change_pc(writeback_change_pc), //high when PC needs to change when going to trap or returning from trap
         .i_writeback_next_pc(writeback_next_pc), //next PC due to trap
@@ -214,6 +220,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_rd(alu_rd), //value to be written back to destination register
         .o_rd_valid(alu_rd_valid), //high if o_rd is valid (not load nor csr instruction)
          /// Pipeline Control ///
+        .o_stall_from_alu(o_stall_from_alu), //prepare to stall next stage(memory-access stage) for load/store instruction
         .i_ce(alu_ce), // input clk enable for pipeline stalling of this stage
         .o_ce(memoryaccess_ce), // output clk enable for pipeline stalling of next stage
         .i_stall(stall), //informs this stage to stall
@@ -244,11 +251,14 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_rd(alu_rd), //value to be written back to destination reg
         .o_rd(memoryaccess_rd), //value to be written back to destination register
         // Data Memory Control
+        .o_stb_data(o_stb_data), //request for read/write access to data memory
+        .i_ack_data(i_ack_data), //ack by data memory (high when read data is ready or when write data is already written
         .o_data_store(o_dout), //data to be stored to memory (mask-aligned)
         .o_data_load(memoryaccess_data_load), //data to be loaded to base reg (z-or-s extended) 
         .o_wr_mask(o_wr_mask), //write mask {byte3,byte2,byte1,byte0}
         .o_wr_mem(memoryaccess_wr_mem), //write to data memory if enabled
          /// Pipeline Control ///
+        .i_stall_from_alu(o_stall_from_alu), //stalls this stage when incoming instruction is a load/store
         .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
         .o_ce(writeback_ce), // output clk enable for pipeline stalling of next stage
         .i_stall(stall), //informs this stage to stall
