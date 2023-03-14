@@ -10,6 +10,8 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
     output reg[31:0] o_pc, //PC value of current instruction 
     input wire[31:0] i_inst, // retrieved instruction from Memory
     output reg[31:0] o_inst, // instruction sent to pipeline
+    output wire o_stb_inst, // request for instruction
+    input wire i_ack_inst, //ack (high if new instruction is now on the bus)
     // PC Control
     input wire i_writeback_change_pc, //high when PC needs to change when going to trap or returning from trap
     input wire[31:0] i_writeback_next_pc, //next PC due to trap
@@ -23,20 +25,38 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
     input wire i_flush //flush this stage
 );
 
-    reg[31:0] iaddr_d;
-    reg ce_d;
-    wire stall_bit = i_stall[`FETCH] || i_stall[`DECODER] ||i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall this stage when next stages are stalled
+    reg[31:0] iaddr_d, prev_pc, stalled_inst, stalled_pc;
+    reg ce, ce_d;
+    reg stall_q;
+    //stall this stage when:
+    //- next stages are stalled
+    //- you have request but no ack yeti
+    //- you dont have a request at all (no request then no instruction to execute for this stage)
+    wire stall_bit = i_stall[`FETCH] || i_stall[`DECODER] ||i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK] || (o_stb_inst && !i_ack_inst) || !o_stb_inst; 
+    assign o_stb_inst = ce; //request for new instruction if this stage is enabled                                                               
+    
+    //ce logic for fetch stage
+    always @(posedge i_clk, negedge i_rst_n) begin
+         if(!i_rst_n) ce <= 0;
+         else if((i_alu_change_pc || i_writeback_change_pc)) ce <= 0; //do pipeline bubble when need to change pc so that next stages will be disabled 
+         else ce <= 1;                                                  //and will not execute the instructions already inside the pipeline
+     end
+
+
 
     always @(posedge i_clk, negedge i_rst_n) begin
         if(!i_rst_n) begin
             o_ce <= 0;
             o_iaddr <= PC_RESET;
+            prev_pc <= PC_RESET;
+            stalled_inst <= 0;
+            o_pc <= 0;
         end
-        else begin
-            if(i_ce && !stall_bit) begin //update registers only if this stage is enabled and next stages are not stalled
+        else begin 
+            if((ce && !stall_bit) || (stall_bit && !o_ce && ce) || i_writeback_change_pc) begin //update registers only if this stage is enabled and next stages are not stalled
                 o_iaddr <= iaddr_d;
-                o_pc <= o_iaddr;
-                o_inst <= i_inst;
+                o_pc <= stall_q? stalled_pc:prev_pc;
+                o_inst <= stall_q? stalled_inst:i_inst;
             end
             if(i_flush && !stall_bit) begin //flush this stage(only when not stalled) so that clock-enable of next stage is disabled at next clock cycle
                 o_ce <= 0;
@@ -44,8 +64,20 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
             else if(!stall_bit) begin //clock-enable will change only when not stalled
                 o_ce <= ce_d;
             end
-            else if(stall_bit && !i_stall[`DECODER]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
-                                                                    //clock enable of next stage at next clock cycle (pipeline bubble)
+            //if this stage is stalled but next stage is not, disable 
+            //clock enable of next stage at next clock cycle (pipeline bubble)
+            else if(stall_bit && !i_stall[`DECODER]) o_ce <= 0; 
+                                                                    
+                
+            stall_q <= |i_stall; //raise stall when any of 5 stages is stalled
+
+            //store both instruction and PC before stalling so that we can
+            //come back to these values when we need to return from stall 
+            if(stall_bit && !stall_q) begin
+                stalled_pc <= prev_pc; 
+                stalled_inst <= i_inst; 
+                prev_pc <= o_iaddr; //this is the first delay to align the PC to the pipeline
+            end
         end
     end
     // logic for PC and pipeline clock_enable control
@@ -53,7 +85,8 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
         iaddr_d = 0;
         ce_d = 0;
         o_stall = i_stall[`DECODER] || i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall when retrieving instructions need wait time
-
+        //prepare next PC when changing pc, then do a pipeline bubble
+        //to disable the ce of next stage
         if(i_writeback_change_pc) begin
             iaddr_d = i_writeback_next_pc;
             ce_d = 0;
@@ -64,8 +97,14 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
         end
         else begin
             iaddr_d = o_iaddr + 32'd4;
-            ce_d = i_ce;
+            ce_d = ce;
         end
     end
     
 endmodule
+
+
+
+
+
+
