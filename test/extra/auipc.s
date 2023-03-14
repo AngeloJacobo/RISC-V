@@ -20,7 +20,7 @@ main:
         auipc   x1, 0xABCDE     # load 0xABCDE to upper immediate of x1 the add PC (0xABCDE008)
         
         # self-check
-        addi    x2, x2, 0       #
+        li      x2, 0           #
         addi    x2, x2, 0xAB    # 
         slli    x2, x2, 8       #
         addi    x2, x2, 0xCD    # 
