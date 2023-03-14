@@ -28,7 +28,10 @@ module rv32i_memoryaccess(
     output reg[31:0] o_data_load, //data to be loaded to base reg (z-or-s extended) 
     output reg[3:0] o_wr_mask, //write mask {byte3,byte2,byte1,byte0}
     output reg o_wr_mem, //write to data memory if enabled
+    output reg o_stb_data, //request for read/write access to data memory
+    input wire i_ack_data, //ack by data memory (high when read data is ready or when write data is already written)
     /// Pipeline Control ///
+    input wire i_stall_from_alu, //stalls this stage when incoming instruction is a load/store
     input wire i_ce, // input clk enable for pipeline stalling of this stage
     output reg o_ce, // output clk enable for pipeline stalling of next stage
     input wire[`STALL_WIDTH-1:0] i_stall, //informs this stage to stall
@@ -41,7 +44,6 @@ module rv32i_memoryaccess(
     reg[31:0] data_load_d; //data to be loaded to basereg
     reg[3:0] wr_mask_d; 
     wire[1:0] addr_2 = i_y[1:0]; //last 2  bits of data memory address
-    reg delay; //1 clk delay needed for load operation
     wire stall_bit =i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
 
     //register the outputs of this module
@@ -49,8 +51,8 @@ module rv32i_memoryaccess(
         if(!i_rst_n) begin
             o_wr_rd <= 0;
             o_wr_mem <= 0;
-            delay <= 0;
             o_ce <= 0;
+            o_stb_data <= 0;
         end
         else begin
             if(i_ce && !stall_bit) begin //update register only if this stage is enabled and not stalled
@@ -60,11 +62,25 @@ module rv32i_memoryaccess(
                 o_pc <= i_pc;
                 o_wr_rd <= i_wr_rd;
                 o_rd <= i_rd;
-                o_data_store <= data_store_d;
                 o_data_load <= data_load_d; 
-                o_wr_mask <= wr_mask_d;
-                o_wr_mem <= i_opcode[`STORE]; 
+                o_wr_mask <= 0;
+                o_wr_mem <= 0; 
+                o_stb_data <= 0;
             end
+            else if(i_ce) begin
+                //stb goes high when instruction is a load/store and when
+                //request is not already high (request lasts for 1 clk cycle
+                //only)
+                o_stb_data <= (o_stb_data && stall_bit)? 0:i_opcode[`LOAD] || i_opcode[`STORE]; 
+                o_wr_mask <= o_stb_data? 0:wr_mask_d;
+                o_wr_mem <= o_stb_data? 0:i_opcode[`STORE]; 
+            end
+
+            //update this registers even on stall since this will be used for
+            //accessing the data memory while on stall
+            o_y <= i_y; //data memory address
+            o_data_store <= data_store_d;
+
             if(i_flush && !stall_bit) begin //flush this stage so clock-enable of next stage is disabled at next clock cycle
                 o_ce <= 0;
                 o_wr_mem <= 0;
@@ -72,22 +88,18 @@ module rv32i_memoryaccess(
             else if(!stall_bit) begin //clock-enable will change only when not stalled
                 o_ce <= i_ce;
             end
-            else if(stall_bit && !i_stall[`WRITEBACK]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
-                                                                        //clock enable of next stage at next clock cycle (pipeline bubble)
-            o_y <= i_y; //data memory address
-
-            //1 clk delay logic to register the data memory address
-            if(stall_bit) begin
-                delay <= 1;            
-            end
-            else delay <= 0;
+            //if this stage is stalled but next stage is not, disable 
+            //clock enable of next stage at next clock cycle (pipeline bubble)
+            else if(stall_bit && !i_stall[`WRITEBACK]) o_ce <= 0;         
         end
 
     end 
 
     //determine data to be loaded to basereg or stored to data memory 
     always @* begin
-        o_stall = ((i_opcode[`LOAD] && i_ce && !delay) || i_stall[`WRITEBACK]) && !i_flush; //stall while retrieving data from memory(dont stall when need to flush by next stage)
+        //stall while data memory has not yet acknowledged i.e.wWrite data is not yet written or
+        //read data is not yet available. Don't stall when need to flush by next stage
+        o_stall = ((i_stall_from_alu && i_ce && !i_ack_data) || i_stall[`WRITEBACK]) && !i_flush;         
         o_flush = i_flush; //flush this stage along with previous stages
         data_store_d = 0;
         data_load_d = 0;
