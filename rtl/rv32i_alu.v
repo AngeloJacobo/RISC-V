@@ -34,6 +34,7 @@ module rv32i_alu(
     output reg[31:0] o_rd, //value to be written back to destination register
     output reg o_rd_valid, //high if o_rd is valid (not load nor csr instruction)
     /// Pipeline Control ///
+    output reg o_stall_from_alu, //prepare to stall next stage(memory-access stage) for load/store instruction
     input wire i_ce, // input clk enable for pipeline stalling of this stage
     output reg o_ce, // output clk enable for pipeline stalling of next stage
     input wire[`STALL_WIDTH-1:0] i_stall, //informs this stage to stall
@@ -84,6 +85,7 @@ module rv32i_alu(
         if(!i_rst_n) begin
             o_exception <= 0;
             o_ce <= 0;
+            o_stall_from_alu <= 0;
         end
         else begin
             if(i_ce && !stall_bit) begin //update register only if this stage is enabled
@@ -99,7 +101,8 @@ module rv32i_alu(
                 o_rd <= rd_d;
                 o_rd_valid <= rd_valid_d;
                 o_wr_rd <= wr_rd_d;
-                o_pc <= i_pc;
+                o_stall_from_alu <= i_opcode[`STORE] || i_opcode[`LOAD]; //stall next stage(memory-access stage) when need to store/load 
+                o_pc <= i_pc;                                               //since accessing data memory always takes more than 1 cycle
             end
             if(i_flush && !stall_bit) begin //flush this stage so clock-enable of next stage is disabled at next clock cycle
                 o_ce <= 0;
