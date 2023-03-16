@@ -33,11 +33,11 @@ then
     
 elif [ "$1" == "extra" ]
 then
-    testfiles="./extra/*.s" # My own tests [basic instructions, CSRs, system instructions, exception and interrupt handling]
+    testfiles="./extra/*.s ./extra/*.c" # My own tests [basic instructions, CSRs, system instructions, exception and interrupt handling]
  
 elif [ "$1" == "all" ]
 then
-    testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S ./extra/*.s" # Combination of rv32ui, rv32mi, and mytest
+    testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S ./extra/*.s ./extra/*.c" # Combination of rv32ui, rv32mi, and mytest
     
 elif [ "$1" == "" ]
 then
