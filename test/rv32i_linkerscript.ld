@@ -7,10 +7,10 @@ ENTRY(_start)
 MEMORY
 {
   /* Define the ROM(read, executable) memory region for the program */
-  ROM (rx) : ORIGIN = 0x00000000, LENGTH = 4K
+  ROM (rx) : ORIGIN = 0, LENGTH = 4096
 
   /* Define the RAM(read,write,executable) memory region for the program */
-  RAM (rwx) : ORIGIN = 0x00001000, LENGTH = 4K
+  RAM (rwx) : ORIGIN = 4096, LENGTH = 8000 - 4096 /* address 8000-8192 is allotted for I/O peripherals (UART, I2C) 
   /* Thus total memory region of 8K*/
 }
 
