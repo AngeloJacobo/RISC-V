@@ -11,36 +11,33 @@ module rv32i_soc_TB;
     parameter ZICSR_EXTENSION = 1;
     /******************************* MODIFY ****************************************/
     localparam MEMORY_DEPTH = 8192, //number of memory bytes
-               DATA_START_ADDR = 32'h1080; //starting address of data memory to be displayed
+               DATA_START_ADDR = 32'h1004; //starting address of data memory to be displayed
     /*******************************************************************************/
    
     reg clk,rst_n;
     reg temp;
-    reg external_interrupt=0,software_interrupt=0;
-    reg mtime_wr=0,mtimecmp_wr=0;
-    reg[63:0] mtime_din,mtimecmp_din=0;
     integer i,j;          
+    
+    
     rv32i_soc #(.PC_RESET(32'h00_00_00_00), .MEMORY_DEPTH(MEMORY_DEPTH), .CLK_FREQ_MHZ(100), .TRAP_ADDRESS(32'h00000004), .ZICSR_EXTENSION(ZICSR_EXTENSION)) uut (
         .i_clk(clk),
-        .i_rst_n(rst_n),
-        //Interrupts
-        .i_external_interrupt(external_interrupt), //interrupt from external source
-        .i_software_interrupt(software_interrupt), //interrupt from software
-        // Timer Interrupt
-        .i_mtime_wr(mtime_wr), //write to mtime
-        .i_mtimecmp_wr(mtimecmp_wr),  //write to mtimecmp
-        .i_mtime_din(mtime_din), //data to be written to mtime
-        .i_mtimecmp_din(mtimecmp_din) //data to be written to mtimecmp
+        .i_rst(!rst_n)
         );
     
-    always #5 clk=!clk;
-        
+    always #5 clk=!clk; //100MHz clock
+    
+    initial begin //2nd reset to test resetting while core is executing instruction
+        #200;
+        rst_n = 0;
+        #500;
+        rst_n = 1;
+    end  
         
     /*********************** initialize instruction memory and data memory **************************/
     initial begin 
         #1;
         $readmemh(MEMORY,uut.m1.memory_regfile); //write instruction and data to memory
-        //uut.m1.memory_regfile[{32'h0000_1000>>2}] = 32'h12345678; //initial data for memory address 4096 
+        //uut.m1.memory_regfile[{32'h0000_1000>>2}] = 32'h12345678; //initial data memory 
     end
     /***********************************************************************************************/
     reg[1024:0] cause;
@@ -55,7 +52,7 @@ module rv32i_soc_TB;
         $dumpvars(0,uut.m0.m0.base_regfile[21],uut.m0.m0.base_regfile[22],uut.m0.m0.base_regfile[23],uut.m0.m0.base_regfile[24],uut.m0.m0.base_regfile[25]);
         $dumpvars(0,uut.m0.m0.base_regfile[26],uut.m0.m0.base_regfile[27],uut.m0.m0.base_regfile[28],uut.m0.m0.base_regfile[29],uut.m0.m0.base_regfile[30]);
         $dumpvars(0,uut.m0.m0.base_regfile[31]);
-
+		
         rst_n = 1;
         #50;
         clk=0;
@@ -68,7 +65,7 @@ module rv32i_soc_TB;
         $display("Monitor All Writes to Base Register and Data Memory");
         
         /**************************************************************************************************************************/
-
+		
         while(  `ifdef HALT_ON_ILLEGAL_INSTRUCTION
                     uut.iaddr < MEMORY_DEPTH-4 && !(uut.m0.zicsr.m6.i_is_inst_illegal && uut.m0.zicsr.m6.i_ce) //exception testing (halt core only when instruction is illegal)
                 `elsif HALT_ON_EBREAK
@@ -79,9 +76,11 @@ module rv32i_soc_TB;
                     !uut.m0.alu_exception[`ECALL] && !uut.m0.alu_exception[`EBREAK] //normal test (halt core on ebreak/ecall)
                 `endif
              ) begin
-
+             
+            
             @(negedge clk);
-            #1;
+            #5;
+            `ifdef DISPLAY
             if(ZICSR_EXTENSION != 0) begin
                 if(!uut.m0.stall[`MEMORYACCESS] && uut.m0.zicsr.m6.csr_enable) begin //csr is written
                     $display("\nPC: %h    %h [%s]\n  [CSR] address:0x%0h   value:0x%h ",uut.m0.zicsr.m6.i_pc, uut.m1.memory_regfile[{uut.m0.zicsr.m6.i_pc}>>2],"SYSTEM",uut.m0.zicsr.m6.i_csr_index,uut.m0.zicsr.m6.csr_in); //display address of csr changed and its new value
@@ -133,7 +132,7 @@ module rv32i_soc_TB;
                 
             end
             
-
+            `endif
         
         end
 
@@ -181,35 +180,9 @@ module rv32i_soc_TB;
         /**************************************************************************************************************************/
         
     end
-    
-    initial begin   //external interrupt at 5 ms
-    external_interrupt = 0;
-    temp = 0;
-        #5_005_000; //(5ms)
-        external_interrupt = 1;
-        wait(uut.m0.writeback_ce && uut.m0.csr_go_to_trap);
-        temp = 1;
-        external_interrupt = 0;
-    end
-    
-    initial begin   //software interrupt at 10 ms
-    software_interrupt = 0;
-        #10_005_000; //(10ms)
-        if(temp == 0) $stop;
-        software_interrupt = 1;
-        wait(uut.m0.writeback_ce && uut.m0.csr_go_to_trap);
-        software_interrupt = 0;
-    end
-    
-    initial begin   //timer interrupt at 15 ms
-    mtime_din = 0;
-    mtimecmp_din = 0;
-    mtimecmp_wr = 0;
-    #1000
-        mtimecmp_din = 15; 
-        mtimecmp_wr = 1;
-    #1000
-        mtimecmp_wr = 0;
-    end
+	initial begin
+		#1_000_000; //simulation time limit
+		$stop;
+	end
 endmodule
 
