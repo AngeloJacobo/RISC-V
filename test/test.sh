@@ -8,6 +8,8 @@ INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (I
 PREFIX=riscv64-unknown-elf-
 ONAME=test          # executable file name (xxxx.bin)
 MEMORY=memory.mem   # memory file name (extracted text and data sections from the executable file),filename used here must also be added to rv32i_soc_TB parameter for assurance
+LINKER_SCRIPT=rv32i_linkerscript.ld # linkerscript used by linker to allow user to have control over the layout and memory usage of the program
+ENTRY_CODE=entry.s  #contains the "_start" symbol and initialzes the program (setting the stack pointer and then specify jumping to "main")
 FPIC="-fpic"        # enable PIC (Position Independent Code)
 #Note: Starting address of TEXT section is always zero. Starting address of DATA section depends on the testfile assembly
 
@@ -40,7 +42,6 @@ then
 elif [ "$1" == "" ]
 then
     testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S" # Combination of rv32ui and rv32mi tests
-fi
 
 ###########################################################################################################################################################
 
@@ -72,7 +73,7 @@ start_time=$SECONDS
 
 if [ "$1" == "compile" ] # compile-only the rtl files 
 then
-    if [ $(command -v vlog) ] 
+    if [ $(command -v vlog) ] # Modelsim 
     then                
         if [ -d "./work/" ]  # check first if work library exists
         then
@@ -115,21 +116,38 @@ then
             
             ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
             printf "\tcompiling assembly file....."
-            
+            # Compile the test file, (if getting error, try -ffreestanding which lets compiler to not follow the default library calling(but manually search for it))
             ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
             -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar \
-            ${testfile} -o ${ONAME}.o
-
-            riscv64-unknown-elf-ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin
+            ${testfile} -o ${ONAME}.o -T${LINKER_SCRIPT} 
             
+            #Compile the entry assembly code
+            ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
+            ${ENTRY_CODE} -o entry.o -T${LINKER_SCRIPT}
+            if (( $(grep "\.c" -c <<< $testfile) != 0 )) # C codes will have the entry assembly code linked to it
+            then
+                # Link the test file and entry code, then generate the binary file
+                ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+            else
+                # Link the test file, then generate the binary file
+                ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+            fi
+
             printf "DONE!\n"
             ############################################################################################################################
             
             
             ####################################### EXTRACT TEXT AND DATA SECTIONS FROM BIN FILE #######################################
             printf "\textracting text and data sections....."
-            if (( $(python3 sections.py ${ONAME}.bin ${MEMORY}| grep DONE -c) != 0 )) # extract text section and data section from bin file
-            then
+            #if (( $(python3 sections.py ${ONAME}.bin ${MEMORY}| grep DONE -c) != 0 )) # extract text section and data section from bin file
+            #then
+            #    printf "DONE!\n"
+            #else
+            #    printf "\e[31mERROR!\n\e[0m"
+            #fi
+            # NOTE: Use elf2hex which is more complete and better than my own python script
+            ${PREFIX}elf2hex --bit-width 32 --input ${ONAME}.bin --output ${MEMORY}
+            if [ $? -eq 0 ]; then
                 printf "DONE!\n"
             else
                 printf "\e[31mERROR!\n\e[0m"
@@ -253,11 +271,23 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
         printf "\tcompiling assembly file....."
         
+        # Compile the test file, (if getting error, try -ffreestanding which lets compiler to not follow the default library calling(but manually search for it))
         ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
         -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar \
-        ${INDIVIDUAL_TESTDIR}/${1} -o ${ONAME}.o
-
-        riscv64-unknown-elf-ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin
+        ${INDIVIDUAL_TESTDIR}/${1} -o ${ONAME}.o -T${LINKER_SCRIPT} 
+        
+        #Compile the entry assembly code
+        ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
+        ${ENTRY_CODE} -o entry.o -T${LINKER_SCRIPT}
+        
+        if (( $(grep "\.c" -c <<< ${1}) != 0 )) # C codes will have the entry assembly code linked to it
+        then
+            # Link the test file and entry code, then generate the binary file
+            ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+        else
+            # Link the test file and entry code, then generate the binary file
+            ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+        fi
 
         printf "DONE!\n"
         
@@ -267,20 +297,28 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         
         ####################################### EXTRACT TEXT AND DATA SECTIONS FROM BIN FILE #######################################
         printf "\textracting text and data sections....."
-        if (( $(python3 sections.py ${ONAME}.bin ${MEMORY} | grep DONE -c) != 0 )) # extract text section and data section from bin file
-        then
+        
+        #if (( $(python3 sections.py ${ONAME}.bin ${MEMORY} | grep DONE -c) != 0 )) # extract text section and data section from bin file
+        #then
+        #    printf "DONE!\n"
+        #else
+        #    printf "\e[31mERROR!\n\e[0m"
+        #fi
+        printf "\n##############################################################\n"
+        ${PREFIX}objdump -M numeric -D ${ONAME}.bin -h 
+        #python3 sections.py ${ONAME}.bin ${MEMORY}
+        #NOTE: Use elf2hex which is more complete and better than my own python script
+        ${PREFIX}elf2hex --bit-width 32 --input ${ONAME}.bin --output ${MEMORY}
+        if [ $? -eq 0 ]; then
             printf "DONE!\n"
         else
             printf "\e[31mERROR!\n\e[0m"
         fi
         printf "\n##############################################################\n"
-        #riscv64-unknown-elf-objdump -M numeric -D ${ONAME}.bin -h
-        python3 sections.py ${ONAME}.bin ${MEMORY}
-        printf "\n##############################################################\n"
         ############################################################################################################################
        
        
-        if [ "$2" != "nosim" ]
+        if [ "$2" != "-nosim" ]
         then
         ################################################### TESTBENCH SIMULATION ###################################################
             if [ $(command -v vlog) ]
@@ -343,6 +381,7 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
     fi
 fi
 
+
 # HOW TO USE
 # $ ./test.sh = use the official tests from RISCV [rv32ui and rv32mi]
 # $ ./test.sh compile = compile-only the rtl files
@@ -352,6 +391,7 @@ fi
 # $ ./test.sh all = test rv32ui, rv32mi, and mytest
 # $ ./test.sh add.S = test and debug testfile "add.S" which is located at INDIVIDUAL_TESTDIR
 # $ ./test.sh add.S -gui = test and debug testfile "add.S" and open wave in Modelsim
+# $ ./test.sh add.S -nosim = compile and debug testfile "add.S" without simulating it
 
 
 
