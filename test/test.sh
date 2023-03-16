@@ -42,6 +42,7 @@ then
 elif [ "$1" == "" ]
 then
     testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S" # Combination of rv32ui and rv32mi tests
+fi
 
 ###########################################################################################################################################################
 
@@ -127,10 +128,10 @@ then
             if (( $(grep "\.c" -c <<< $testfile) != 0 )) # C codes will have the entry assembly code linked to it
             then
                 # Link the test file and entry code, then generate the binary file
-                ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+                ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
             else
                 # Link the test file, then generate the binary file
-                ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+                ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
             fi
 
             printf "DONE!\n"
@@ -283,10 +284,10 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         if (( $(grep "\.c" -c <<< ${1}) != 0 )) # C codes will have the entry assembly code linked to it
         then
             # Link the test file and entry code, then generate the binary file
-            ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+            ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
         else
             # Link the test file and entry code, then generate the binary file
-            ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT}
+            ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
         fi
 
         printf "DONE!\n"
