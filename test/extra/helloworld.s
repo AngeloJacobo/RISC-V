@@ -38,7 +38,6 @@ main:
 
         # Exit test using RISC-V International's riscv-tests pass/fail criteria
         exit:
-        j   main
         li    a0, 0         # set a0 (x10) to 0 to indicate a pass code
         li    a7, 93        # set a7 (x17) to 93 (5dh) to indicate reached the end of the test
         ebreak
