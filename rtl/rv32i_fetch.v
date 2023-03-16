@@ -38,7 +38,7 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
     //ce logic for fetch stage
     always @(posedge i_clk, negedge i_rst_n) begin
          if(!i_rst_n) ce <= 0;
-         else if((i_alu_change_pc || i_writeback_change_pc)) ce <= 0; //do pipeline bubble when need to change pc so that next stages will be disabled 
+         else if((i_alu_change_pc || i_writeback_change_pc) && !(|i_stall)) ce <= 0; //do pipeline bubble when need to change pc so that next stages will be disabled 
          else ce <= 1;                                                  //and will not execute the instructions already inside the pipeline
      end
 
@@ -76,8 +76,8 @@ module rv32i_fetch #(parameter PC_RESET = 32'h00_00_00_00) (
             if(stall_bit && !stall_q) begin
                 stalled_pc <= prev_pc; 
                 stalled_inst <= i_inst; 
-                prev_pc <= o_iaddr; //this is the first delay to align the PC to the pipeline
             end
+            prev_pc <= o_iaddr; //this is the first delay to align the PC to the pipeline
         end
     end
     // logic for PC and pipeline clock_enable control
