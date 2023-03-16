@@ -1,6 +1,6 @@
 `timescale 1ns / 1ns
 `default_nettype none
-
+`define DISPLAY
 //`define HALT_ON_ILLEGAL_INSTRUCTION // stop core when instruction is illegal
 // `define HALT_ON_EBREAK // halt core on ebreak
 // `define HALT_ON_ECALL // halt core on ecall
@@ -79,7 +79,6 @@ module rv32i_soc_TB;
              
             
             @(negedge clk);
-            #5;
             `ifdef DISPLAY
             if(ZICSR_EXTENSION != 0) begin
                 if(!uut.m0.stall[`MEMORYACCESS] && uut.m0.zicsr.m6.csr_enable) begin //csr is written
@@ -131,7 +130,7 @@ module rv32i_soc_TB;
                 end
                 
             end
-            
+            #1; 
             `endif
         
         end
