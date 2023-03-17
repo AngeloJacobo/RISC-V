@@ -180,7 +180,7 @@ module rv32i_soc_TB;
         
     end
 	initial begin
-		#1_000_000; //simulation time limit
+		#5_000_000; //simulation time limit
 		$stop;
 	end
 endmodule
