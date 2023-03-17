@@ -8,12 +8,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire i_clk, i_rst_n,
     // Interrupts
     input wire i_external_interrupt, //interrupt from external source
-    input wire i_software_interrupt, //interrupt from software
-    // Timer Interrupt
-    input wire i_mtime_wr, //write to mtime
-    input wire i_mtimecmp_wr,  //write to mtimecmp
-    input wire[63:0] i_mtime_din, //data to be written to mtime
-    input wire[63:0] i_mtimecmp_din, //data to be written to mtimecmp
+    input wire i_software_interrupt, //interrupt from software (inter-processor interrupt)
+    input wire i_timer_interrupt, //interrupt from timer
     /// Exceptions ///
     input wire i_is_inst_illegal, //illegal instruction
     input wire i_is_ecall, //ecall instruction
@@ -131,9 +127,9 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     reg mip_mtip; //machine timer interrupt pending
     reg mip_msip; //machine software interrupt pending
     reg[63:0] mcycle; //counts number of i_clk cycle executed by core
-    reg[63:0] mtime; //real-time i_clk (millisecond increment)
-    reg[$clog2(MILLISEC_WRAP)-1:0] millisec;  //counter with period of 1 millisec
-    reg[63:0] mtimecmp; //compare register for mtime
+    //reg[63:0] mtime; //real-time i_clk (millisecond increment)
+    //reg[$clog2(MILLISEC_WRAP)-1:0] millisec;  //counter with period of 1 millisec
+    //reg[63:0] mtimecmp; //compare register for mtime
     reg[63:0] minstret; //counts number instructions retired/executed by core
     reg mcountinhibit_cy; //controls increment of mcycle
     reg mcountinhibit_ir; //controls increment of minstret
@@ -191,9 +187,9 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             mip_meip <= 0;
             mip_msip <= 0;
             mcycle <= 0;
-            mtime <= 0;
-            millisec <= 0;
-            mtimecmp <= -1; //timer interrup will be triggered uninttentionally if reset at 0 (equal to mtime)
+            //mtime <= 0;
+            //millisec <= 0;
+            //mtimecmp <= -1; //timer interrup will be triggered uninttentionally if reset at 0 (equal to mtime)
             minstret <= 0;
             mcountinhibit_cy <= 0;
             mcountinhibit_ir <= 0;
@@ -211,7 +207,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                     /* Volume 2 pg. 21: xPIE holds the value of the interrupt-enable bit active prior to the trap. 
                     When a trap is taken from privilege mode y into privilege mode x,xPIE is set to the value of x IE;
                     x IE is set to 0; and xPP is set to y. */
-                    mstatus_mie <= 0; 
+                    mstatus_mie <= 0; //no nested interrupt allowed 
                     mstatus_mpie <= mstatus_mie; 
                     mstatus_mpp <= 2'b11;
                 end
@@ -327,11 +323,11 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             end
             mcycle <= mcountinhibit_cy? mcycle : mcycle + 1; //increments mcycle every clock cycle
             
-            
             //MTIME (real-time counter [millisecond increment])
             /* Volume 2 pg. 44: Platforms provide a real-time counter, exposed as a memory-mapped machine-mode
              read-write register, mtime. mtime must increment at constant frequency, and the platform must provide a
             mechanism for determining the period of an mtime tick. */
+           /*
             if(i_mtime_wr) begin 
                 mtime<=i_mtime_din;
                 millisec <= 0;
@@ -340,19 +336,23 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                 millisec <= (millisec == MILLISEC_WRAP)? 0 : millisec + 1'b1;  //mod-one-millisecond counter
                 mtime <= mtime + ((millisec==MILLISEC_WRAP)? 1:0); //counter that increments every 1 millisecond
             end
+            */
             /* Volume 2 pg. 44: Platforms provide a 64-bit memory-mapped machine-mode timer compare register (mtimecmp). 
             A machine timer interrupt becomes pending whenever mtime contains a value greater than or equal to mtimecmp, 
             treating the values as unsigned integers. The interrupt remains posted until mtimecmp becomes greater than
             mtime (typically as a result of writing mtimecmp). */
+           /*
             if(i_mtimecmp_wr) begin
                 mtimecmp <= i_mtimecmp_din;
             end
             timer_interrupt = (mtime >= mtimecmp)? 1:0;
+            */
+           
                    
                             
             //MIP (pending interrupts)       
             mip_msip <= i_software_interrupt;
-            mip_mtip <= timer_interrupt;
+            mip_mtip <= i_timer_interrupt;
             mip_meip <= i_external_interrupt;
             
             
@@ -491,7 +491,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                MCYCLEH: begin //MCYCLE (counts number of i_clk cycle executed by core [UPPER HALF])
                         csr_data = mcycle[63:32];
                        end
-               
+              /* timer is brought outside as part of CLINT (Core Logic
+                 Interrupt and this will be a memory-mapped register
                  TIME: begin //TIME (real-time i_clk [millisecond increment] [LOWER HALF])
                         csr_data = mtime[31:0];  
                        end
@@ -499,7 +500,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                 TIMEH: begin //TIME (real-time i_clk [millisecond increment] [LOWER HALF])
                         csr_data = mtime[63:32]; 
                        end
-               
+               */
              MINSTRET: begin //MINSTRET (counts number instructions retired/executed by core [LOWER half])     
                         csr_data = minstret[31:0];
                        end
