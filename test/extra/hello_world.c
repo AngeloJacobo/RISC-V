@@ -1,7 +1,7 @@
-#include <stdint.h> //added -ffreestanding on gcc command to pass this
+#include <stdint.h> //add -ffreestanding on gcc command if there is error
 
-#define UART_TX_DATA_ADDR 8140
-#define UART_TX_BUSY_ADDR 8144
+#define UART_TX_DATA_ADDR 8052
+#define UART_TX_BUSY_ADDR 8056
 
 volatile uint32_t *uart_tx_data = (volatile uint32_t *) UART_TX_DATA_ADDR;
 volatile uint32_t *uart_tx_busy = (volatile uint32_t *) UART_TX_BUSY_ADDR;
