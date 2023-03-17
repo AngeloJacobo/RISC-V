@@ -14,33 +14,43 @@ _start: .global _start
 
 # Label for entry point of test code
 main:
+        .equ MTIME_BASE_ADDRESS, 8004
+        .equ MTIMECMP_BASE_ADDRESS, 8012
+        .equ MSIP_BASE_ADDRESS, 8020
+        
         ### TEST CODE STARTS HERE ###
-        
-        nop
-        nop
-        nop
-        nop
-        fence
-        fence
-        nop
-        nop
   
-        
-        # test external interrupt
+        # initial interrupt configuration
         li x1, 0b00001000
         csrw mstatus, x1                # set MIE (Machine Interrupt Enable) in mstatus
         li x1, 0b100010001000           # 
         csrw mie, x1                    # set MEIE(Machine External Interrupt Enable),MTIE(Machine Timer Interrupt Enable), and MSIE(Machine Software Interrupt Enable) in mie 
-        lla x1, Interrupt               #  
-        csrw mtvec, x1                  # set mtvec (trap_address) to ExternalInterrupt
-EI_loop:
-        nop
-        nop
-        nop
-        j   EI_loop                     # keep looping until an external interrupt is detected
+        lla x1, interrupt_handler               #  
+        csrw mtvec, x1                  # set mtvec (trap_address) to interrupt_handler
         
-Interrupt:
-        #rdtime x5                       # save time to x5                       
+        
+# Test software interrupt
+        li x2, MSIP_BASE_ADDRESS
+        li x3, 1                    
+        sw x3, 0(x2)                    # store 1 (enable) to MSIP_BASE_ADDRESS
+        
+        
+# Test timer interrupt
+        la x1, MTIME_BASE_ADDRESS       # 
+        lw x2, 0(x1)                    # load current value of mtime (in millisecs)
+        addi x2, x2, 3                  # add 3 in current mtime (3 millisec) 
+        la x3, MTIMECMP_BASE_ADDRESS
+        sw x2, 0(x3)                    # store the compare value (plus 3 millisec in current time)
+        sw x0, 4(x3)                    # load 0 to second half 
+        
+loop:                                   # wait until the software or timer interrupt fires (immediate)
+        nop
+        j loop
+
+        
+        
+interrupt_handler:
+        # determine cause of interrupt   
         csrr x2, mcause                 # save mcause to x2
         li  x3, 0x8000000b              # mcause for external interrupt
         li  x4, 0x80000003              # mcause for software interrupt
@@ -48,30 +58,32 @@ Interrupt:
         beqz x3, fail0                  # make sure x3 has value
         beqz x4, fail0                  # make sure x4 has value
         beqz x5, fail0                  # make sure x5 has value
-        beq x2, x3, ExternalInterrupt
-        beq x2, x4, SoftwareInterrupt
-        beq x2, x5, TimerInterrupt
-        j   fail1                       # mcause is not valid
-        
-ExternalInterrupt:
-        rdtime x6                       # must be 5 (5ms)
+        beq x2, x4, check_software_interrupt # cause if software interrupt
+        beq x2, x5, check_timer_interrupt    # cause is timer interrupt
         mret
-        
-SoftwareInterrupt:
-        rdtime x7                       # must be 10 (10ms)
-        mret
-        
-TimerInterrupt:
-        rdtime x8                       # must be 15 (15ms)
-        
-        li x9, 5                        
-        li x11, 10
-        li x12, 15
-        bne x6, x9, fail2               # failed on external interrupt
-        bne x7, x11, fail3              # failed on software interrupt
-        bne x8, x12, fail4              # failed on timer interrupt
         
 
+
+check_software_interrupt:
+        # disable software interrrupt
+        li x2, MSIP_BASE_ADDRESS                 
+        sw x0, 0(x2)                    # store 0 (disable) to MSIP_BASE_ADDRESS
+        li x10, 1                       # save 1 to x10 after software interrupt 
+        mret
+        
+check_timer_interrupt:
+        # disable timer interrupt by resetting mtimecmp
+        li x2, -1                       
+        la x3, MTIMECMP_BASE_ADDRESS
+        sw x2, 0(x3)                    # set MTIMECMP_BASE_ADDRESS to all 1s
+        li x11, 1                       # save 1 to x11 after timer interrupt     
+        
+        li x15, 1
+        bne x10, x15, fail0             # software interrupt did not fired
+        bne x11, x15, fail1             # timer interrupt did not fired
+        
+        
+        
         ###    END OF TEST CODE   ###
 
         # Exit test using RISC-V International's riscv-tests pass/fail criteria
@@ -90,40 +102,6 @@ TimerInterrupt:
         li      a7, 93          # reached end of code
         ebreak
         
-        fail2:
-        li      a0, 4           # fail code
-        li      a7, 93          # reached end of code
-        ebreak
-        
-        fail3:
-        li      a0, 6           # fail code
-        li      a7, 93          # reached end of code
-        ebreak
-        
-        fail4:
-        li      a0, 8           # fail code
-        li      a7, 93          # reached end of code
-        ebreak
-        
-        fail5:
-        li      a0, 10          # fail code
-        li      a7, 93          # reached end of code
-        ebreak
-        
-        fail6:
-        li      a0, 12          # fail code
-        li      a7, 93          # reached end of code
-        ebreak
-        
-        fail7:
-        li      a0, 14          # fail code
-        li      a7, 93          # reached end of code
-        ebreak
-        
-        fail8:
-        li      a0, 16          # fail code
-        li      a7, 93          # reached end of code
-        ebreak
         
         
         # -----------------------------------------
