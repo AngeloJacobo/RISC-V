@@ -1,12 +1,12 @@
 #include <stdint.h> 
 
-#define I2C_START 8040 
-#define I2C_WRITE 8044
-#define I2C_READ 8048
-#define I2C_BUSY 8052
-#define I2C_ACK 8056
-#define I2C_READ_DATA_READY 8060
-#define I2C_STOP 8064
+#define I2C_START 8100
+#define I2C_WRITE 8104
+#define I2C_READ 8108
+#define I2C_BUSY 8112
+#define I2C_ACK 8116
+#define I2C_READ_DATA_READY 8120
+#define I2C_STOP 8124
 
 #define UART_TX_DATA_ADDR 8140
 #define UART_TX_BUSY_ADDR 8144
