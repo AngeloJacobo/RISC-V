@@ -14,8 +14,8 @@ _start: .global _start
 
 # Label for entry point of test code
 main:
-        .equ UART_TX_DATA_ADDR, 8140
-        .equ UART_TX_BUSY_ADDR, 8144
+        .equ UART_TX_DATA_ADDR, 8052
+        .equ UART_TX_BUSY_ADDR, 8056
         
         ### TEST CODE STARTS HERE ###
         la      x1, data                # set x1 to address of data (0x00001000)
