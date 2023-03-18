@@ -9,8 +9,12 @@ PREFIX=riscv64-unknown-elf-
 ONAME=test          # executable file name (xxxx.bin)
 MEMORY=memory.mem   # memory file name (extracted text and data sections from the executable file),filename used here must also be added to rv32i_soc_TB parameter for assurance
 LINKER_SCRIPT=rv32i_linkerscript.ld # linkerscript used by linker to allow user to have control over the layout and memory usage of the program
-ENTRY_CODE=entry.s  #contains the "_start" symbol and initialzes the program (setting the stack pointer and then specify jumping to "main")
+ENTRY_CODE=entry.s  # contains the "_start" symbol and initialzes the program (setting the stack pointer and then specify jumping to "main")
 FPIC="-fpic"        # enable PIC (Position Independent Code)
+MARCH="rv32i_zicsr" # specifies the target RISC-V architecture, including the instruction set extensions and microarchitecture features.
+MABI="ilp32" # specifies the ABI (Application Binary Interface) that should be used when generating code. 
+             # The ABI defines how function calls, stack frames, and other low-level details are handled,
+
 #Note: Starting address of TEXT section is always zero. Starting address of DATA section depends on the testfile assembly
 
 
@@ -43,6 +47,9 @@ elif [ "$1" == "" ]
 then
     testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S" # Combination of rv32ui and rv32mi tests
 fi
+
+# define library files
+library_files="./lib/*.c" # all library files
 
 ###########################################################################################################################################################
 
@@ -117,21 +124,38 @@ then
             
             ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
             printf "\tcompiling assembly file....."
-            # Compile the test file, (if getting error, try -ffreestanding which lets compiler to not follow the default library calling(but manually search for it))
-            ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
-            -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar \
-            ${testfile} -o ${ONAME}.o -T${LINKER_SCRIPT} 
             
+            if [ -d "./obj/" ]  # check first if object folder exists
+            then
+               rm -r ./obj/ # remove if exists
+            fi
+            mkdir ./obj # create new object folder
+            
+             #compile all library files
+            for library_file in $library_files
+            do
+                base_name=$(basename "$library_file" .c) 
+                ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
+                -I./lib\
+                $library_file -o ./obj/$base_name.o 
+            done
+            
+            # Compile the test file, (if getting error, try -ffreestanding which lets compiler to not follow the default library calling(but manually search for it))
+            ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
+            -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib\
+            ${testfile} -o ./obj/${ONAME}.o 
+
             #Compile the entry assembly code
-            ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
-            ${ENTRY_CODE} -o entry.o -T${LINKER_SCRIPT}
+            ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
+            ${ENTRY_CODE} -o ./obj/entry.out 
+            
             if (( $(grep "\.c" -c <<< $testfile) != 0 )) # C codes will have the entry assembly code linked to it
             then
                 # Link the test file and entry code, then generate the binary file
-                ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
+                ${PREFIX}ld -melf32lriscv ./obj/*.o ./obj/entry.out -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
             else
                 # Link the test file, then generate the binary file
-                ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
+                ${PREFIX}ld -melf32lriscv ./obj/*.o -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
             fi
 
             printf "DONE!\n"
@@ -271,23 +295,38 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
     then   
         ########################################## COMPILE TESTFILE WITH RISC-V TOOLCHAIN ##########################################
         printf "\tcompiling assembly file....."
+
+        if [ -d "./obj/" ]  # check first if object folder exists
+        then
+           rm -r ./obj/ # remove if exists
+        fi
+        mkdir ./obj # create new object folder
         
+        #compile all library files
+        for library_file in $library_files
+        do
+            base_name=$(basename "$library_file" .c) 
+            ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
+            -I./lib\
+            $library_file -o ./obj/$base_name.o 
+        done
+
         # Compile the test file, (if getting error, try -ffreestanding which lets compiler to not follow the default library calling(but manually search for it))
-        ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
-        -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar \
-        ${INDIVIDUAL_TESTDIR}/${1} -o ${ONAME}.o -T${LINKER_SCRIPT} 
+        ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
+        -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib\
+        ${INDIVIDUAL_TESTDIR}/${1} -o ./obj/${1}.o 
         
         #Compile the entry assembly code
-        ${PREFIX}gcc -c -g $FPIC -march=rv32g -mabi=ilp32 \
-        ${ENTRY_CODE} -o entry.o -T${LINKER_SCRIPT}
+        ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
+        ${ENTRY_CODE} -o ./obj/entry.out
         
         if (( $(grep "\.c" -c <<< ${1}) != 0 )) # C codes will have the entry assembly code linked to it
         then
             # Link the test file and entry code, then generate the binary file
-            ${PREFIX}ld -melf32lriscv entry.o -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
+            ${PREFIX}ld -melf32lriscv ./obj/*.o ./obj/entry.out -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
         else
             # Link the test file and entry code, then generate the binary file
-            ${PREFIX}ld -melf32lriscv -Ttext 0 ${ONAME}.o -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map
+            ${PREFIX}ld -melf32lriscv ./obj/*.o -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
         fi
 
         printf "DONE!\n"
