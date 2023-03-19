@@ -87,6 +87,7 @@ inline void __attribute__ ((always_inline)) csr_write(const int csr_id, uint32_t
 
 // Function prototypes for i2c.c
 void  delay_ms(uint64_t ms); // delay function (uses MTIME register)
+void  delay(uint32_t ticks); // delay function using clock tick
 uint8_t i2c_write_address(uint8_t addr); // start i2c by writing slave address (returns slave ack)
 void i2c_stop(void); // stop current i2c transaction
 uint8_t i2c_write_byte(uint8_t data); // write to slave (returns slave ack)
