@@ -9,8 +9,8 @@ volatile uint32_t *i2c_ack = (volatile uint32_t *) I2C_ACK;
 
 // delay function uses MTIME register
 void  delay_ms(uint64_t ms) {
-	uint64_t current_time = mtime_get_time();
-	while (current_time < (uint64_t) (mtime_get_time() + ms)){ //do nothing while delay has not yet passed
+	uint64_t initial_time = mtime_get_time();
+	while ((initial_time + ms) > (uint64_t)mtime_get_time()){ //do nothing while delay has not yet passed
 	}
 }
 
