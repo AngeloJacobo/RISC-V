@@ -12,7 +12,11 @@ void  delay_ms(uint64_t ms) {
 	uint64_t current_time = mtime_get_time();
 	while (current_time < (uint64_t) (mtime_get_time() + ms)){ //do nothing while delay has not yet passed
 	}
+}
 
+// delay function using clock tick
+void  delay(uint32_t ticks) {
+	while(ticks!=0) --ticks; //stay here until ticks become zero
 }
 
 // start i2c by writing slave address (returns slave ack)
@@ -31,7 +35,7 @@ void i2c_stop(void){
     *i2c_halt = 0x01;
     while(*i2c_busy);
     *i2c_halt = 0x00; //set it back to zero in preparation for next transaction
-     delay_ms(100);
+     delay(100);
 }
 
 uint8_t i2c_write_byte(uint8_t data){
