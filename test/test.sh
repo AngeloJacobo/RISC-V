@@ -130,26 +130,42 @@ then
                rm -r ./obj/ # remove if exists
             fi
             mkdir ./obj # create new object folder
-            
-             #compile all library files
-            for library_file in $library_files
-            do
-                base_name=$(basename "$library_file" .c) 
-                ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
-                -I./lib\
-                $library_file -o ./obj/$base_name.o 
+
+            # collect all files to be compiled
+            FILES=""
+            FILES+="$library_files "
+            FILES+="${testfile} "
+            C_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling C files
+            ASM_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling assembly files
+
+            #compile all FILES
+            for file in $FILES
+            do  
+                if (( $(grep "\.c" -c <<< $file) != 0 )) # C codes will use C_INCLUDES and have the entry assembly code linked to it
+                then
+                    INCLUDE=${C_INCLUDE}
+                else
+                    INCLUDE=${ASM_INCLUDE}
+                fi
+                    # use parameter expansion to replace all forward-slashes into "_" (so that any C codes from different paths will be 
+                    # distinct from each other even if they have the same name) 
+                    obj_name=${file//\//_}
+                    obj_name=${obj_name//./_}
+
+                    # -nostartfiles = prevent compiler from linking its own start-up file since we have our own custom start-up code "entry.s"
+                    # -ffunction-sections -fdata-sections = This option tells the compiler to place each function/variable in a separate section of the output file. 
+                    # This can be useful for reducing binary size, as the linker can discard unused sections. By default, all functions are placed in the 
+                    # same section, which makes it harder for the linker to discard unused functions. By using this option, the compiler can also apply 
+                    # function-level optimizations to individual functions, such as inlining and dead-code elimination. This can improve the performance of the generated code.
+                    ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles ${INCLUDE} $file -o ./obj/${obj_name}.o 
             done
             
-            # Compile the test file, (if getting error, try -ffreestanding which lets compiler to not follow the default library calling(but manually search for it))
-            ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
-            -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib\
-            ${testfile} -o ./obj/${ONAME}.o 
-
-            #Compile the entry assembly code
+            # Compile the entry assembly code (this was separated so we can separate the naming of this entry file from others which is needed since we have to
+            # know if this will be linked (C file) or not (assembly file)
             ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
             ${ENTRY_CODE} -o ./obj/entry.out 
             
-            if (( $(grep "\.c" -c <<< $testfile) != 0 )) # C codes will have the entry assembly code linked to it
+            if (( $(grep "\.c" -c <<< $testfile) != 0 )) # if the main testfile has C code, then the entry assembly code will be linked to it
             then
                 # Link the test file and entry code, then generate the binary file
                 ${PREFIX}ld -melf32lriscv ./obj/*.o ./obj/entry.out -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
@@ -302,20 +318,34 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         fi
         mkdir ./obj # create new object folder
         
-        #compile all library files
-        for library_file in $library_files
-        do
-            base_name=$(basename "$library_file" .c) 
-            ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
-            -I./lib\
-            $library_file -o ./obj/$base_name.o 
+        # collect all files to be compiled
+        FILES+="$library_files "
+        FILES+="${INDIVIDUAL_TESTDIR}/${1}  "
+        C_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling C files
+        ASM_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling assembly files
+
+        #compile all FILES
+        for file in $FILES
+        do  
+            if (( $(grep "\.c" -c <<< $file) != 0 )) # C codes will use C_INCLUDES and have the entry assembly code linked to it
+            then
+                INCLUDE=${C_INCLUDE}
+            else
+                INCLUDE=${ASM_INCLUDE}
+            fi
+                # use parameter expansion to replace all forward-slashes into "_" (so that any C codes from different paths will be 
+                # distinct from each other even if they have the same name) 
+                obj_name=${file//\//_}
+                obj_name=${obj_name//./_}
+
+                # -nostartfiles = prevent compiler from linking its own start-up file since we have our own custom start-up code "entry.s"
+                # -ffunction-sections -fdata-sections = This option tells the compiler to place each function/variable in a separate section of the output file. 
+                # This can be useful for reducing binary size, as the linker can discard unused sections. By default, all functions are placed in the 
+                # same section, which makes it harder for the linker to discard unused functions. By using this option, the compiler can also apply 
+                # function-level optimizations to individual functions, such as inlining and dead-code elimination. This can improve the performance of the generated code.
+                ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles ${INCLUDE} ${file} -o ./obj/${obj_name}.o 
         done
 
-        # Compile the test file, (if getting error, try -ffreestanding which lets compiler to not follow the default library calling(but manually search for it))
-        ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
-        -I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib\
-        ${INDIVIDUAL_TESTDIR}/${1} -o ./obj/${1}.o 
-        
         #Compile the entry assembly code
         ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
         ${ENTRY_CODE} -o ./obj/entry.out
