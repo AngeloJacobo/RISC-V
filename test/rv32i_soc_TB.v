@@ -2,7 +2,7 @@
 `default_nettype none
 `define DISPLAY
 //`define HALT_ON_ILLEGAL_INSTRUCTION // stop core when instruction is illegal
-// `define HALT_ON_EBREAK // halt core on ebreak
+ //`define HALT_ON_EBREAK // halt core on ebreak
 // `define HALT_ON_ECALL // halt core on ecall
 `include "rv32i_header.vh"
 
@@ -10,7 +10,7 @@ module rv32i_soc_TB;
     parameter MEMORY="memory.mem";
     parameter ZICSR_EXTENSION = 1;
     /******************************* MODIFY ****************************************/
-    localparam MEMORY_DEPTH = 8192, //number of memory bytes
+    localparam MEMORY_DEPTH = 49152, //number of memory bytes
                DATA_START_ADDR = 32'h1004; //starting address of data memory to be displayed
     /*******************************************************************************/
    
@@ -180,8 +180,10 @@ module rv32i_soc_TB;
         
     end
 	initial begin
-		#5_000_000; //simulation time limit
+		#100_000; //simulation time limit
+		`ifdef LONGER_SIM_LIMIT
+		#25_000_000;
+		`endif
 		$stop;
 	end
 endmodule
-
