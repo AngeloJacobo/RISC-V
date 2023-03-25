@@ -26,6 +26,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     output reg[31:0] o_csr_out, //CSR value to be loaded to basereg
     // Trap-Handler 
     input wire[31:0] i_pc, //Program Counter 
+    input wire writeback_change_pc, //high if writeback will issue change_pc (which will override this stage)
     output reg[31:0] o_return_address, //mepc CSR
     output reg[31:0] o_trap_address, //mtvec CSR
     output reg o_go_to_trap_q, //high before going to trap (if exception/interrupt detected)
@@ -93,7 +94,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     wire opcode_system=i_opcode[`SYSTEM];
     reg[31:0] csr_in; //value to be stored to CSR
     reg[31:0] csr_data; //value at current CSR address
-    wire csr_enable = opcode_system && i_funct3!=0 && i_ce; //csr read/write operation is enabled only at this conditions
+    wire csr_enable = opcode_system && i_funct3!=0 && i_ce && !writeback_change_pc; //csr read/write operation is enabled only at this conditions
     reg[1:0] new_pc = 0; //last two bits of i_pc that will be used in taken branch and jumps
     reg go_to_trap; //high before going to trap (if exception/interrupt detected)
     reg return_from_trap; //high before returning from trap (via mret)
@@ -418,7 +419,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
              timer_interrupt_pending = mstatus_mie && mie_mtie && mip_mtip; //machine_interrupt_enable + machine_timer_interrupt_enable + machine_timer_interrupt_pending must all be high
              
              is_interrupt = external_interrupt_pending || software_interrupt_pending || timer_interrupt_pending;
-             is_exception = i_is_inst_illegal || is_inst_addr_misaligned || i_is_ecall || i_is_ebreak || is_load_addr_misaligned || is_store_addr_misaligned ;
+             is_exception = (i_is_inst_illegal || is_inst_addr_misaligned || i_is_ecall || i_is_ebreak || is_load_addr_misaligned || is_store_addr_misaligned) && !writeback_change_pc;
              is_trap = is_interrupt || is_exception;
              go_to_trap = is_trap; //a trap is taken, save i_pc, and go to trap address
              return_from_trap = i_is_mret; // return from trap, go back to saved i_pc
