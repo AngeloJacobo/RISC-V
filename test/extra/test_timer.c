@@ -5,6 +5,7 @@ int finish;
 
 
 void __attribute__((interrupt)) trap_handler(void) {
+    mtime_set_timecmp(-1);
     finish = 1;
 }
 int main() {
@@ -13,14 +14,13 @@ int main() {
     csr_set(MIE, 1<<MIE_MTIE); //set timer interrupt enable
     csr_set(MIP, 1<<MIP_MTIP); //set timer interrupt pending enable
 
-    mtime_set_timecmp(mtime_get_time() + 3); //set time compare to +3 millisec of current time
+    mtime_set_timecmp(mtime_get_time() + 1000); //set time compare to +1000 ticks of current time
     finish = 0;
     
     while(1){ //wait here until interrupt fires
         if(finish) return 0;
     }
 }
-
 
 
 
