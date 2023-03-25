@@ -1,20 +1,21 @@
 // I2C memory-mapped registers
-#define I2C_START 8100
-#define I2C_WRITE 8104
-#define I2C_READ 8108
-#define I2C_BUSY 8112
-#define I2C_ACK 8116
-#define I2C_READ_DATA_READY 8120
-#define I2C_STOP 8124
+#define I2C_START 0x800000A0
+#define I2C_WRITE 0x800000A4
+#define I2C_READ 0x800000A8
+#define I2C_BUSY 0x800000AC
+#define I2C_ACK 0x800000B0
+#define I2C_READ_DATA_READY 0x800000B4
+#define I2C_STOP 0x800000B8
 
 // UART memory-mapped registers
-#define UART_TX_DATA_ADDR 8052
-#define UART_TX_BUSY_ADDR 8056
+#define UART_TX_DATA_ADDR 0x80000050
+#define UART_TX_BUSY_ADDR 0x80000054
 
 // CLINT memory-mapped registers
-#define MTIME_BASE_ADDRESS 8004
-#define MTIMECMP_BASE_ADDRESS 8012
-#define MSIP_BASE_ADDRESS 8020
+#define CPU_CLK_HZ 12000000
+#define MTIME_BASE_ADDRESS 0x80000000
+#define MTIMECMP_BASE_ADDRESS 0x80000008
+#define MSIP_BASE_ADDRESS 0x80000010
 
 // Control Status Registers
 #define MARCHID 0xF12
@@ -74,6 +75,9 @@ uint64_t mtime_get_timecmp(void); // Get compare time register
 void trap_handler_setup(void (*trap_handler)(void)); //setup trap handler by setting MTVEC and initially disabling all interrupts (NOTE: trap handler function MUST HAVE ATTRIBUTE INTERRUPT)
 void enable_software_interrupt(void); // trurn on software interrupt
 void disable_software_interrupt(void); // turn off software interrupt
+uint64_t ms_to_cpu_ticks (uint64_t ms); // convert milliseconds input to cpu clock ticks
+void delay_ms(uint64_t ms); // delay function based on milliseconds
+void delay_ticks(uint32_t ticks); // delay function based on cpu clock tick
 
 // Inline functions go to header file
 static inline void __attribute__ ((always_inline)) csr_set(const int csr_id, uint32_t mask) { // set bits in CSR
@@ -86,8 +90,6 @@ inline void __attribute__ ((always_inline)) csr_write(const int csr_id, uint32_t
 }
 
 // Function prototypes for i2c.c
-void  delay_ms(uint64_t ms); // delay function (uses MTIME register)
-void  delay(uint32_t ticks); // delay function using clock tick
 uint8_t i2c_write_address(uint8_t addr); // start i2c by writing slave address (returns slave ack)
 void i2c_stop(void); // stop current i2c transaction
 uint8_t i2c_write_byte(uint8_t data); // write to slave (returns slave ack)
