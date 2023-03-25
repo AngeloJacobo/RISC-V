@@ -32,20 +32,6 @@ void IO_Expander_Write(unsigned char Data)
   uint8_t addr_ack, data_ack;
   addr_ack = i2c_write_address(i2c_add);
   data_ack = i2c_write_byte(Data | BackLight_State);
-
-  if(addr_ack) {
-      uart_print("Address Acknowledged");
-  }
-  else {
-      uart_print("Address NOT Acknowledged");
-  }
-
-  if(data_ack) {
-      uart_print("Data Acknowledged");
-  }
-  else {
-      uart_print("Data NOT Acknowledged");
-  }
   i2c_stop();
 }
  
@@ -126,5 +112,4 @@ void LCD_Clear(void)
   LCD_CMD(0x01);
    delay_ms(40); 
 }
-
 
