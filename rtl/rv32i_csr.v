@@ -394,6 +394,10 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                  
                  o_csr_out <= csr_data;
               end
+              else begin
+                o_go_to_trap_q <= 0;
+                o_return_from_trap_q <= 0;
+              end
         end
         else begin
             // this CSR will always be updated
