@@ -3,6 +3,8 @@
 # Configurables
 #INDIVIDUAL_TESTDIR=./riscv-tests/isa/rv32ui  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
 INDIVIDUAL_TESTDIR=./extra  # directory of RISCV testcases used in debug mode (INDIVIDUAL TESTING)
+FREERTOS_HOME="/home/angelo/Music/FreeRTOS" # Home directory of FreeRTOS (cloned from https://github.com/FreeRTOS/FreeRTOS)
+FREERTOS_CODE="freertos.c" # C code which will use FreeRTOS 
 
 # Compilation parameters for RISC-V toolchain
 PREFIX=riscv64-unknown-elf-
@@ -14,9 +16,22 @@ FPIC="-fpic"        # enable PIC (Position Independent Code)
 MARCH="rv32i_zicsr" # specifies the target RISC-V architecture, including the instruction set extensions and microarchitecture features.
 MABI="ilp32" # specifies the ABI (Application Binary Interface) that should be used when generating code. 
              # The ABI defines how function calls, stack frames, and other low-level details are handled,
+library_files="./lib/*.c" # all custom library files
+            
+#-nostartfiles = dont include the standard system startup code (useful for creating custom startup code or for embedded systems where the startup code may be platform-specific)
+GCC_FLAGS="-march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles $FPIC "
 
+#-Wl = pass arguments to linker: 
+#       --gc-sections = garbage collection of unused sections
+#       -melf32lriscv = sets the target architecture to ELF32 and RISC-V
+#       -Ttext,0 = set starting point
+#       -Map,linker.map = output linker map 
+#-lm = link the math library
+#-lc = link the standard C library
+#-lgcc = link GCC runtime library (support functions for programs compiled with GCC, such as exception handling and stack unwinding.)
+#-lc = it's common to include this flag twice to ensure that any unresolved symbols from the standard C library are resolved.
+GCC_FLAGS+="-Wl,--gc-sections -Wl,-melf32lriscv -Wl,-Ttext,0 -Wl,-Map,linker.map -lm -lc -lgcc -lc"
 #Note: Starting address of TEXT section is always zero. Starting address of DATA section depends on the testfile assembly
-
 
 # Check if RISC-V International Testfiles exists on the main folder
 if [ ! -d "./riscv-tests/" ]
@@ -48,8 +63,6 @@ then
     testfiles="./riscv-tests/isa/rv32ui/*.S ./riscv-tests/isa/rv32mi/*.S" # Combination of rv32ui and rv32mi tests
 fi
 
-# define library files
-library_files="./lib/*.c" # all library files
 
 ###########################################################################################################################################################
 
@@ -137,7 +150,7 @@ then
             FILES+="${testfile} "
             C_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling C files
             ASM_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling assembly files
-
+            
             #compile all FILES
             for file in $FILES
             do  
@@ -151,27 +164,21 @@ then
                     # distinct from each other even if they have the same name) 
                     obj_name=${file//\//_}
                     obj_name=${obj_name//./_}
-
-                    # -nostartfiles = prevent compiler from linking its own start-up file since we have our own custom start-up code "entry.s"
-                    # -ffunction-sections -fdata-sections = This option tells the compiler to place each function/variable in a separate section of the output file. 
-                    # This can be useful for reducing binary size, as the linker can discard unused sections. By default, all functions are placed in the 
-                    # same section, which makes it harder for the linker to discard unused functions. By using this option, the compiler can also apply 
-                    # function-level optimizations to individual functions, such as inlining and dead-code elimination. This can improve the performance of the generated code.
-                    ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles ${INCLUDE} $file -o ./obj/${obj_name}.o 
+                    ${PREFIX}gcc -c ${GCC_FLAGS} ${INCLUDE} ${file} -o ./obj/${obj_name}.o 
             done
-            
-            # Compile the entry assembly code (this was separated so we can separate the naming of this entry file from others which is needed since we have to
-            # know if this will be linked (C file) or not (assembly file)
-            ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
-            ${ENTRY_CODE} -o ./obj/entry.out 
-            
-            if (( $(grep "\.c" -c <<< $testfile) != 0 )) # if the main testfile has C code, then the entry assembly code will be linked to it
+
+            #Compile the entry assembly code
+            ${PREFIX}gcc -c ${GCC_FLAGS} ${ENTRY_CODE} -o ./obj/entry.out
+
+            if (( $(grep "\.c" -c <<< ${testfile}) != 0 )) # C codes will have the entry assembly code linked to it
             then
                 # Link the test file and entry code, then generate the binary file
-                ${PREFIX}ld -melf32lriscv ./obj/*.o ./obj/entry.out -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+                # ${PREFIX}ld -melf32lriscv ./obj/*.o ./obj/entry.out -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+                ${PREFIX}gcc ${GCC_FLAGS} -T ${LINKER_SCRIPT} ./obj/entry.out  ./obj/*.o -o ${ONAME}.bin -lm
             else
-                # Link the test file, then generate the binary file
-                ${PREFIX}ld -melf32lriscv ./obj/*.o -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+                # Link the test file and entry code, then generate the binary file
+                # ${PREFIX}ld -melf32lriscv ./obj/*.o -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+                ${PREFIX}gcc ${GCC_FLAGS} -T ${LINKER_SCRIPT} ./obj/*.o -o ${ONAME}.bin -lm
             fi
 
             printf "DONE!\n"
@@ -223,12 +230,12 @@ then
 
                 if (( $(grep "exception" -c <<< $testfile) != 0 )) # if current testfile name has word "exception" then that testfile will not halt on ebreak/ecall
                 then
-                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION -DICARUS $rtlfiles # current testfile will halt on illegal instruction only
                 elif (( $(grep "sbreak" -c <<< $testfile) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
                 then
-                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL -DICARUS $rtlfiles # halt core on ecall
                 else
-                    iverilog -I "../rtl/" -o testbench.vvp $rtlfiles
+                    iverilog -I "../rtl/" -o testbench.vvp -DICARUS $rtlfiles
                 fi
                 a=$(vvp -n testbench.vvp | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
             fi
@@ -304,7 +311,114 @@ then
     printf "\n%s\n\n" "-----------------------------------------------------------"
 
 
+elif [ "$1" == "freertos" ]
+then
+    printf "\nPROCESSING: FreeRTOS\n"
+    
+    ########################################## COMPILE FreeRTOS WITH RISC-V TOOLCHAIN ##########################################
+    printf "\tcompiling files....." 
+    if [ -d "./obj/" ]  # check first if object folder exists
+        then
+           rm -r ./obj/ # remove if exists
+        fi
+        mkdir ./obj # create new object folder
+  
+    # collect all files to be compiled
+    # FreeRTOS RISC-V specific
+    FILES="$FREERTOS_HOME/FreeRTOS/Source/portable/GCC/RISC-V/*.c "
+    FILES+="$FREERTOS_HOME/FreeRTOS/Source/portable/GCC/RISC-V/portASM.S "
+    # FreeRTOS core
+    FILES+="$FREERTOS_HOME/FreeRTOS/Source/*.c "
+    FILES+="$FREERTOS_HOME/FreeRTOS/Source/portable/MemMang/heap_4.c "
+    # Custom library files
+    FILES+="$library_files "
+    # User file
+    FILES+="./freertos/${FREERTOS_CODE} "
+    
+    # FreeRTOS include
+    C_INCLUDE="-I $FREERTOS_HOME/FreeRTOS/Source/portable/GCC/RISC-V "
+    C_INCLUDE+="-I $FREERTOS_HOME/FreeRTOS/Source/include "
+    C_INCLUDE+="-I ./freertos " # freertos_risc_v_chip_specific_extensions header file
+    ASM_INCLUDE="-DportasmHANDLE_INTERRUPT=SystemIrqHandler " # handles the external interrupt
+    ASM_INCLUDE="-I ./freertos" #freertos_risc_v_chip_specific_extensions header file
+    # custom library include
+    C_INCLUDE+="-I ./lib/   " 
+    
+    # Compile each files
+    for file in $FILES
+        do  
+            if (( $(grep "\.c" -c <<< $file) != 0 )) # C codes will use C_INCLUDES and have the entry assembly code linked to it
+            then
+                INCLUDE=${C_INCLUDE}
+            else
+                INCLUDE=${ASM_INCLUDE}
+            fi
+                # use parameter expansion to replace all forward-slashes into "_" (so that any C codes from different paths will be 
+                # distinct from each other even if they have the same name) 
+                obj_name=${file//\//_}
+                obj_name=${obj_name//./_}
+                ${PREFIX}gcc -c ${GCC_FLAGS} ${INCLUDE} ${file} -o ./obj/${obj_name}.o 
+        done
 
+    #Compile the entry assembly code
+    ${PREFIX}gcc -c ${GCC_FLAGS} ${ENTRY_CODE} -o ./obj/entry.out
+
+    # Link the object file including the entry code, then generate the binary file
+    ${PREFIX}gcc ${GCC_FLAGS} -T ${LINKER_SCRIPT} ./obj/entry.out ./obj/*.o  -o ${ONAME}.bin -lm
+
+    printf "DONE!\n"
+    ############################################################################################################################        
+
+
+    ####################################### EXTRACT TEXT AND DATA SECTIONS FROM BIN FILE #######################################
+    printf "\textracting text and data sections....."
+
+    printf "\n##############################################################\n"
+    # Dont print objdump if needs to install to FPGA
+    if [ "$2" != "-install" ] 
+    then
+        ${PREFIX}objdump -M numeric -D ${ONAME}.bin -h 
+    fi
+    ${PREFIX}elf2hex --bit-width 32 --input ${ONAME}.bin --output ${MEMORY}
+    if [ $? -eq 0 ]; then
+        printf "DONE!\n"
+    else
+        printf "\e[31mERROR!\n\e[0m"
+    fi
+    printf "\n##############################################################\n"
+    ############################################################################################################################
+    
+    ################################################### TESTBENCH SIMULATION ###################################################
+    if [ "$2" == "-gui" ]
+    then
+        printf "\tsimulating with Icarus Verilog.....\n"
+        printf "\n##############################################################\n"
+        rm -f ./testbench.vvp 
+
+        iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_EBREAK -DLONGER_SIM_LIMIT -DICARUS $rtlfiles # current testfile will halt on both ebreak/ecall 
+        vvp -n testbench.vvp
+        if [ "$2" == "-gui" ]
+        then
+            gtkwave wave.gtkw
+        fi
+        a=$(vvp -n testbench.vvp | grep "PASS:\|FAIL:\|UNKNOWN:" -A1)
+    ############################################################################################################################
+    
+    ################################################### Install to FPGA Board ###################################################
+    #install RISC-V core to FPGA board using current memory.mem 
+    elif [ "$2" == "-install" ] 
+    then
+        cd ../Vivado\ Files
+        printf "\nInstalling design to FPGA Board: $1\n"
+        vivado -mode tcl -source run_vivado.tcl
+    fi
+    
+    elapsed_time=$(( SECONDS-$start_time ))
+    printf "\n\n##############################################################\n"
+    eval "printf \"\n\nELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec'))\n\n\""
+    ############################################################################################################################
+    
+    
 else    # DEBUG MODE: first argument given is the assembly file to be tested and debugged
     printf "\nPROCESSING: $1\n"
     if [ -f "${INDIVIDUAL_TESTDIR}/${1}" ]   # true if testfile (first argument) exists
@@ -323,8 +437,8 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         FILES+="${INDIVIDUAL_TESTDIR}/${1}  "
         C_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling C files
         ASM_INCLUDE+="-I./riscv-tests/env/p -I./riscv-tests/isa/macros/scalar -I./lib" #include when compiling assembly files
-
-        #compile all FILES
+        
+        # compile each files
         for file in $FILES
         do  
             if (( $(grep "\.c" -c <<< $file) != 0 )) # C codes will use C_INCLUDES and have the entry assembly code linked to it
@@ -337,31 +451,24 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
                 # distinct from each other even if they have the same name) 
                 obj_name=${file//\//_}
                 obj_name=${obj_name//./_}
-
-                # -nostartfiles = prevent compiler from linking its own start-up file since we have our own custom start-up code "entry.s"
-                # -ffunction-sections -fdata-sections = This option tells the compiler to place each function/variable in a separate section of the output file. 
-                # This can be useful for reducing binary size, as the linker can discard unused sections. By default, all functions are placed in the 
-                # same section, which makes it harder for the linker to discard unused functions. By using this option, the compiler can also apply 
-                # function-level optimizations to individual functions, such as inlining and dead-code elimination. This can improve the performance of the generated code.
-                ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles ${INCLUDE} ${file} -o ./obj/${obj_name}.o 
+                ${PREFIX}gcc -c ${GCC_FLAGS} ${INCLUDE} ${file} -o ./obj/${obj_name}.o 
         done
 
         #Compile the entry assembly code
-        ${PREFIX}gcc -c -g $FPIC -march=$MARCH -mabi=$MABI -ffunction-sections -fdata-sections -nostartfiles\
-        ${ENTRY_CODE} -o ./obj/entry.out
-        
+        ${PREFIX}gcc -c ${GCC_FLAGS} ${ENTRY_CODE} -o ./obj/entry.out
+
         if (( $(grep "\.c" -c <<< ${1}) != 0 )) # C codes will have the entry assembly code linked to it
         then
             # Link the test file and entry code, then generate the binary file
-            ${PREFIX}ld -melf32lriscv ./obj/*.o ./obj/entry.out -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+            # ${PREFIX}ld -melf32lriscv ./obj/*.o ./obj/entry.out -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+            ${PREFIX}gcc ${GCC_FLAGS} -T ${LINKER_SCRIPT} ./obj/entry.out ./obj/*.o  -o ${ONAME}.bin -lm
         else
             # Link the test file and entry code, then generate the binary file
-            ${PREFIX}ld -melf32lriscv ./obj/*.o -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+            # ${PREFIX}ld -melf32lriscv ./obj/*.o -Ttext 0 -o ${ONAME}.bin --script ${LINKER_SCRIPT} -Map linker.map --gc-sections #remove unused object files using --gc-sections
+            ${PREFIX}gcc ${GCC_FLAGS} -T ${LINKER_SCRIPT} ./obj/*.o -o ${ONAME}.bin -lm
         fi
 
-        printf "DONE!\n"
-        
-        
+        printf "DONE!\n"      
         ############################################################################################################################
         
         
@@ -375,7 +482,12 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         #    printf "\e[31mERROR!\n\e[0m"
         #fi
         printf "\n##############################################################\n"
-        ${PREFIX}objdump -M numeric -D ${ONAME}.bin -h 
+        # Dont print objdump if needs to install to FPGA
+        if [ "$2" != "-install" ] 
+        then
+            ${PREFIX}objdump -M numeric -D ${ONAME}.bin -h 
+        fi
+        
         #python3 sections.py ${ONAME}.bin ${MEMORY}
         #NOTE: Use elf2hex which is more complete and better than my own python script
         ${PREFIX}elf2hex --bit-width 32 --input ${ONAME}.bin --output ${MEMORY}
@@ -388,7 +500,7 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
         ############################################################################################################################
        
        
-        if [ "$2" != "-nosim" ]
+        if [ "$2" != "-nosim" ] && [ "$2" != "-install" ]
         then
         ################################################### TESTBENCH SIMULATION ###################################################
             if [ $(command -v vlog) ]
@@ -419,12 +531,12 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
 
                 if (( $(grep "exception" -c <<< $1) != 0 ))
                 then
-                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION $rtlfiles # current testfile will halt on illegal instruction only
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ILLEGAL_INSTRUCTION -DICARUS $rtlfiles # current testfile will halt on illegal instruction only
                 elif (( $(grep "sbreak" -c <<< $1) != 0 )) # if current testfile name has word "sbreak" then that testfile will halt only on ecall
                 then
-                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL $rtlfiles # halt core on ecall
+                    iverilog -I "../rtl/" -o testbench.vvp -DHALT_ON_ECALL -DICARUS $rtlfiles # halt core on ecall
                 else
-                    iverilog -I "../rtl/" -o testbench.vvp $rtlfiles # current testfile will halt on both ebreak/ecall 
+                    iverilog -I "../rtl/" -o testbench.vvp -DICARUS $rtlfiles # current testfile will halt on both ebreak/ecall 
                 fi
                 vvp -n testbench.vvp
                 if [ "$2" == "-gui" ]
@@ -444,12 +556,19 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
             else
                 printf "\e[31m$a\n\n\e[0m" # red text for UNKNOWN
             fi
+        #install RISC-V core to FPGA board using current memory.mem 
+        elif [ "$2" == "-install" ] 
+        then
+            cd ../Vivado\ Files
+            printf "\nInstalling design to FPGA Board: $1\n"
+            vivado -mode tcl -source run_vivado.tcl
         fi
         ############################################################################################################################
     else
         printf "\e[31m\tTESTFILE DOES NOT EXIST\n\n\e[0m"    # testfile is missing
     fi
 fi
+
 
 
 # HOW TO USE
@@ -460,8 +579,14 @@ fi
 # $ ./test.sh extra = test only the assembly files inside extra folder [contains tests for interrupts which the official tests don't have]
 # $ ./test.sh all = test rv32ui, rv32mi, and mytest
 # $ ./test.sh add.S = test and debug testfile "add.S" which is located at INDIVIDUAL_TESTDIR
-# $ ./test.sh add.S -gui = test and debug testfile "add.S" and open wave in Modelsim
+# $ ./test.sh add.S -gui = test and debug testfile "add.S" and open wave in Icarus
 # $ ./test.sh add.S -nosim = compile and debug testfile "add.S" without simulating it
+# $ ./test.sh add.S -install = compile and install the design to FPGA board
+# $ ./test.sh freertos = compile freertos
+# $ ./test.sh freertos -gui = compile and debug freertos and open wave in Icarus
+# $ ./test.sh freertos -install = compile and install the design to FPGA board
+
+
 
 
 
