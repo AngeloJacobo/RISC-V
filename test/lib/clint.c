@@ -90,3 +90,26 @@ void enable_software_interrupt(void){
 void disable_software_interrupt(void){
 	*software_interrupt = 0;
 }
+
+
+// convert milliseconds input to cpu clock ticks
+uint64_t ms_to_cpu_ticks (uint64_t ms){
+    uint64_t cpu_clk_ticks = ms*(CPU_CLK_HZ/1000);
+    return cpu_clk_ticks;
+}
+
+// delay function based on milliseconds
+void delay_ms(uint64_t ms) {
+	uint64_t initial_time = mtime_get_time();
+	uint64_t ms_in_ticks = ms_to_cpu_ticks(ms);
+	while ((initial_time + ms_in_ticks) > (uint64_t)mtime_get_time()){ //do nothing while delay has not yet passed
+	}
+}
+
+// delay function based on cpu clock tick
+void delay_ticks(uint32_t ticks) {
+	uint64_t initial_time = mtime_get_time();
+	while ((initial_time + ticks) > (uint64_t)mtime_get_time()){ //do nothing while delay has not yet passed
+	}
+}
+
