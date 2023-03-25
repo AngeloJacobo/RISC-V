@@ -319,6 +319,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
             .o_csr_out(csr_out), //CSR value to be loaded to basereg
             // Trap-Handler 
             .i_pc(alu_pc), //Program Counter  (three stages had already been filled [fetch -> decode -> execute ])
+            .writeback_change_pc(writeback_change_pc), //high if writeback will issue change_pc (which will override this stage)
             .o_return_address(csr_return_address), //mepc CSR
             .o_trap_address(csr_trap_address), //mtvec CSR
             .o_go_to_trap_q(csr_go_to_trap), //high before going to trap (if exception/interrupt detected)
@@ -523,4 +524,3 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     `endif
 endmodule
-
