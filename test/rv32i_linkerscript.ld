@@ -1,4 +1,4 @@
-// This is sourced from: https://github.com/stnolting/neorv32/blob/main/sw/common/neorv32.ld
+/* This is sourced from: https://github.com/stnolting/neorv32/blob/main/sw/common/neorv32.ld */
 
 ENTRY(_start)
 
