@@ -14,9 +14,9 @@ _start: .global _start
 
 # Label for entry point of test code
 main:
-        .equ MTIME_BASE_ADDRESS, 8004
-        .equ MTIMECMP_BASE_ADDRESS, 8012
-        .equ MSIP_BASE_ADDRESS, 8020
+        .equ MTIME_BASE_ADDRESS, 0x80000000
+        .equ MTIMECMP_BASE_ADDRESS, 0x80000008
+        .equ MSIP_BASE_ADDRESS, 0x80000010
         
         ### TEST CODE STARTS HERE ###
   
