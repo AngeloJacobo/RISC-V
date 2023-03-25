@@ -2,10 +2,10 @@
 
 `timescale 1ns / 1ps
 `default_nettype none
-`define ICARUS
+//`define ICARUS use faster UARt and I2C rate for faster simulation
 
 //complete package containing the rv32i_core, RAM, and IO peripherals (I2C and UART)
-module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=8192) ( 
+module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=98304) ( 
     input wire i_clk,
     input wire i_rst,
     //UART
@@ -137,7 +137,7 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     );   
 
     // DEVICE 0
-     main_memory #(.MEMORY_DEPTH(MEMORY_DEPTH)) m1( //Instruction and Data memory (combined memory) [memory-mapped to <=8000]
+     main_memory #(.MEMORY_DEPTH(MEMORY_DEPTH)) m1( //Instruction and Data memory (combined memory) 
         .i_clk(i_clk),
         // Instruction Memory
         .i_inst_addr(iaddr[$clog2(MEMORY_DEPTH)-1:0]),
@@ -155,11 +155,11 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     );
 
     // DEVICE 1
-    rv32i_clint #( //Core Logic Interrupt [memory-mapped to >8000,<= 8048 (12 words)]
+    rv32i_clint #( //Core Logic Interrupt [memory-mapped to < h50 (MSB=1)]
         .CLK_FREQ_MHZ(CLK_FREQ_MHZ), //input clock frequency in MHz
-        .MTIME_BASE_ADDRESS(8004),  //Machine-level timer register (64-bits, 2 words)
-        .MTIMECMP_BASE_ADDRESS(8012), //Machine-level Time Compare register (64-bits, 2 words)
-        .MSIP_BASE_ADDRESS(8020) //Machine-level Software Interrupt register
+        .MTIME_BASE_ADDRESS(32'h8000_0000),  //Machine-level timer register (64-bits, 2 words)
+        .MTIMECMP_BASE_ADDRESS(32'h8000_0008), //Machine-level Time Compare register (64-bits, 2 words)
+        .MSIP_BASE_ADDRESS(32'h8000_0010) //Machine-level Software Interrupt register
     ) clint  (
         .clk(i_clk),
         .rst_n(!i_rst),
@@ -175,15 +175,15 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     );
     
     // DEVICE 2
-    uart #( .CLOCK_FREQ(CLK_FREQ_MHZ*1_000_000), //UART (TX only) [memory-mapped to >8048,<=8096 (12 words)]
+    uart #( .CLOCK_FREQ(CLK_FREQ_MHZ*1_000_000), //UART (TX only) [memory-mapped to >=h50,<hA0 (MSB=1)]
             .BAUD_RATE( //UART Baud rate
               `ifdef ICARUS
                2_000_000 //faster simulation
                `else 
                9600 //9600 Baud
                `endif),
-            .UART_TX_DATA_ADDR(8052), //memory-mapped address for TX
-            .UART_TX_BUSY_ADDR(8056), //memory-mapped address to check if TX is busy (has ongoing request)
+            .UART_TX_DATA_ADDR(32'h8000_0050), //memory-mapped address for TX
+            .UART_TX_BUSY_ADDR(32'h8000_0054), //memory-mapped address to check if TX is busy (has ongoing request)
             .DBIT(8), //UART Data Bits
             .SBIT(1) //UART Stop Bits
      ) uart
@@ -202,7 +202,7 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
       );
 
     //DEVICE 3
-    i2c #(.main_clock(CLK_FREQ_MHZ*1_000_000), //SCCB mode(no pullups resistors needed) [memory-mapped to >8096,<=8144]
+    i2c #(.main_clock(CLK_FREQ_MHZ*1_000_000), //SCCB mode(no pullups resistors needed) [memory-mapped to >=A0,<F0 (MSB=1)]
           .freq( //i2c freqeuncy
           `ifdef ICARUS
            2_000_000 //faster simulation
@@ -210,13 +210,13 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
            100_000 //100KHz
            `endif),
           .addr_bytes(1), //addr_bytes=number of bytes of an address
-          .I2C_START(8100), //write-only memory-mapped address to start i2c (write the i2c slave address)
-          .I2C_WRITE(8104), //write-only memory-mapped address for sending data to slave
-          .I2C_READ(8108), //read-only memory-mapped address to read data received from slave (this will also continue reading from slave) 
-          .I2C_BUSY(8112), //read-only memory-mapped address to check if i2c is busy (cannot accept request)
-          .I2C_ACK(8116), //read-only memory-mapped address to check if last access has benn acknowledge by slave
-          .I2C_READ_DATA_READY(8120), //read-only memory-mapped address to check if data to be received from slave is ready
-          .I2C_STOP(8124) //write-only memory-mapped address to stop i2c (this is persistent thus must be manually turned off after stopping i2c)
+          .I2C_START(32'h8000_00A0), //write-only memory-mapped address to start i2c (write the i2c slave address)
+          .I2C_WRITE(32'h8000_00A4), //write-only memory-mapped address for sending data to slave
+          .I2C_READ(32'h8000_00A8), //read-only memory-mapped address to read data received from slave (this will also continue reading from slave) 
+          .I2C_BUSY(32'h8000_00AC), //read-only memory-mapped address to check if i2c is busy (cannot accept request)
+          .I2C_ACK(32'h8000_00B0), //read-only memory-mapped address to check if last access has benn acknowledge by slave
+          .I2C_READ_DATA_READY(32'h8000_00B4), //read-only memory-mapped address to check if data to be received from slave is ready
+          .I2C_STOP(32'h8000_00B8) //write-only memory-mapped address to stop i2c (this is persistent thus must be manually turned off after stopping i2c)
       ) i2c
       (
         .clk(i_clk),
@@ -290,8 +290,63 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
         o_device0_wr_mask = 0;
         o_device0_stb_data = 0;
         o_ack_data = 0;
+        
+        o_device0_data_addr = 0; 
+        o_device0_wdata = 0;
+        o_device0_wr_en = 0;
+        o_device0_wr_mask = 0;
+        o_device0_stb_data = 0;
+        o_device1_data_addr = 0; 
+        o_device1_wdata = 0;
+        o_device1_wr_en = 0;
+        o_device1_wr_mask = 0;
+        o_device1_stb_data = 0;
+        o_device2_data_addr = 0; 
+        o_device2_wdata = 0;
+        o_device2_wr_en = 0;
+        o_device2_wr_mask = 0;
+        o_device2_stb_data = 0;
+        o_device3_data_addr = 0; 
+        o_device3_wdata = 0;
+        o_device3_wr_en = 0;
+        o_device3_wr_mask = 0;
+        o_device3_stb_data = 0;
+        
+        // Memory-mapped peripherals address has MSB set to 1
+        if(i_data_addr[31]) begin
+            if(i_data_addr[11:0] < 12'h50) begin //Device 1 Interface (CLINT) (20 words)
+                o_device1_data_addr = i_data_addr; 
+                o_device1_wdata = i_wdata;
+                o_rdata = i_device1_rdata;
+                o_device1_wr_en = i_wr_en;
+                o_device1_wr_mask = i_wr_mask;
+                o_device1_stb_data = i_stb_data;
+                o_ack_data = i_device1_ack_data;
+            end
             
-        if(i_data_addr <= 8000) begin  //Device 0 Interface (RAM)
+            if(i_data_addr[11:0] >= 12'h50 && i_data_addr[11:0] < 12'hA0) begin //Device 2 Interface (UART) (20 words)
+                o_device2_data_addr = i_data_addr; 
+                o_device2_wdata = i_wdata;
+                o_rdata = i_device2_rdata;
+                o_device2_wr_en = i_wr_en;
+                o_device2_wr_mask = i_wr_mask;
+                o_device2_stb_data = i_stb_data;
+                o_ack_data = i_device2_ack_data;
+            end
+
+            if(i_data_addr[11:0] >= 12'hA0 && i_data_addr[11:0] < 12'hF0) begin //Device 3 Interface (I2C) (20 words)
+                o_device3_data_addr = i_data_addr; 
+                o_device3_wdata = i_wdata;
+                o_rdata = i_device3_rdata;
+                o_device3_wr_en = i_wr_en;
+                o_device3_wr_mask = i_wr_mask;
+                o_device3_stb_data = i_stb_data;
+                o_ack_data = i_device3_ack_data;
+            end
+        end
+        
+        // Else access RAM
+        else begin  //Device 0 Interface (RAM)
             o_device0_data_addr = i_data_addr; 
             o_device0_wdata = i_wdata;
             o_rdata = i_device0_rdata;
@@ -300,66 +355,7 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
             o_device0_stb_data = i_stb_data;
             o_ack_data = i_device0_ack_data;
         end
-        else begin
-            o_device0_data_addr = 0; 
-            o_device0_wdata = 0;
-            o_device0_wr_en = 0;
-            o_device0_wr_mask = 0;
-            o_device0_stb_data = 0;
-        end
-        
-        if(i_data_addr > 8000 && i_data_addr <= 8048) begin //Device 1 Interface (CLINT) 
-            o_device1_data_addr = i_data_addr; 
-            o_device1_wdata = i_wdata;
-            o_rdata = i_device1_rdata;
-            o_device1_wr_en = i_wr_en;
-            o_device1_wr_mask = i_wr_mask;
-            o_device1_stb_data = i_stb_data;
-            o_ack_data = i_device1_ack_data;
-        end
-        else begin
-            o_device1_data_addr = 0; 
-            o_device1_wdata = 0;
-            o_device1_wr_en = 0;
-            o_device1_wr_mask = 0;
-            o_device1_stb_data = 0;
-        end
-        
-        if(i_data_addr > 8048 && i_data_addr <= 8096) begin //Device 2 Interface (UART) 
-            o_device2_data_addr = i_data_addr; 
-            o_device2_wdata = i_wdata;
-            o_rdata = i_device2_rdata;
-            o_device2_wr_en = i_wr_en;
-            o_device2_wr_mask = i_wr_mask;
-            o_device2_stb_data = i_stb_data;
-            o_ack_data = i_device2_ack_data;
-        end
-        else begin
-            o_device2_data_addr = 0; 
-            o_device2_wdata = 0;
-            o_device2_wr_en = 0;
-            o_device2_wr_mask = 0;
-            o_device2_stb_data = 0;
-        end
-
-        if(i_data_addr > 8096 && i_data_addr <= 8144) begin //Device 3 Interface (I2C) 
-            o_device3_data_addr = i_data_addr; 
-            o_device3_wdata = i_wdata;
-            o_rdata = i_device3_rdata;
-            o_device3_wr_en = i_wr_en;
-            o_device3_wr_mask = i_wr_mask;
-            o_device3_stb_data = i_stb_data;
-            o_ack_data = i_device3_ack_data;
-        end
-        else begin
-            o_device3_data_addr = 0; 
-            o_device3_wdata = 0;
-            o_device3_wr_en = 0;
-            o_device3_wr_mask = 0;
-            o_device3_stb_data = 0;
-        end
     end
-
  
 endmodule
 
@@ -838,18 +834,10 @@ module rv32i_clint #( //Core Logic Interrupt
     // The MTIMER device provides machine-level timer functionality for a set of HARTs on a RISC-V platform. 
     // It has a single fixed-frequency monotonic time counter (MTIME) register and a time 
     // compare register (MTIMECMP) for each HART connected to the MTIMER device.
-
-    localparam MILLISEC_WRAP =  (CLK_FREQ_MHZ*(10**6))/1000;
     reg[63:0] mtime = 0;
     reg[63:0] mtimecmp = {64{1'b1}};   
     reg msip = 0; //Inter-processor (or software) interrupts
-    reg [$clog2(MILLISEC_WRAP):0] counter = 0;
-    wire increment_timer = counter == MILLISEC_WRAP; //ticks every 1 millisec 
 
-    //generate mod-1millisecond counter
-   always @(posedge clk, negedge rst_n) 
-      if (!rst_n) counter <= 0;
-      else counter <= (counter == MILLISEC_WRAP)? 0:counter + 1'b1;
 
    //READ memory-mapped registers 
     always @(posedge clk, negedge rst_n) begin
@@ -886,7 +874,7 @@ module rv32i_clint #( //Core Logic Interrupt
                 else if(clint_address == MTIMECMP_BASE_ADDRESS + 4) mtimecmp[63:32] <= clint_wdata; //second half
                 if(clint_address == MSIP_BASE_ADDRESS) msip <= clint_wdata[0]; //machine software interrupt
             end
-            else if(increment_timer) mtime <= mtime + 1'b1;
+            mtime <= mtime + 1'b1; //increment every clock tick (so timer freq is same as cpu clock freq)
         end
     end
 
@@ -902,7 +890,6 @@ module rv32i_clint #( //Core Logic Interrupt
     assign o_software_interrupt = msip;
 
 endmodule
-
 
 
 
