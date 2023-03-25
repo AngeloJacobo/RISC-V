@@ -394,7 +394,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                  
                  o_csr_out <= csr_data;
               end
-              else begin
+              else begin //THIS SOLVES THE PROBLEM OF FREERTOS NOT WORKING
                 o_go_to_trap_q <= 0;
                 o_return_from_trap_q <= 0;
               end
