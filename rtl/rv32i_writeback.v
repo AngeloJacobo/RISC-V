@@ -45,14 +45,14 @@ module rv32i_writeback (
         o_change_pc = 0;
 
         if(i_go_to_trap) begin
-            o_change_pc = i_ce; //change PC only when ce of this stage is high (o_change_pc is valid)
+            o_change_pc = 1; //change PC only when ce of this stage is high (o_change_pc is valid)
             o_next_pc = i_trap_address;  //interrupt or exception detected so go to trap address (mtvec value)
             o_flush = i_ce;
             o_wr_rd = 0;
         end
         
         else if(i_return_from_trap) begin
-            o_change_pc = i_ce; //change PC only when ce of this stage is high (o_change_pc is valid)
+            o_change_pc = 1; //change PC only when ce of this stage is high (o_change_pc is valid)
              o_next_pc = i_return_address; //return from trap via mret (mepc value)
              o_flush = i_ce;
              o_wr_rd = 0;
