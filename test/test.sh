@@ -104,7 +104,7 @@ then
         vlog +incdir+../rtl/ ${rtlfiles}
     else 
         rm -f testbench.vvp # remove previous occurence of vvp file  
-        iverilog -I "../rtl/" $rtlfiles
+        iverilog -I "../rtl/" -DICARUS $rtlfiles
     fi
     
 elif [ "$1" == "formal" ] # run formal verification
