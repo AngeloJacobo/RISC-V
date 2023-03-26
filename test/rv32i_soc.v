@@ -5,7 +5,7 @@
 //`define ICARUS use faster UARt and I2C rate for faster simulation
 
 //complete package containing the rv32i_core, RAM, and IO peripherals (I2C and UART)
-module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=98304) ( 
+module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=98304, GPIO_COUNT = 12) ( 
     input wire i_clk,
     input wire i_rst,
     //UART
@@ -13,7 +13,9 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     output wire uart_tx,
     //I2C
     inout wire i2c_sda,
-    inout wire i2c_scl
+    inout wire i2c_scl,
+    //GPIO
+    inout wire[GPIO_COUNT-1:0] gpio_pins
     );
 
     
@@ -66,6 +68,13 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     wire[3:0] o_device3_wr_mask;
     wire o_device3_stb_data;
     wire i_device3_ack_data;
+    wire[31:0] o_device4_data_addr;
+    wire[31:0] o_device4_wdata;
+    wire[31:0] i_device4_rdata;
+    wire o_device4_wr_en;
+    wire[3:0] o_device4_wr_mask;
+    wire o_device4_stb_data;
+    wire i_device4_ack_data;
 
     rv32i_core #(.PC_RESET(PC_RESET),.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS), .ZICSR_EXTENSION(ZICSR_EXTENSION)) m0( //main RV32I core
         .i_clk(i_clk),
@@ -133,7 +142,16 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
         .o_device3_wr_en(o_device3_wr_en),
         .o_device3_wr_mask(o_device3_wr_mask),
         .o_device3_stb_data(o_device3_stb_data),
-        .i_device3_ack_data(i_device3_ack_data)
+        .i_device3_ack_data(i_device3_ack_data),
+        
+        //Device 4 Interface (GPIO)
+        .o_device4_data_addr(o_device4_data_addr),
+        .o_device4_wdata(o_device4_wdata),
+        .i_device4_rdata(i_device4_rdata),
+        .o_device4_wr_en(o_device4_wr_en),
+        .o_device4_wr_mask(o_device4_wr_mask),
+        .o_device4_stb_data(o_device4_stb_data),
+        .i_device4_ack_data(i_device4_ack_data)
     );   
 
     // DEVICE 0
@@ -182,8 +200,10 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
                `else 
                9600 //9600 Baud
                `endif),
-            .UART_TX_DATA_ADDR(32'h8000_0050), //memory-mapped address for TX
-            .UART_TX_BUSY_ADDR(32'h8000_0054), //memory-mapped address to check if TX is busy (has ongoing request)
+            .UART_TX_DATA(32'h8000_0050), //memory-mapped address for TX
+            .UART_TX_BUSY(32'h8000_0054), //memory-mapped address to check if TX is busy (has ongoing request)
+            .UART_RX_BUFFER_FULL(32'h8000_0058), //memory-mapped address  to check if a read has completed
+            .UART_RX_DATA(32'h8000_005C), //memory-mapped address for RX 
             .DBIT(8), //UART Data Bits
             .SBIT(1) //UART Stop Bits
      ) uart
@@ -196,7 +216,6 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
       .uart_rx(uart_rx), //UART RX line
       .uart_tx(uart_tx), //UART TX line
       .uart_rdata(i_device2_rdata[7:0]), //data read from memory-mapped register 
-      .uart_interrupt_request(i_external_interrupt), 
       .o_ack_data(i_device2_ack_data), //request to access UART
       .i_stb_data(o_device2_stb_data) //acknowledge by UART
       );
@@ -229,6 +248,25 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
         .o_ack_data(i_device3_ack_data), //acknowledge by i2c
         .scl(i2c_scl), //i2c bidrectional clock line
         .sda(i2c_sda) //i2c bidrectional data line
+    );
+    
+    //DEVICE 4
+    gpio #( //General-Purpose Input-Ouput
+        .GPIO_MODE(32'h8000_00F0), //set if GPIO will be read(0) or write(1) 
+        .GPIO_READ(32'h8000_00F4), //read GPIO value
+        .GPIO_WRITE(32'h8000_00F8), //write to GPIO
+        .GPIO_COUNT(12)
+    ) gpio (
+        .clk(i_clk),
+        .rst_n(!i_rst),
+        .gpio_rw_address(o_device4_data_addr), //read/write address of memory-mapped register 
+        .gpio_wdata(o_device4_wdata[GPIO_COUNT-1:0]), //write data to memory-mapped register
+        .gpio_rdata(i_device4_rdata[GPIO_COUNT-1:0]), //read data from memory-mapped register 
+        .gpio_wr_en(o_device4_wr_en), //write-enable
+        .i_stb_data(o_device4_stb_data), //request to access UART
+        .o_ack_data(i_device4_ack_data), //acknowledge by UART
+        //GPIO
+        .gpio(gpio_pins) //gpio pins
     );
 
 endmodule
@@ -271,14 +309,23 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
     output reg o_device2_stb_data,
     input wire i_device2_ack_data,
 
-    //Device 2 Interface (I2C)
+    //Device 3 Interface (I2C)
     output reg[31:0] o_device3_data_addr,
     output reg[31:0] o_device3_wdata,
     input wire[31:0] i_device3_rdata,
     output reg o_device3_wr_en,
     output reg[3:0] o_device3_wr_mask,
     output reg o_device3_stb_data,
-    input wire i_device3_ack_data
+    input wire i_device3_ack_data,
+    
+    //Device 4 Interface (GPIO)
+    output reg[31:0] o_device4_data_addr,
+    output reg[31:0] o_device4_wdata,
+    input wire[31:0] i_device4_rdata,
+    output reg o_device4_wr_en,
+    output reg[3:0] o_device4_wr_mask,
+    output reg o_device4_stb_data,
+    input wire i_device4_ack_data
 );
 
 
@@ -311,7 +358,11 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
         o_device3_wr_en = 0;
         o_device3_wr_mask = 0;
         o_device3_stb_data = 0;
-        
+        o_device4_data_addr = 0; 
+        o_device4_wdata = 0;
+        o_device4_wr_en = 0;
+        o_device4_wr_mask = 0;
+        o_device4_stb_data = 0;
         // Memory-mapped peripherals address has MSB set to 1
         if(i_data_addr[31]) begin
             if(i_data_addr[11:0] < 12'h50) begin //Device 1 Interface (CLINT) (20 words)
@@ -342,6 +393,16 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
                 o_device3_wr_mask = i_wr_mask;
                 o_device3_stb_data = i_stb_data;
                 o_ack_data = i_device3_ack_data;
+            end
+            
+            if(i_data_addr[11:0] >= 12'hF0 && i_data_addr[11:0] < 12'h140) begin //Device 4 Interface (GPIO) (20 words)
+                o_device4_data_addr = i_data_addr; 
+                o_device4_wdata = i_wdata;
+                o_rdata = i_device4_rdata;
+                o_device4_wr_en = i_wr_en;
+                o_device4_wr_mask = i_wr_mask;
+                o_device4_stb_data = i_stb_data;
+                o_ack_data = i_device4_ack_data;
             end
         end
         
@@ -412,8 +473,10 @@ endmodule
 module uart #( //UART (TX only)
     parameter CLOCK_FREQ = 12_000_000,//Input clock frequency
     parameter BAUD_RATE  = 9600, //UART Baud rate
-    parameter UART_TX_DATA_ADDR = 8140, //memory-mapped address for TX
-    parameter UART_TX_BUSY_ADDR = 8144, //memory-mapped address to check if TX is busy (has ongoing request)
+    parameter UART_TX_DATA = 8140, //memory-mapped address for TX (write to UART)
+    parameter UART_TX_BUSY = 8144, //memory-mapped address to check if TX is busy (has ongoing request)
+    parameter UART_RX_BUFFER_FULL = 8148, //memory-mapped address  to check if a read has completed
+    parameter UART_RX_DATA = 8152, //memory-mapped address for RX (read the data)
     parameter DBIT = 8, //UART Data Bits
     parameter SBIT = 1 //UART Stop Bits
     )(
@@ -425,7 +488,6 @@ module uart #( //UART (TX only)
         input wire uart_rx, //UART RX line
         output wire uart_tx, //UART TX line
         output reg[DBIT - 1:0] uart_rdata, //data read from memory-mapped register 
-        output wire uart_interrupt_request,
         input wire i_stb_data, //request to access UART
         output reg o_ack_data //acknowledge by UART
     );
@@ -450,21 +512,15 @@ module uart #( //UART (TX only)
     reg tx_reg,tx_nxt;
     reg s_tick;
     reg wr_uart;
-    
-     //Read request
-    always @(posedge clk, negedge rst_n) begin
-        if(!rst_n) begin
-            uart_rdata <= 0;
-            o_ack_data <= 0;
-        end
-        else begin
-            if(i_stb_data && !uart_wr_en && uart_rw_address == UART_TX_BUSY_ADDR) begin //read request to UART_TX_BUSY_ADDR (check if there is an ongoing request)
-                uart_rdata <= uart_busy;
-            end
-            o_ack_data <= i_stb_data;
-        end
-    end
-    
+    reg[1:0] state_reg_rx,state_nxt_rx;
+    reg[3:0] s_reg_rx,s_nxt_rx; //check if number of ticks is 7(middle of start bit), or 15(middle of a data bit)
+    reg[2:0] n_reg_rx,n_nxt_rx; //checks how many data bits is already passed(value is 7 for last bit)
+    reg[7:0] b_reg,b_nxt; //stores 8-bit binary value of received data bits
+    reg[7:0] dout; //data read from UART
+    reg rx_done_tick; //goes high if a read is done
+    reg rx_buffer_full; //goes high if a read is done
+
+
     //baud tick generator
      reg[DVSR_WIDTH-1:0] counter=0;
      always @(posedge clk,negedge rst_n) begin
@@ -481,7 +537,30 @@ module uart #( //UART (TX only)
             
         end
      end
+     //Read memory-mapped registers
+     always @(posedge clk, negedge rst_n) begin
+        if(!rst_n) begin
+            uart_rdata <= 0;
+            o_ack_data <= 0;
+        end
+        else begin
+            if(i_stb_data && !uart_wr_en && uart_rw_address == UART_TX_BUSY) begin //read request to UART_TX_BUSY_ADDR (check if there is an ongoing request)
+                uart_rdata <= uart_busy;
+            end
+            else if(i_stb_data && !uart_wr_en && uart_rw_address == UART_RX_BUFFER_FULL) begin //read request to UART_RX_BUFFER_FULL (check if a read is completed)
+                uart_rdata <= rx_buffer_full;
+            end
+            else if(i_stb_data && !uart_wr_en && uart_rw_address == UART_RX_DATA) begin //read request to UART_RX_DATA (read the data)
+                uart_rdata <= dout;
+            end
+            o_ack_data <= i_stb_data;
+        end
+     end
      
+     
+     /******************************** UART TX ****************************************/
+
+    
      //FSM register operation
      always @(posedge clk,negedge rst_n) begin
         if(!rst_n) begin
@@ -514,7 +593,7 @@ module uart #( //UART (TX only)
                             tx_nxt=1;
                             uart_busy = 0;
                             //start transmit operation when there is a write request to UART_TX_DATA_ADDR and we are in idle
-                            if(uart_wr_en && i_stb_data && uart_rw_address == UART_TX_DATA_ADDR && !uart_busy) begin 
+                            if(uart_wr_en && i_stb_data && uart_rw_address == UART_TX_DATA && !uart_busy) begin 
                                 din_nxt=uart_wdata;
                                 s_nxt=0;
                                 state_nxt=start;
@@ -558,8 +637,79 @@ module uart #( //UART (TX only)
          endcase
      end
      assign uart_tx=tx_reg;
-
+    /*********************************************************************************/
+    
+    /******************************** UART RX ****************************************/
+	 
+	 //FSM register operation
+	 always @(posedge clk,negedge rst_n) begin
+		if(!rst_n) begin
+			state_reg_rx<=idle;
+			s_reg_rx<=0;
+			n_reg_rx<=0;
+			b_reg<=0;
+			dout<=0;
+			rx_buffer_full<=0;
+		end
+		else begin
+			state_reg_rx<=state_nxt_rx;
+			s_reg_rx<=s_nxt_rx;
+			n_reg_rx<=n_nxt_rx;
+			b_reg<=b_nxt;	
+			if(rx_done_tick) begin
+			    dout <= b_reg; //memory-mapped register storing the completed read data	
+			    rx_buffer_full <= 1'b1; //memory-mapped register to check if a read is done
+			end
+			else if(i_stb_data && !uart_wr_en && uart_rw_address == UART_RX_DATA) begin //read request to UART_RX_DATA (read the data)
+                rx_buffer_full <= 1'b0;
+            end
+		end
+	 end
+	 
+	 //FSM next-state logic
+	 always @* begin
+		state_nxt_rx=state_reg_rx;
+		s_nxt_rx=s_reg_rx;
+		n_nxt_rx=n_reg_rx;
+		b_nxt=b_reg;
+		rx_done_tick=0;
+		case(state_reg_rx)
+			 idle: if(uart_rx==0) begin //wait for start bit(rx of zero)
+						s_nxt_rx=0;
+						state_nxt_rx=start;
+					 end						
+			start: if(s_tick==1) begin //wait for middle of start bit
+						if(s_reg_rx==7) begin
+							s_nxt_rx=0;
+							n_nxt_rx=0;
+							state_nxt_rx=data;
+						end
+						else s_nxt_rx=s_reg_rx+1;
+					 end
+		    data: if(s_tick==1) begin //wait to pass all middle points of every data bits
+						if(s_reg_rx==15) begin
+							b_nxt={uart_rx,b_reg[7:1]};
+							s_nxt_rx=0;
+							if(n_reg_rx==DBIT-1) state_nxt_rx=stop;
+							else n_nxt_rx=n_reg_rx+1;
+						end
+						else s_nxt_rx=s_reg_rx+1;
+					 end
+			 stop: if(s_tick==1) begin  //wait to pass the required stop bits
+						if(s_reg_rx==SB_TICK-1) begin
+							rx_done_tick=1;
+							state_nxt_rx=idle;
+						end
+  						else s_nxt_rx=s_reg_rx+1;
+					 end	
+		 default: state_nxt_rx=idle;
+		endcase
+	 end
+	 /*********************************************************************************/
+	 
 endmodule
+
+
 
 module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTED]
     #(parameter main_clock=12_000_000, //frequency of clk
@@ -629,6 +779,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
     always @(posedge clk, negedge rst_n) begin
         if(!rst_n) begin
             i2c_stop <= 0;
+            o_ack_data <= 0;
         end
         else begin
             if(i_stb_data && i2c_wr_en && i2c_rw_address == I2C_STOP) i2c_stop <= i2c_wdata; //write to i2c_stop to stop transaction
@@ -890,6 +1041,78 @@ module rv32i_clint #( //Core Logic Interrupt
     assign o_software_interrupt = msip;
 
 endmodule
+
+
+
+module gpio #( //UART (TX only)
+    parameter GPIO_MODE = 32'hF0, //set if GPIO will be read(0) or write(1) 
+    parameter GPIO_READ = 32'hF4, //read from GPIO
+    parameter GPIO_WRITE = 32'hF8, //write to GPIO
+    parameter GPIO_COUNT = 12
+    )(
+        input wire clk,
+        input wire rst_n,
+        input wire[31:0] gpio_rw_address, //read/write address of memory-mapped register
+        output reg[GPIO_COUNT-1:0] gpio_rdata, //read data from memory-mapped register 
+        input wire[GPIO_COUNT-1:0 ] gpio_wdata, //write data to memory-mapped register
+        input wire gpio_wr_en, //write-enable
+
+        input wire i_stb_data, //request to access UART
+        output reg o_ack_data, //acknowledge by UART
+        //GPIO
+        inout wire[11:0] gpio //gpio pins
+    );
+       
+        
+    reg[GPIO_COUNT-1:0] gpio_reg;
+    reg[GPIO_COUNT-1:0] gpio_write;
+    wire[GPIO_COUNT-1:0] gpio_read;
+    reg[GPIO_COUNT-1:0] gpio_mode;
+    always @(posedge clk,negedge rst_n) begin
+        if(!rst_n) begin
+            gpio_write <= 0;
+            gpio_mode <= 0;
+            gpio_reg <= 0;
+        end
+        else begin
+            if(i_stb_data && gpio_wr_en && gpio_rw_address == GPIO_MODE) gpio_mode <= gpio_wdata; //set mode of the gpio (write(1) or low(0))
+            if(i_stb_data && !gpio_wr_en && gpio_rw_address == GPIO_MODE) gpio_rdata <= gpio_mode; //read gpio mode
+            if(i_stb_data && gpio_wr_en && gpio_rw_address == GPIO_WRITE) gpio_write <= gpio_wdata; //write to gpio
+            if(i_stb_data && !gpio_wr_en && gpio_rw_address == GPIO_WRITE) gpio_rdata <= gpio_write; //read write value to gpio
+            if(i_stb_data && !gpio_wr_en && gpio_rw_address == GPIO_READ) gpio_rdata <= gpio_read; //read from gpio
+            
+            o_ack_data <= i_stb_data; 
+        end
+    end
+    
+    `ifndef ICARUS 
+        genvar i;
+        generate
+            for(i = 0 ; i < GPIO_COUNT ; i = i+1) begin
+                 IOBUF gpio_iobuf ( //Vivado IOBUF instantiation
+                    .IO(gpio[i]),
+                    .I(gpio_write[i]),//write to GPIO when gpio_mode is high
+                    .T(!gpio_mode[i]), 
+                    .O(gpio_read[i]) //read from GPIO when gpio_mode is low
+                 );
+            end
+         endgenerate
+     `else
+         genvar i;
+         for(i = 0 ; i < GPIO_COUNT ; i = i+1) begin
+	        assign gpio[i] = gpio_mode[i]? gpio_write[i]:1'bz; //in icarus simulation we will only write to the pin
+	     end        
+     `endif
+     
+    
+        
+endmodule
+
+
+
+
+
+
 
 
 
