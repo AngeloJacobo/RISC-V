@@ -98,11 +98,32 @@ uint64_t ms_to_cpu_ticks (uint64_t ms){
     return cpu_clk_ticks;
 }
 
+// convert milliseconds input to cpu clock ticks
+uint64_t us_to_cpu_ticks (uint64_t us){
+    uint64_t cpu_clk_ticks = us*(CPU_CLK_HZ/1000000);
+    return cpu_clk_ticks;
+}
+
+// convert cpu clock ticks to us
+uint32_t cpu_ticks_to_us (uint64_t ticks){
+    uint32_t us = (ticks*1000000)/CPU_CLK_HZ;
+    return us;
+}
+
+
 // delay function based on milliseconds
 void delay_ms(uint64_t ms) {
 	uint64_t initial_time = mtime_get_time();
 	uint64_t ms_in_ticks = ms_to_cpu_ticks(ms);
 	while ((initial_time + ms_in_ticks) > (uint64_t)mtime_get_time()){ //do nothing while delay has not yet passed
+	}
+}
+
+// delay function based on microseconds
+void delay_us(uint64_t us) {
+	uint64_t initial_time = mtime_get_time();
+	uint64_t us_in_ticks = us_to_cpu_ticks(us);
+	while ((initial_time + us_in_ticks) > (uint64_t)mtime_get_time()){ //do nothing while delay has not yet passed
 	}
 }
 
@@ -112,4 +133,8 @@ void delay_ticks(uint32_t ticks) {
 	while ((initial_time + ticks) > (uint64_t)mtime_get_time()){ //do nothing while delay has not yet passed
 	}
 }
+
+
+
+
 
