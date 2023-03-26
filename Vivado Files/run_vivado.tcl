@@ -16,21 +16,21 @@ read_xdc ./Cmod-S7-25-Master.xdc
 #
 # STEP#2: run synthesis, report utilization and timing estimates, write checkpoint design
 #
-synth_design -quiet -top rv32i_soc -part xc7s25csga225-1
+synth_design -top rv32i_soc -part xc7s25csga225-1
 #
 # STEP#3: run placement and logic optimzation, report utilization and timing estimates, write checkpoint design
 #
-opt_design -quiet
-place_design -quiet
-phys_opt_design -quiet
+opt_design 
+place_design 
+phys_opt_design 
 #
 # STEP#4: run router, report actual utilization and timing, write checkpoint design, run drc, write verilog and xdc out
 #
-route_design -quiet
+route_design 
 #
 # STEP#5: generate a bitstream
 # 
-write_bitstream -quiet -force $outputDir/rv32i_soc.bit
+write_bitstream -force $outputDir/rv32i_soc.bit
 
 # Connect to the Digilent Cable on localhost:3121
 open_hw_manager
