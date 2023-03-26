@@ -8,8 +8,15 @@
 #define I2C_STOP 0x800000B8
 
 // UART memory-mapped registers
-#define UART_TX_DATA_ADDR 0x80000050
-#define UART_TX_BUSY_ADDR 0x80000054
+#define UART_TX_DATA 0x80000050
+#define UART_TX_BUSY 0x80000054
+#define UART_RX_BUFFER_FULL 0x80000058
+#define UART_RX_DATA 0x8000005C
+
+//GPIO memory-mapped registers
+#define GPIO_MODE 0x800000F0
+#define GPIO_READ 0x800000F4
+#define GPIO_WRITE 0x800000F8
 
 // CLINT memory-mapped registers
 #define CPU_CLK_HZ 12000000
@@ -78,6 +85,8 @@ void disable_software_interrupt(void); // turn off software interrupt
 uint64_t ms_to_cpu_ticks (uint64_t ms); // convert milliseconds input to cpu clock ticks
 void delay_ms(uint64_t ms); // delay function based on milliseconds
 void delay_ticks(uint32_t ticks); // delay function based on cpu clock tick
+void delay_us(uint64_t us); // delay function based on microseconds
+uint32_t cpu_ticks_to_us (uint64_t ticks); // convert cpu clock ticks to us
 
 // Inline functions go to header file
 static inline void __attribute__ ((always_inline)) csr_set(const int csr_id, uint32_t mask) { // set bits in CSR
@@ -95,7 +104,21 @@ void i2c_stop(void); // stop current i2c transaction
 uint8_t i2c_write_byte(uint8_t data); // write to slave (returns slave ack)
 
 // Function prototypes for uart.c
-void uart_print(char *message);
+void uart_print(char *message); // print characters serially via UART
+int uart_rx_buffer_full(); //check if read buffer is full and data can be read
+char uart_read(); //read data from buffer (make sure to check first if rx buffer is full)
+
+// Function prototypes for gpio.c
+void toggle_gpio(uint32_t pin_number); //toggle a specific GPIO pin (automatically set pin to write mode)
+void gpio_set_mode_pin(uint32_t pin_number, uint32_t mode); //set mode setting of a single GPIO pin(read = 0, write = 1)
+void gpio_write_pin(uint32_t pin_number, uint32_t val); //write to a specific GPIO pin (automatically set pin to write mode)
+uint32_t gpio_read_pin(uint32_t pin_number); //read a specific GPIO pin
+uint32_t gpio_pulse_duration_us(uint32_t pin_number, uint32_t val); //measure pulse duration of a GPIO pin in us
+uint32_t gpio_read_mode(); //read mode setting of the GPIOs (read = 0, write = 1)
+void gpio_set_mode(uint32_t mode); //set mode setting og the GPIOs (read = 0, write = 1)
+void gpio_write(uint32_t write); //write to GPIOs
+uint32_t gpio_write_value(); //read current write value of GPIOs
+uint32_t gpio_read(); //read GPIO
 
 // Function prototypes for lcd.c
 void LCD_Init(unsigned char I2C_Add); //initialize LCD with proper routine
@@ -110,3 +133,13 @@ void LCD_Write_Char(char);
 void LCD_SR(void);
 void LCD_SL(void);
 void LCD_Clear(void);
+
+// Function prototypes for stdlib_custom.c
+char* itoa(int value, char* result, int base);
+
+
+
+
+
+
+
