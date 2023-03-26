@@ -12,16 +12,19 @@
 
 void vApplicationTickHook( void );
 void vUartSend( void *pvParameters );
+void vUARTReceive( void *pvParameters );
+void vToggleGPIO( void *pvParameters );
 void vLCD( void *pvParameters );
-char* itoa(int value, char* result, int base);
 extern void freertos_risc_v_trap_handler( void );
 
+char rx_data[2];
 
 int main( void )
 {
     BaseType_t a;
     BaseType_t b;
     BaseType_t c;
+    BaseType_t d;
     uart_print("FreeRTOS DEMO\n");
     csr_write(MTVEC, (uint32_t) &freertos_risc_v_trap_handler);
 
@@ -37,7 +40,21 @@ int main( void )
         uart_print("First Task Failed to Create\n");
         return(1);
     }
-    c = xTaskCreate( vLCD,				            /* The function that implements the task. */
+    
+    b = xTaskCreate( vLCD,				            /* The function that implements the task. */
+		"LCD_WRITE", 						/* The text name assigned to the task - for debug only as it is not used by the kernel. */
+		500, 		/* The size of the stack to allocate to the task. */
+		NULL, 								/* The parameter passed to the task - not used in this case. */
+		1, 	                                /* The priority assigned to the task. */
+		NULL );	
+    
+	if( b != pdPASS )
+    {
+        uart_print("Second Task Failed to Create\n");
+        return(2);
+    }
+    
+    c = xTaskCreate( vUARTReceive,				            /* The function that implements the task. */
 		"LCD_WRITE", 						/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 		500, 		/* The size of the stack to allocate to the task. */
 		NULL, 								/* The parameter passed to the task - not used in this case. */
@@ -46,29 +63,67 @@ int main( void )
     
 	if( c != pdPASS )
     {
-        uart_print("Second Task Failed to Create\n");
-        return(2);
+        uart_print("Third Task Failed to Create\n");
+        return(3);
+    }
+    
+    d = xTaskCreate( vToggleGPIO,				            /* The function that implements the task. */
+		"LCD_WRITE", 						/* The text name assigned to the task - for debug only as it is not used by the kernel. */
+		500, 		/* The size of the stack to allocate to the task. */
+		NULL, 								/* The parameter passed to the task - not used in this case. */
+		1, 	                                /* The priority assigned to the task. */
+		NULL );	
+    
+	if( d != pdPASS )
+    {
+        uart_print("Fourth Task Failed to Create\n");
+        return(3);
     }
 
 	/* Start the tasks and timer running. */
 	vTaskStartScheduler();
 
-	//uart_print("ERROR: You reached past the vTaskStartScheduler()");
+	uart_print("ERROR: You reached past the vTaskStartScheduler()");
 
 }
 
 void vUartSend( void *pvParameters ){
     while(1){
         uart_print("This is the 1st line and this is pretty long do you understand?\n");
-        delay_ms(2000); //100 ticks
+        delay_ms(3000); //100 ticks
         uart_print("This is the 2nd line and I guess I'm already out of words. Let's see if I can think of more things to say or am I stuck?\n");
-        delay_ms(2000);
+        delay_ms(3000);
         uart_print("This is the 3rd line and this is pretty long do you understand?\n");
-        delay_ms(2000); //100 ticks
+        delay_ms(3000); //100 ticks
         uart_print("This is the 4th line and I guess I'm already out of words. Let's see if I can think of more things to say or am I stuck?\n");
-        delay_ms(2000);
+        delay_ms(3000);
     }
     
+}
+
+void vUARTReceive( void *pvParameters ){
+    int buffer_full;
+    rx_data[1] = '\0';
+    while(1){
+        buffer_full = uart_rx_buffer_full(); //check if read buffer is full and data can be read
+        if(buffer_full){
+            rx_data[0] = uart_read(); //read data from buffer (make sure to check first if rx buffer is full)
+        }
+    }
+}
+
+void vToggleGPIO( void *pvParameters ){
+    while(1){
+        if(rx_data[0] == '0'){
+            gpio_write_pin(8, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+        }
+        else if(rx_data[0] == '1') {
+            gpio_write_pin(8, 1); //write to a specific GPIO pin (automatically set pin to write mode)
+        }
+        else{
+            gpio_write_pin(9,1);
+        }
+    }
 }
 
 void vLCD( void *pvParameters ){
@@ -82,11 +137,14 @@ void vLCD( void *pvParameters ){
     LCD_Set_Cursor(1, 1);
     LCD_Write_String(" Angelo Jacobo");
     LCD_Set_Cursor(2, 3);
+    LCD_Clear();
     delay_ms(1000);
     while(1){
         //convert counter to string
         itoa(counter, string, 10);
         //print to LCD
+        LCD_Set_Cursor(1, 1);
+        LCD_Write_String(rx_data);
         LCD_Set_Cursor(2, 7);
         LCD_Write_String(string);
         delay_ms(1000); 
