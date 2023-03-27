@@ -28,18 +28,18 @@ int main( void )
     uart_print("FreeRTOS DEMO\n");
     csr_write(MTVEC, (uint32_t) &freertos_risc_v_trap_handler);
 
-	a = xTaskCreate( vUartSend,				            /* The function that implements the task. */
-				"UART_SEND", 						/* The text name assigned to the task - for debug only as it is not used by the kernel. */
-				500, 		/* The size of the stack to allocate to the task. */
-				NULL, 								/* The parameter passed to the task - not used in this case. */
-				1, 	                                /* The priority assigned to the task. */
-				NULL );								/* The task handle is not required, so NULL is passed. */
+//	a = xTaskCreate( vUartSend,				            /* The function that implements the task. */
+//				"UART_SEND", 						/* The text name assigned to the task - for debug only as it is not used by the kernel. */
+//				500, 		/* The size of the stack to allocate to the task. */
+//				NULL, 								/* The parameter passed to the task - not used in this case. */
+//				1, 	                                /* The priority assigned to the task. */
+//				NULL );								/* The task handle is not required, so NULL is passed. */
 	
-	if( a != pdPASS )
-    {
-        uart_print("First Task Failed to Create\n");
-        return(1);
-    }
+//	if( a != pdPASS )
+ //   {
+//        uart_print("First Task Failed to Create\n");
+//        return(1);
+ //   }
     
     b = xTaskCreate( vLCD,				            /* The function that implements the task. */
 		"LCD_WRITE", 						/* The text name assigned to the task - for debug only as it is not used by the kernel. */
@@ -116,12 +116,15 @@ void vToggleGPIO( void *pvParameters ){
     while(1){
         if(rx_data[0] == '0'){
             gpio_write_pin(8, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+            gpio_write_pin(9, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+            gpio_write_pin(10, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+            gpio_write_pin(11, 0); //write to a specific GPIO pin (automatically set pin to write mode)
         }
         else if(rx_data[0] == '1') {
             gpio_write_pin(8, 1); //write to a specific GPIO pin (automatically set pin to write mode)
-        }
-        else{
-            gpio_write_pin(9,1);
+            gpio_write_pin(9, 1); //write to a specific GPIO pin (automatically set pin to write mode)
+            gpio_write_pin(10, 1); //write to a specific GPIO pin (automatically set pin to write mode)
+            gpio_write_pin(11, 1); //write to a specific GPIO pin (automatically set pin to write mode)
         }
     }
 }
@@ -137,14 +140,12 @@ void vLCD( void *pvParameters ){
     LCD_Set_Cursor(1, 1);
     LCD_Write_String(" Angelo Jacobo");
     LCD_Set_Cursor(2, 3);
-    LCD_Clear();
+    //LCD_Clear();
     delay_ms(1000);
     while(1){
         //convert counter to string
         itoa(counter, string, 10);
         //print to LCD
-        LCD_Set_Cursor(1, 1);
-        LCD_Write_String(rx_data);
         LCD_Set_Cursor(2, 7);
         LCD_Write_String(string);
         delay_ms(1000); 
