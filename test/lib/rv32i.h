@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 // I2C memory-mapped registers
 #define I2C_START 0x800000A0
 #define I2C_WRITE 0x800000A4
@@ -23,6 +25,12 @@
 #define MTIME_BASE_ADDRESS 0x80000000
 #define MTIMECMP_BASE_ADDRESS 0x80000008
 #define MSIP_BASE_ADDRESS 0x80000010
+
+// Registers used in HygroPMOD
+#define HYGROI2C_I2C_ADDR   0x40
+#define HYGROI2C_TMP_REG    0x00
+#define HYGROI2C_HUM_REG    0x01
+#define HYGROI2C_CONFIG_REG 0x02
 
 // Control Status Registers
 #define MARCHID 0xF12
@@ -98,10 +106,11 @@ inline void __attribute__ ((always_inline)) csr_write(const int csr_id, uint32_t
   asm volatile ("csrw %[input_i], %[input_j]" :  : [input_i] "i" (csr_id), [input_j] "r" (csr_data));
 }
 
-// Function prototypes for i2c.c
+// Function prototypes for i2c.c [[REPEATED START NOT SUPPORTED]]
 uint8_t i2c_write_address(uint8_t addr); // start i2c by writing slave address (returns slave ack)
 void i2c_stop(void); // stop current i2c transaction
-uint8_t i2c_write_byte(uint8_t data); // write to slave (returns slave ack)
+uint8_t i2c_write_byte(uint8_t data); // write to slave (returns slave ack) (after i2c_write_address())
+uint8_t i2c_read_byte(); //read a byte from the slave (after i2c_write_address())
 
 // Function prototypes for uart.c
 void uart_print(char *message); // print characters serially via UART
@@ -135,8 +144,17 @@ void LCD_SL(void);
 void LCD_Clear(void);
 
 // Function prototypes for stdlib_custom.c
-char* itoa(int value, char* result, int base);
+char* itoa(int value, char* result, int base); //convert integer to string
+char* float_to_char(float x, char *p, uint32_t buffer_size);
 
+// Function prototypes for hygro_pmod.c
+float hygroi2c_getTemperature(); //captures a temperature reading from the Pmod HYGRO
+float hygroi2c_getHumidity(); //captures a humidity reading from the Pmod HYGRO
+void  hygroi2c_begin(); //initializes the Hygro I2C interface (must be done before every temp and humidity measurement)
+uint8_t hygroi2c_writeRegI2C(uint8_t bReg, uint16_t bVal);
+uint8_t hygroi2c_readRegI2C(uint8_t bReg, uint16_t *rVal, uint32_t delay_in_ms);
+float hygroi2c_tempC2F(float tempC);
+float hygroi2c_tempF2C(float tempF);
 
 
 
