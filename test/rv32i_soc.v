@@ -5,7 +5,7 @@
 //`define ICARUS use faster UARt and I2C rate for faster simulation
 
 //complete package containing the rv32i_core, RAM, and IO peripherals (I2C and UART)
-module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=98304, GPIO_COUNT = 12) ( 
+module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=49152, GPIO_COUNT = 12) ( 
     input wire i_clk,
     input wire i_rst,
     //UART
@@ -872,7 +872,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
             ack_servant: if(scl_hi) begin //wait for ACK bit response(9th bit) from servant
                                 ack=!sda_in; 
                                 if(i2c_stop) state_d=stop_1; //master can forcefully stops the transaction (i2c_stop is memory-mapped)
-                                else if(op_q && addr_bytes_q==0) begin //start reading after writing "addr_bytes" of packets for address
+                                else if(op_q/* && addr_bytes_q==0*/) begin //start reading after writing "addr_bytes" of packets for address
                                     idx_d=7;
                                     state_d=read;
                                 end
@@ -909,7 +909,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
             stop_or_read: if(i2c_stop == 1) begin //wait until user explicitly say to either stop i2c or continue reading
                              state_d = stop_1;
                          end
-                         else if(start && !i2c_wr_en && i2c_rw_address == I2C_READ) begin //continue reading
+                         else if(start && !i2c_wr_en && i2c_rw_address == I2C_READ) begin //continue reading when current data is read
                              state_d = read;
                          end
 
