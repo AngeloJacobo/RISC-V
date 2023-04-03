@@ -21,11 +21,21 @@ Inside the `rtl/` folder are the following:
  - `rv32i_linkerscript.ld` = script used by linker for partitioning memory sections
  - `rv32i_core.sby` = SymbiYosys script for formal verification
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
- - `rv32i_soc.v` = complete package containing the rv32i core, RAM, IO peripherals (CLINT, I2C, UART, and GPIO), and the memory wrapper.
+ - `rv32i_soc.v` = complete package containing the rv32i core, main memory, IO peripherals (CLINT, I2C, UART, and GPIO), and the memory wrapper.
  - `wave.do` = Modelsim waveform template file
  - `wave.gtkw` = GTKWave waveform template file
- - `extra/` folder = contains my own assembly testfiles for all basic instructions, system instructions, and pipeline hazards
- 
+ - `freertos/` folder = contains files for running FreeRTOS (`FreeRTOSConfig.h` and `freertos_risc_v_chip_specific_extensions.h`)
+ - `extra/` folder = contains custom assembly testfiles for all basic instructions, system instructions, and pipeline hazards.
+ - `lib/` folder = contains custom software library. The function APIs can be found on `rv32i.h`. This includes:
+     - LCD 1602 driver
+     - HygroPMOD (Digilent) driver
+     - DS1307 Real-time Clock driver
+     - CLINT (Core Logic Interrupt) interface
+     - UART interface
+     - I2C interface
+     - GPIOs interface
+     - sprintf implementation
+
 ## Top Level Diagram (5-stage Pipeline)
 
 ## Top Level Diagram (Memory-mapped Peripherals)
