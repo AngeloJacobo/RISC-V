@@ -44,7 +44,8 @@ Inside the `Vivado Files/` folder are the following:
 ![338910881_6488549441175863_7408166598375532727_n](https://user-images.githubusercontent.com/87559347/229502697-9e7bd8c9-cb11-44e1-9ccb-7dcd42e52f9f.png)
 
 ## Top Level Diagram (Memory-mapped Peripherals)
-![337971153_624278362402416_4847120852037534808_n](https://user-images.githubusercontent.com/87559347/229526104-6698648e-0049-4de5-be36-24c10ac14ca6.png)
+![338677885_186797960804225_4190069677959905489_n](https://user-images.githubusercontent.com/87559347/229550336-ae914d2f-a207-404a-8652-eda9cf90b9a6.png)
+
 
 ## Pipeline Features
  - 5 pipelined stages  
