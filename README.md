@@ -84,10 +84,10 @@ The RISC-V toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and 
  :white_check_mark: Add Zicsr extension   
  :white_check_mark: Pass the Official RISC-V International Tests   
  :white_check_mark: Convert FSM based core implementation to pipeline   
- :white_check_mark: Add formal verification  
- :white_check_mark: Be able to run C codes
- :white_check_mark: Add FreeRTOS Support
- :white_check_mark: Add custom software library
- :black_square_button: Add AXI interface  
+ :white_check_mark: Add formal verification   
+ :white_check_mark: Be able to run C codes  
+ :white_check_mark: Add FreeRTOS Support  
+ :white_check_mark: Add custom software library  
+ :black_square_button: Add AXI interface    
  
 # [UNDER CONSTRUCTION] 
