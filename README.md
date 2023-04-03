@@ -1,5 +1,5 @@
 ## About
-Design implementation of the RISC-V Base 32 Integer core in Verilog HDL. This is a 5-stage pipeline processor core and supports the Zicsr (Control Status Registers) extension. This is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests) Formal verification via [SymbiYosys](https://github.com/YosysHQ/sby) is also utilized to thoroughly test the pipeline design.  
+Design implementation of the RISC-V Base 32 Integer core in Verilog HDL. This is a 5-stage pipeline processor core and supports the Zicsr (Control Status Registers) extension. This is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests) Formal verification via [SymbiYosys](https://github.com/YosysHQ/sby) is also utilized to  test the pipeline design. 
 
 The RISC-V ISA implemented here is based on [Volume 1, Unprivileged Spec v. 20191213](https://github.com/riscv/riscv-isa-manual/releases/tag/Ratified-IMAFDQC) and [Volume 2, Privileged Spec v. 20211203.](https://github.com/riscv/riscv-isa-manual/releases/tag/Priv-v1.12) 
 
@@ -25,6 +25,10 @@ Inside the `rtl/` folder are the following:
  - `wave.gtkw` = GTKWave waveform file
  - `extra/` folder = contains my own assembly testfiles for all basic instructions, system instructions, and pipeline hazards
  
+## Top Level Diagram (5-stage Pipeline)
+
+## Top Level Diagram (Memory-mapped Peripherals)
+
 ## Pipeline Features
  - 5 pipelined stages  
  - Separate data and instruction memory interface **[Harvard architecture]**  
