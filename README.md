@@ -16,13 +16,14 @@ Inside the `rtl/` folder are the following:
  - `rv32i_header.vh` = header file which contains all necessary constants, magic numbers, and parameters
  
  Inside the `test/` folder are the following: 
- - `test.sh` = bash script for automating the testbench
- - `sections.py` = python script used by `test.sh` to extract the text, data, and GOT sections from the binary file output of the compiler
+ - `test.sh` = bash script for automating regression tests, program compilation, and design installation to FPGA board
+ - `entry.s` = start-up assembly code used by C programs
+ - `rv32i_linkerscript.ld` = script used by linker for partitioning memory sections
  - `rv32i_core.sby` = SymbiYosys script for formal verification
  - `rv32i_soc_TB.v` = testbench for `rv32i_soc`
- - `rv32i_soc.v` = complete package instantiating the `rv32i_core` and RAM module for the instructions and data memory
- - `wave.do` = Modelsim waveform file
- - `wave.gtkw` = GTKWave waveform file
+ - `rv32i_soc.v` = complete package containing the rv32i core, RAM, IO peripherals (CLINT, I2C, UART, and GPIO), and the memory wrapper.
+ - `wave.do` = Modelsim waveform template file
+ - `wave.gtkw` = GTKWave waveform template file
  - `extra/` folder = contains my own assembly testfiles for all basic instructions, system instructions, and pipeline hazards
  
 ## Top Level Diagram (5-stage Pipeline)
