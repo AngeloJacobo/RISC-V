@@ -43,7 +43,7 @@ Inside the `rtl/` folder are the following:
 ## Pipeline Features
  - 5 pipelined stages  
  - Separate data and instruction memory interface **[Harvard architecture]**  
- - Load instructions take a minimum of 2 clk cycles   
+ - Load instructions take a minimum of 3 clk cycles plus any additional memory stalls   
  - Taken branch and jump instructions take a minimum of 3 clk cycles **[No Branch Prediction Used]**  
  - An instruction with data dependency to the next instruction that is a CSR write or Load instruction will take a minimum of 2 clk cycles **[Operand Forwarding used]**   
  - **All remaining instructions take a minimum of 1 clk cycle**   
@@ -55,22 +55,26 @@ Inside the `rtl/` folder are the following:
  - **All relevant machine level CSRs**
 
 
-
 ## Regression Tests
-The RISCV toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and `vlog` must be callable from PATH. If Modelsim executables are missing, the script will then call Icarus Verilog executables `iverilog` and `vvp` instead. Run **regression tests** inside `test/` directory either with:
+The RISC-V toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and `vlog` must be callable from PATH. If Modelsim executables are missing, the script will then call Icarus Verilog executables `iverilog` and `vvp` instead. Run **regression tests** inside `test/` directory either with:
  - `$ ./test.sh` = run regression tests for both `riscv-tests/isa/rv32ui/` and `riscv-tests/isa/rv32mi/`
  - `$ ./test.sh rv32ui` = run regression tests only for the `riscv-tests/isa/rv32ui/`
  - `$ ./test.sh rv32mi` = run regression tests only for the `riscv-tests/isa/rv32mi/`
- - `$ ./test.sh extra` =  run regression tests for `extra/` (contains tests for interrupts and pipeline hazards which the official tests don't have)
+ - `$ ./test.sh extra` =  run regression tests for `extra/` 
  - `$ ./test.sh all` = run regression tests for `riscv-tests/isa/rv32ui/`, `riscv-tests/isa/rv32mi/`, and `extra/`  
- - `$ ./test.sh formal` = run SymbiYosys formal verification tool 
- 
- Some commmands for **debugging the design**:
  - `$ ./test.sh compile` = compile-only the rtl files
- - `$ ./test.sh <testfile>` = test and debug testfile <testfile> which is located at `INDIVIDUAL_TESTDIR` macro of `test.sh` script
- - `$ ./test.sh <testfile> -gui` = test and debug testfile <testfile> and open wave in Modelsim or GTKWake
+ 
+ ## Run Individual Tests
+ - `$ ./test.sh <testfile>` = test and debug testfile (without simulating) which is located at INDIVIDUAL_TESTDIR
+ - `$ ./test.sh <testfile> -gui` = test and debug testfile and open wave in Icarus
+ - `$ ./test.sh <testfile> -nosim` = compile and debug testfile without simulating it
 
-Below is the expected output after running `$ ./test.sh`:   
+## Install Design to FPGA (CMOD S7 FPGA Board)
+ - `$ ./test.sh <design> -install` = compile and install design (located at INDIVIDUAL_TESTDIR) to FPGA board
+ - `$ ./test.sh freertos -install` = compile and install FreeRTOS progam to FPGA board
+
+
+(REPLACE) Below is the expected output after running `$ ./test.sh`:   
 
 ![script](https://user-images.githubusercontent.com/87559347/177756950-deb237cf-000b-4cf2-97c4-91f3eda8c664.png)
 
@@ -81,6 +85,9 @@ Below is the expected output after running `$ ./test.sh`:
  :white_check_mark: Pass the Official RISC-V International Tests   
  :white_check_mark: Convert FSM based core implementation to pipeline   
  :white_check_mark: Add formal verification  
+ :white_check_mark: Be able to run C codes
+ :white_check_mark: Add FreeRTOS Support
+ :white_check_mark: Add custom software library
  :black_square_button: Add AXI interface  
  
 # [UNDER CONSTRUCTION] 
