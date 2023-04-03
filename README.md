@@ -1,5 +1,5 @@
 ## About
-Design implementation of the RISC-V Base 32 Integer core in Verilog HDL. This is a 5-stage pipeline processor core and supports the Zicsr (Control Status Registers) extension. This is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests) Formal verification via [SymbiYosys](https://github.com/YosysHQ/sby) is also utilized to  test the pipeline design. 
+Design implementation of the RISC-V Base 32 Integer core in Verilog HDL. This is a 5-stage pipeline processor core and supports the Zicsr (Control Status Registers) extension. This is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests) Formal verification via [SymbiYosys](https://github.com/YosysHQ/sby) is also utilized to  test the pipeline design. Includes support for [FreeRTOS](https://www.freertos.org/).  
 
 The RISC-V ISA implemented here is based on [Volume 1, Unprivileged Spec v. 20191213](https://github.com/riscv/riscv-isa-manual/releases/tag/Ratified-IMAFDQC) and [Volume 2, Privileged Spec v. 20211203.](https://github.com/riscv/riscv-isa-manual/releases/tag/Priv-v1.12) 
 
@@ -34,7 +34,11 @@ Inside the `rtl/` folder are the following:
      - UART interface
      - I2C interface
      - GPIOs interface
-     - sprintf implementation
+     - sprintf implementation  
+     
+Inside the `Vivado Files/` folder are the following:
+- `run_vivado.tcl` = script for running Vivado in non-project mode. Used by `test.sh` to synthesize, implement, and install the design to the FPGA board.
+- `Cmod-S7-25-Master.xdc` = constraint file used by Vivado to install design to the [CMOD S7 FPGA Board](https://digilent.com/reference/programmable-logic/cmod-s7/start)
 
 ## Top Level Diagram (5-stage Pipeline)
 
