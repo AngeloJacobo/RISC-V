@@ -41,8 +41,10 @@ Inside the `Vivado Files/` folder are the following:
 - `Cmod-S7-25-Master.xdc` = constraint file used by Vivado to install design to the [CMOD S7 FPGA Board](https://digilent.com/reference/programmable-logic/cmod-s7/start)
 
 ## Top Level Diagram (5-stage Pipeline)
+![338910881_6488549441175863_7408166598375532727_n](https://user-images.githubusercontent.com/87559347/229502697-9e7bd8c9-cb11-44e1-9ccb-7dcd42e52f9f.png)
 
 ## Top Level Diagram (Memory-mapped Peripherals)
+![337971153_624278362402416_4847120852037534808_n](https://user-images.githubusercontent.com/87559347/229526104-6698648e-0049-4de5-be36-24c10ac14ca6.png)
 
 ## Pipeline Features
  - 5 pipelined stages  
