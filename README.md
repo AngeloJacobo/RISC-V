@@ -84,7 +84,8 @@ Below is the expected output after running `$ ./test.sh`:
 
 ![image](https://user-images.githubusercontent.com/87559347/229745971-c1e2265b-6344-4666-b93b-8685c5e06e2a.png) 
 
-## Performance Metrics (Arty S7 with Xilinx Vivado)  
+## Performance Metrics 
+The whole design (core + zicsr + memory-mapped peripherals + 16KB memory) is implemented on an Arty S7 FPGA board. The following metrics were collected:  
 - Maximum operating frequency: 90MHz  
 - Resource Utilization: 1780 LUT, 1346 FF   
 - Total Power: 0.106W  
