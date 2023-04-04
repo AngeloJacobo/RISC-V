@@ -10,7 +10,7 @@ module rv32i_soc_TB;
     parameter MEMORY="memory.mem";
     parameter ZICSR_EXTENSION = 1;
     /******************************* MODIFY ****************************************/
-    localparam MEMORY_DEPTH = 49152, //number of memory bytes
+    localparam MEMORY_DEPTH = 81920, //number of memory bytes
                DATA_START_ADDR = 32'h1004; //starting address of data memory to be displayed
     /*******************************************************************************/
    
@@ -81,12 +81,12 @@ module rv32i_soc_TB;
             @(negedge clk);
             `ifdef DISPLAY
             if(ZICSR_EXTENSION != 0) begin
-                if(!uut.m0.stall[`MEMORYACCESS] && uut.m0.zicsr.m6.csr_enable) begin //csr is written
+                if(!uut.m0.stall_memoryaccess && uut.m0.zicsr.m6.csr_enable) begin //csr is written
                     $display("\nPC: %h    %h [%s]\n  [CSR] address:0x%0h   value:0x%h ",uut.m0.zicsr.m6.i_pc, uut.m1.memory_regfile[{uut.m0.zicsr.m6.i_pc}>>2],"SYSTEM",uut.m0.zicsr.m6.i_csr_index,uut.m0.zicsr.m6.csr_in); //display address of csr changed and its new value
                 end
             end
             
-            if(uut.m0.writeback_ce && !uut.m0.stall[`WRITEBACK]) begin
+            if(uut.m0.writeback_ce && !uut.m0.stall_writeback) begin
                     if(uut.m0.memoryaccess_opcode[`RTYPE]) $display("\nPC: %h    %h [%s]", uut.m0.m5.i_pc, uut.m1.memory_regfile[{uut.m0.m5.i_pc}>>2],"RTYPE"); //Display PC and instruction 
                     else if(uut.m0.memoryaccess_opcode[`ITYPE]) $display("\nPC: %h    %h [%s]", uut.m0.m5.i_pc, uut.m1.memory_regfile[{uut.m0.m5.i_pc}>>2],"ITYPE"); //Display PC and instruction      
                     else if(uut.m0.memoryaccess_opcode[`LOAD]) $display("\nPC: %h    %h [%s]", uut.m0.m5.i_pc, uut.m1.memory_regfile[{uut.m0.m5.i_pc}>>2],"LOAD"); //Display PC and instruction 
