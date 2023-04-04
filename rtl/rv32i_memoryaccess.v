@@ -34,7 +34,7 @@ module rv32i_memoryaccess(
     input wire i_stall_from_alu, //stalls this stage when incoming instruction is a load/store
     input wire i_ce, // input clk enable for pipeline stalling of this stage
     output reg o_ce, // output clk enable for pipeline stalling of next stage
-    input wire[`STALL_WIDTH-1:0] i_stall, //informs this stage to stall
+    input wire i_stall, //informs this stage to stall
     output reg o_stall, //informs pipeline to stall
     input wire i_flush, //flush this stage
     output reg o_flush //flush previous stages
@@ -44,7 +44,7 @@ module rv32i_memoryaccess(
     reg[31:0] data_load_d; //data to be loaded to basereg
     reg[3:0] wr_mask_d; 
     wire[1:0] addr_2 = i_y[1:0]; //last 2  bits of data memory address
-    wire stall_bit =i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
+    wire stall_bit = i_stall || o_stall;
 
     //register the outputs of this module
     always @(posedge i_clk, negedge i_rst_n) begin
@@ -90,7 +90,7 @@ module rv32i_memoryaccess(
             end
             //if this stage is stalled but next stage is not, disable 
             //clock enable of next stage at next clock cycle (pipeline bubble)
-            else if(stall_bit && !i_stall[`WRITEBACK]) o_ce <= 0;         
+            else if(stall_bit && !i_stall) o_ce <= 0;         
         end
 
     end 
@@ -99,7 +99,7 @@ module rv32i_memoryaccess(
     always @* begin
         //stall while data memory has not yet acknowledged i.e.wWrite data is not yet written or
         //read data is not yet available. Don't stall when need to flush by next stage
-        o_stall = ((i_stall_from_alu && i_ce && !i_ack_data) || i_stall[`WRITEBACK]) && !i_flush;         
+        o_stall = ((i_stall_from_alu && i_ce && !i_ack_data) || i_stall) && !i_flush;         
         o_flush = i_flush; //flush this stage along with previous stages
         data_store_d = 0;
         data_load_d = 0;
@@ -108,17 +108,17 @@ module rv32i_memoryaccess(
         case(i_funct3[1:0]) 
             2'b00: begin //byte load/store
                     case(addr_2)  //choose which of the 4 byte will be loaded to basereg
-                        2'b00: data_load_d = i_din[7:0];
-                        2'b01: data_load_d = i_din[15:8];
-                        2'b10: data_load_d = i_din[23:16];
-                        2'b11: data_load_d = i_din[31:24];
+                        2'b00: data_load_d = {24'b0, i_din[7:0]};
+                        2'b01: data_load_d = {24'b0, i_din[15:8]};
+                        2'b10: data_load_d = {24'b0, i_din[23:16]};
+                        2'b11: data_load_d = {24'b0, i_din[31:24]};
                     endcase
                     data_load_d = {{{24{!i_funct3[2]}} & {24{data_load_d[7]}}} , data_load_d[7:0]}; //signed and unsigned extension in 1 equation
                     wr_mask_d = 4'b0001<<addr_2; //mask 1 of the 4 bytes
                     data_store_d = i_rs2<<{addr_2,3'b000}; //i_rs2<<(addr_2*8) , align data to mask
                    end
             2'b01: begin //halfword load/store
-                    data_load_d = addr_2[1]? i_din[31:16]: i_din[15:0]; //choose which of the 2 halfwords will be loaded to basereg
+                    data_load_d = addr_2[1]? {16'b0,i_din[31:16]}: {16'b0,i_din[15:0]}; //choose which of the 2 halfwords will be loaded to basereg
                     data_load_d = {{{16{!i_funct3[2]}} & {16{data_load_d[15]}}},data_load_d[15:0]}; //signed and unsigned extension in 1 equation
                     wr_mask_d = 4'b0011<<{addr_2[1],1'b0}; //mask either the upper or lower half-word
                     data_store_d = i_rs2<<{addr_2[1],4'b0000}; //i_rs2<<(addr_2[1]*16) , align data to mask
@@ -127,6 +127,11 @@ module rv32i_memoryaccess(
                     data_load_d = i_din;
                     wr_mask_d = 4'b1111; //mask all
                     data_store_d = i_rs2;
+                   end
+          default: begin
+                    data_store_d = 0;
+                    data_load_d = 0;
+                    wr_mask_d = 0; 
                    end
         endcase
     end
