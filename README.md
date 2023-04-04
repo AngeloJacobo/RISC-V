@@ -88,7 +88,8 @@ Below is the expected output after running `$ ./test.sh`:
 - Maximum operating frequency: 90MHz  
 - Resource Utilization: 1780 LUT, 1346 FF   
 - Total Power: 0.106W  
-![image](https://user-images.githubusercontent.com/87559347/229773006-cede0efb-0162-43b6-a4d7-820e8a2d1838.png)  
+
+![image](https://user-images.githubusercontent.com/87559347/229773269-1f06e104-c436-4aee-9ab1-b7cb840e866e.png)
 
 
 
