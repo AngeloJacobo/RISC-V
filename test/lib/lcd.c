@@ -4,9 +4,9 @@
 
 unsigned char RS, i2c_add, BackLight_State = LCD_BACKLIGHT;
  
-void LCD_Init(unsigned char I2C_Add) //initialize LCD with proper routine
+void LCD_Init() //initialize LCD with proper routine
 {
-  i2c_add = I2C_Add;
+  i2c_add = LCD_I2C_ADDR;
   IO_Expander_Write(0x00);
    delay_ms(30); 
   LCD_CMD(0x03);
@@ -30,7 +30,7 @@ void LCD_Init(unsigned char I2C_Add) //initialize LCD with proper routine
 void IO_Expander_Write(unsigned char Data) 
 {
   uint8_t addr_ack, data_ack;
-  addr_ack = i2c_write_address(i2c_add);
+  addr_ack = i2c_write_address(i2c_add<<1);
   data_ack = i2c_write_byte(Data | BackLight_State);
   i2c_stop();
 }
