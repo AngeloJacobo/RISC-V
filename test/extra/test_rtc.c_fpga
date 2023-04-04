@@ -1,0 +1,186 @@
+/*
+ * PIC18F4550 interfacing with RTC DS1307
+ * http://www.electronicwings.com
+ */ 
+
+
+#include <stdint.h>
+#include <rv32i.h>
+
+#define RTC_I2C_ADDR 0x68 
+
+
+char sec,min,hour;
+char Day,Date,Month,Year;
+
+
+
+int RTC_Clock_Write(char Sec, char Min, char Hour, char AM_PM)  /* function for clock */
+{
+    int ack;
+    Hour = Hour | (1<<6);       /* set to 12-hour mode*/
+    Hour = Hour | (AM_PM<<5);     /* whether it is AM or PM */
+    ack = i2c_write_address(RTC_I2C_ADDR<<1); // start i2c by writing slave address (returns slave ack) 
+	i2c_write_byte(0);			   /* write 0 location for sec value */
+	i2c_write_byte(Sec);			   /* write second value on 00 location */
+	i2c_write_byte(Min);			   /* write min value on 01 location */
+	i2c_write_byte(Hour);		   /* write hour value on 02 location */
+	i2c_stop();                     // stop current i2c transaction
+	return ack;
+}
+
+int RTC_Calendar_Write(char day, char date, char month, char year)	/* function for calendar */
+{   
+    int ack;
+	ack = i2c_write_address(RTC_I2C_ADDR<<1);/* start I2C comm. with device slave address */
+	i2c_write_byte(3);			   /* write on 3 location for day value */
+	i2c_write_byte(day);			   /* write day value on 03 location */
+	i2c_write_byte(date);		   /* write date value on 04 location */
+	i2c_write_byte(month);		   /* write month value on 05 location */
+	i2c_write_byte(year);		   /* write year value on 06 location */
+	i2c_stop();
+	return ack;
+}
+
+
+
+int RTC_Read_Clock(char read_clock_address)
+{
+    int ack;
+    char msg[20];
+    ack = i2c_write_address(RTC_I2C_ADDR<<1);
+    i2c_write_byte(read_clock_address);     /* address from where time needs to be read*/
+    i2c_stop();
+    i2c_write_address((RTC_I2C_ADDR<<1)|0x1);
+    sec = i2c_read_byte();                 /*read data and send ack for continuous reading*/
+    min = i2c_read_byte();                 /*read data and send ack for continuous reading*/
+    hour= i2c_read_byte();                 /*read data and send nack for indicating stop reading*/
+    i2c_stop();
+    return ack;
+}
+
+int RTC_Read_Calendar(char read_calendar_address)
+{   
+    int ack;
+    ack = i2c_write_address(RTC_I2C_ADDR<<1);
+    i2c_write_byte(read_calendar_address); /* address from where time needs to be read*/
+    i2c_stop();
+    i2c_write_address((RTC_I2C_ADDR<<1)|0x1);
+    Day = i2c_read_byte();                /*read data and send ack for continuous reading*/
+    Date = i2c_read_byte();               /*read data and send ack for continuous reading*/
+    Month = i2c_read_byte();              /*read data and send ack for continuous reading*/
+    Year = i2c_read_byte();               /*read data and send nack for indicating stop reading*/
+    i2c_stop();
+    return ack;
+}
+
+void main()
+{
+    
+    char secs[10],mins[10],hours[10];
+    char date[10],month[10],year[10];
+    char Clock_type = 0x06;
+    char AM_PM = 0x05;
+    char days[7] = {'S','M','T','W','t','F','s'};
+    int ack;
+    
+    LCD_Init();                     /*initialize LCD16x2*/    
+    LCD_Set_Cursor(1, 1);
+    LCD_Write_String(" Angelo Jacobo");
+    LCD_Set_Cursor(2, 1);
+    LCD_Write_String("BSECE-4A");
+    delay_ms(1000);
+    LCD_Clear();
+    delay_ms(10);
+    
+    ack = RTC_Clock_Write(0x30, 0x15, 0x10, 0);  /* function for clock */
+    if(ack){
+        uart_print("RTC_Clock_Write() SUCCESS\n");
+    }
+    else {
+        uart_print("RTC_Clock_Write() FAILED\n");
+    }
+    
+    ack = RTC_Calendar_Write(0x6, 0x01, 0x04, 0x23);	/* function for calendar */
+    if(ack){
+        uart_print("RTC_Calendar_Write() SUCCESS\n");
+    }
+    else {
+        uart_print("RTC_Calendar_Write() FAILED\n");
+    }
+    
+    while(1)
+    { 
+        RTC_Read_Clock(0);              /*gives second,minute and hour*/
+        if(hour & (1<<Clock_type)){     /* check clock is 12hr or 24hr */
+            
+            if(hour & (1<<AM_PM)){      /* check AM or PM */
+                LCD_Set_Cursor(1, 14); //Set cursor where to start writing to LCD
+                LCD_Write_String("PM"); //write string to LCD
+            }
+            else{
+               LCD_Set_Cursor(1, 14); //Set cursor where to start writing to LCD
+                LCD_Write_String("AM"); //write string to LCD
+            }
+            
+            hour = hour & (0x1f);
+            sprintf(secs,"%x ",sec);   /*%x for reading BCD format from RTC DS1307*/
+            sprintf(mins,"%x:",min);   
+            sprintf(hours,"Tim:%x:",hour);  
+            LCD_Set_Cursor(1, 1); //Set cursor where to start writing to LCD
+            LCD_Write_String(hours); //write string to LCD   
+            LCD_Write_String(mins);
+            LCD_Write_String(secs);
+        }
+        else{
+            
+            hour = hour & (0x3f);
+            sprintf(secs,"%x ",sec);   /*%x for reading BCD format from RTC DS1307*/
+            sprintf(mins,"%x:",min);    
+            sprintf(hours,"Tim:%x:",hour);  
+            LCD_Set_Cursor(1, 1); //Set cursor where to start writing to LCD
+            LCD_Write_String(hours); //write string to LCD   
+            LCD_Write_String(mins);
+            LCD_Write_String(secs);
+        }
+        
+        RTC_Read_Calendar(3);        /*gives day, date, month, year*/        
+        sprintf(date,"Cal %x-",Date);
+        sprintf(month,"%x-",Month);
+        sprintf(year,"%x ",Year);
+        LCD_Set_Cursor(2, 0); //Set cursor where to start writing to LCD
+        LCD_Write_String(date);
+        LCD_Write_String(month);
+        LCD_Write_String(year);
+
+    /* find day */
+        switch(days[Day])
+        {
+            case 'S':
+                        LCD_Write_String("Sun");
+                        break;
+            case 'M':
+                        LCD_Write_String("Mon");
+                        break;                
+            case 'T':
+                        LCD_Write_String("Tue");
+                        break;                
+            case 'W':   
+                        LCD_Write_String("Wed");
+                        break;                
+            case 't':
+                        LCD_Write_String("Thu");
+                        break;
+            case 'F':
+                        LCD_Write_String("Fri");
+                        break;                
+            case 's':
+                        LCD_Write_String("Sat");
+                        break;
+            default: 
+                        break;
+                        
+        }
+        
+    }    
+}

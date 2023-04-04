@@ -1,0 +1,65 @@
+#include <stdint.h>
+#include <rv32i.h>
+
+int main(){
+    char sample[10];
+    uart_print("Start HygroPMOD....\n");
+    sprintf_(sample, "%x", 0x96);
+    uart_print(sample);
+    uart_print("\n");
+  // Capture and print temperature and humidity data 2x per second
+  int val_temp, val_hum;
+  char msg[20];//max of 5 chars
+  int buffer_full;
+  char rx_data;
+  int rd_pin;
+  /*while(1)*/{
+      hygroi2c_begin();
+      val_temp = (int)hygroi2c_getTemperature();
+      sprintf_(msg, "%d", val_temp);
+      //uart_print("\nTemperature: ");
+      uart_print(msg);
+      uart_print(";");
+      
+      val_hum = (int)hygroi2c_getHumidity();
+      sprintf_(msg, "%d", val_hum);
+      //uart_print("\nHumidity: ");
+      uart_print(msg);
+      uart_print(";");
+      if(val_temp<=35) {
+        uart_print("a");
+        uart_print(";");
+      }
+      else {
+        uart_print("b");
+        uart_print(";");
+      }
+      
+      /*buffer_full = uart_rx_buffer_full(); //check if read buffer is full and data can be read
+      if(buffer_full){
+            rx_data = uart_read(); //read data from buffer (make sure to check first if rx buffer is full)
+      }
+      if(rx_data == 'c'){
+        toggle_gpio(8); //toggle a specific GPIO pin (automatically set pin to write mode)
+        toggle_gpio(9); //toggle a specific GPIO pin (automatically set pin to write mode)
+        toggle_gpio(10); //toggle a specific GPIO pin (automatically set pin to write mode)
+        toggle_gpio(11); //toggle a specific GPIO pin (automatically set pin to write mode)
+        rx_data = 0;
+      }*/
+      rd_pin = gpio_read_pin(0);
+      if(rd_pin){
+        gpio_write_pin(8, 1); //write to a specific GPIO pin (automatically set pin to write mode)
+        gpio_write_pin(9, 1); //write to a specific GPIO pin (automatically set pin to write mode)
+        gpio_write_pin(10, 1); //write to a specific GPIO pin (automatically set pin to write mode)
+        gpio_write_pin(11, 1); //write to a specific GPIO pin (automatically set pin to write mode)
+      }
+      else{
+        gpio_write_pin(8, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+        gpio_write_pin(9, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+        gpio_write_pin(10, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+        gpio_write_pin(11, 0); //write to a specific GPIO pin (automatically set pin to write mode)
+      }
+
+      delay_ms(1000); // 1 sample per second (temp + humidity) maximum
+  }
+}
