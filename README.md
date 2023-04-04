@@ -80,9 +80,10 @@ The RISC-V toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and 
  - `$ ./test.sh freertos -install` = compile and install FreeRTOS progam to FPGA board
 
 
-(REPLACE) Below is the expected output after running `$ ./test.sh`:   
+Below is the expected output after running `$ ./test.sh`:   
 
-![script](https://user-images.githubusercontent.com/87559347/177756950-deb237cf-000b-4cf2-97c4-91f3eda8c664.png)
+![image](https://user-images.githubusercontent.com/87559347/229745971-c1e2265b-6344-4666-b93b-8685c5e06e2a.png)
+
 
 
 ## Goal Checklist
