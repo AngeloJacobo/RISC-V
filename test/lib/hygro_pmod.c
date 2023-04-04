@@ -99,9 +99,6 @@ uint8_t hygroi2c_writeRegI2C(uint8_t bReg, uint16_t bVal)
 	*rVal |= (uint16_t)i2c_read_byte(); //read a byte from the slave (after i2c_write_address())
 	*rVal <<= 8;
 	*rVal |= (uint16_t)i2c_read_byte(); //read a byte from the slave (after i2c_write_address()) 
-	uart_print("\ni2c_read_byte(2): ");
-	itoa(*rVal, msg, 10);
-	uart_print(msg);
     i2c_stop(); // stop current i2c transaction
 
     return ack;
@@ -131,7 +128,7 @@ void hygroi2c_begin()
 	delay_ms(15);
 	ack = hygroi2c_writeRegI2C(HYGROI2C_CONFIG_REG, 0x00); // use non-sequential acquisition mode, all other config bits are default
 	if(!ack){
-        uart_print("hygroi2c_begin() FAILED\n");
+        //uart_print("hygroi2c_begin() FAILED\n");
     }
 
 	
