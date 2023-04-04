@@ -40,12 +40,11 @@ Inside the `Vivado Files/` folder are the following:
 - `run_vivado.tcl` = script for running Vivado in non-project mode. Used by `test.sh` to synthesize, implement, and install the design to the FPGA board.
 - `Cmod-S7-25-Master.xdc` = constraint file used by Vivado to install design to the [CMOD S7 FPGA Board](https://digilent.com/reference/programmable-logic/cmod-s7/start)
 
-## Top Level Diagram (5-stage Pipeline)
+## Top Level Diagram (Classic 5-stage Pipeline)
 ![338910881_6488549441175863_7408166598375532727_n](https://user-images.githubusercontent.com/87559347/229502697-9e7bd8c9-cb11-44e1-9ccb-7dcd42e52f9f.png)
 
 ## Top Level Diagram (Memory-mapped Peripherals)
 ![338677885_186797960804225_4190069677959905489_n](https://user-images.githubusercontent.com/87559347/229550336-ae914d2f-a207-404a-8652-eda9cf90b9a6.png)
-
 
 ## Pipeline Features
  - 5 pipelined stages  
