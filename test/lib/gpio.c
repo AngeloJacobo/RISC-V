@@ -49,6 +49,7 @@ void gpio_write_pin(uint32_t pin_number, uint32_t val){
 
 //read a specific GPIO pin
 uint32_t gpio_read_pin(uint32_t pin_number){
+    gpio_set_mode_pin(pin_number, 0); //set pin to read mode
     uint32_t value;
     value = gpio_read();
     if(value & (1<<pin_number)){
