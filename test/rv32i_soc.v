@@ -5,7 +5,7 @@
 //`define ICARUS use faster UARt and I2C rate for faster simulation
 
 //complete package containing the rv32i_core, RAM, and IO peripherals (I2C and UART)
-module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=49152, GPIO_COUNT = 12) ( 
+module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADDRESS=32'h00_00_00_00, ZICSR_EXTENSION=1, MEMORY_DEPTH=81920, GPIO_COUNT = 12) ( 
     input wire i_clk,
     input wire i_rst,
     //UART
@@ -76,7 +76,7 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     wire o_device4_stb_data;
     wire i_device4_ack_data;
 
-    rv32i_core #(.PC_RESET(PC_RESET),.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS), .ZICSR_EXTENSION(ZICSR_EXTENSION)) m0( //main RV32I core
+    rv32i_core #(.PC_RESET(PC_RESET), .TRAP_ADDRESS(TRAP_ADDRESS), .ZICSR_EXTENSION(ZICSR_EXTENSION)) m0( //main RV32I core
         .i_clk(i_clk),
         .i_rst_n(!i_rst),
         //Instruction Memory Interface
@@ -527,7 +527,7 @@ module uart #( //UART (TX only)
         if(!rst_n) counter<=0;
         else begin
             s_tick=0;
-            if(counter==DVSR-1) begin
+            if(counter == DVSR-1) begin
                 s_tick=1;
                 counter<=0;
             end
@@ -737,8 +737,8 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
      
 
     //memory-mapped registers for controlling i2c
-    wire[7:0] i2c_busy = !((state_q == idle) || (state_q == stop_or_write) || (state_q == stop_or_read)); //check if busy (busy unless we are on these states)
-    wire[7:0] i2c_read_data_ready = (state_q == stop_or_read); //check if data is ready to be read (data is ready ONLY WHEN we are already waiting for another read request!)
+    wire[7:0] i2c_busy = {7'b0, !((state_q == idle) || (state_q == stop_or_write) || (state_q == stop_or_read))}; //check if busy (busy unless we are on these states)
+    wire[7:0] i2c_read_data_ready = {7'b0, (state_q == stop_or_read)}; //check if data is ready to be read (data is ready ONLY WHEN we are already waiting for another read request!)
     reg[7:0] i2c_ack; //check last access request has been acknowledged by slave
     reg[7:0] i2c_stop; //write non-zero data here to stop current read/write transaction
 
@@ -812,7 +812,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
             wr_data_q<=wr_data_d;
             scl_q<=scl_d;
             sda_q<=sda_d;
-            if(i2c_busy) counter_q<=counter_d; //freeze the scl (by freezing the counter) if we are on wait/idle state (not busy states)
+            if(i2c_busy[0]) counter_q<=counter_d; //freeze the scl (by freezing the counter) if we are on wait/idle state (not busy states)
             rd_data_q<=rd_data_d;
             addr_bytes_q<=addr_bytes_d;
             i2c_ack <= {7'd0,ack};
@@ -825,7 +825,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
         counter_d=counter_q+1;
         scl_d=scl_q;
         if(state_q==idle || state_q==starting) scl_d=1'b1;
-        else if(counter_q==full) begin
+        else if(counter_q==full[counter_width-1:0]) begin
             counter_d=0;
             scl_d=(scl_q==0)?1'b1:1'b0;
         end
@@ -842,7 +842,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
         addr_bytes_d=addr_bytes_q;
         sda_d=sda_q;
         rd_tick=0;
-        ack=i2c_ack;
+        ack=i2c_ack[0];
         case(state_q)
                     idle: begin //wait for user to start i2c by writing the slave address to I2C_START
                                 sda_d=1'b1;
@@ -871,7 +871,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
                              
             ack_servant: if(scl_hi) begin //wait for ACK bit response(9th bit) from servant
                                 ack=!sda_in; 
-                                if(i2c_stop) state_d=stop_1; //master can forcefully stops the transaction (i2c_stop is memory-mapped)
+                                if(i2c_stop[0]) state_d=stop_1; //master can forcefully stops the transaction (i2c_stop is memory-mapped)
                                 else if(op_q/* && addr_bytes_q==0*/) begin //start reading after writing "addr_bytes" of packets for address
                                     idx_d=7;
                                     state_d=read;
@@ -882,7 +882,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
                                 end
                              end
                              
-               stop_or_write:  if(i2c_stop == 1) begin //wait until user explicitly say to either stop i2c or continue writing
+               stop_or_write:  if(i2c_stop[0]) begin //wait until user explicitly say to either stop i2c or continue writing
                                 state_d = stop_1;
                             end
                             else if(start && i2c_wr_en && i2c_rw_address == I2C_WRITE) begin//continue writing                   
@@ -892,7 +892,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
                             end
 
                      read: if(scl_hi) begin //read data from slave(MSB first)
-                                rd_data_d[idx_q]=sda_in;
+                                rd_data_d[idx_q[2:0]]=sda_in;
                                 idx_d=idx_q-1;
                                 if(idx_q==0) state_d=ack_master;
                              end
@@ -902,11 +902,11 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
                                 if(sda_q==0) begin //one whole bit(two scl_lo) had passed
                                     rd_tick=1;
                                     idx_d=7;
-                                    if(i2c_stop) state_d=stop_1; //after receiving data, master can opt to stop
+                                    if(i2c_stop[0]) state_d=stop_1; //after receiving data, master can opt to stop
                                     else state_d=stop_or_read;
                                 end
                              end
-            stop_or_read: if(i2c_stop == 1) begin //wait until user explicitly say to either stop i2c or continue reading
+            stop_or_read: if(i2c_stop[0]) begin //wait until user explicitly say to either stop i2c or continue reading
                              state_d = stop_1;
                          end
                          else if(start && !i2c_wr_en && i2c_rw_address == I2C_READ) begin //continue reading when current data is read
@@ -951,8 +951,8 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
     `endif
 
     assign scl = scl_q;
-    assign scl_hi= scl_q==1'b1 && counter_q==half /*&& scl==1'b1*/; //scl is on the middle of a high(1) bit
-    assign scl_lo= scl_q==1'b0 && counter_q==half; //scl is on the middle of a low(0) bit
+    assign scl_hi= scl_q==1'b1 && counter_q==half[counter_width-1:0] /*&& scl==1'b1*/; //scl is on the middle of a high(1) bit
+    assign scl_lo= scl_q==1'b0 && counter_q==half[counter_width-1:0]; //scl is on the middle of a low(0) bit
 
 endmodule
 
