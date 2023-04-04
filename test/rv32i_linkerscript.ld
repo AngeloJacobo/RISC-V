@@ -6,10 +6,10 @@ ENTRY(_start)
 MEMORY
 {
   /* Define the ROM(read, executable) memory region for the program */
-  ROM (rx) : ORIGIN = 0, LENGTH = 32k
+  ROM (rx) : ORIGIN = 0, LENGTH = 64k
 
   /* Define the RAM(read,write,executable) memory region for the program */
-  RAM (rwx) : ORIGIN = 32k, LENGTH = 16k 
+  RAM (rwx) : ORIGIN = 64k, LENGTH = 16k 
 }
 
 
