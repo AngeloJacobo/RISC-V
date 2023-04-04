@@ -4,7 +4,7 @@
 `default_nettype none
 `include "rv32i_header.vh"
 
-module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0, ZICSR_EXTENSION = 1) ( 
+module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICSR_EXTENSION = 1) ( 
     input wire i_clk, i_rst_n,
     //Instruction Memory Interface (32 bit rom)
     input wire[31:0] i_inst, //32-bit instruction
@@ -34,7 +34,6 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     //wires for rv32i_fetch
      wire[31:0] fetch_pc;
      wire[31:0] fetch_inst;
-     wire fetch_ce;
 
     //wires for rv32i_decoder
     wire[`ALU_WIDTH-1:0] decoder_alu;
@@ -54,7 +53,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire[4:0] alu_rs1_addr;
     wire[31:0] alu_rs1;
     wire[31:0] alu_rs2;
-    wire[31:0] alu_imm;
+    wire[11:0] alu_imm;
     wire[2:0] alu_funct3;
     wire[31:0] alu_y;
     wire[31:0] alu_pc;
@@ -97,14 +96,15 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
     wire csr_go_to_trap; //high before going to trap (if exception/interrupt detected)
     wire csr_return_from_trap; //high before returning from trap (via mret)
     
-    wire[`STALL_WIDTH-1:0] stall; //control stall of each pipeline stages
-    assign ce_read = decoder_ce && !stall[`DECODER]; //reads basereg only decoder is not stalled 
+    wire stall_decoder,
+         stall_alu,
+         stall_memoryaccess,
+         stall_writeback; //control stall of each pipeline stages
+    assign ce_read = decoder_ce && !stall_decoder; //reads basereg only decoder is not stalled 
     assign o_wr_en = memoryaccess_wr_mem && !writeback_change_pc; 
 
     //module instantiations
     rv32i_forwarding operand_forwarding ( //logic for operand forwarding
-        .i_clk(i_clk),
-        .i_rst_n(i_rst_n),
         .i_rs1_orig(rs1_orig), //current rs1 value saved in basereg
         .i_rs2_orig(rs2_orig), //current rs2 value saved in basereg
         .i_decoder_rs1_addr_q(decoder_rs1_addr_q), //address of operand rs1 used in ALU stage
@@ -112,7 +112,6 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_alu_force_stall(alu_force_stall), //high to force ALU stage to stall
         .o_rs1(rs1), //rs1 value with Operand Forwarding
         .o_rs2(rs2), //rs2 value with Operand Forwarding
-        .o_fetch_ce(fetch_ce),
         // Stage 4 [MEMORYACCESS]
         .i_alu_rd_addr(alu_rd_addr), //destination register address
         .i_alu_wr_rd(alu_wr_rd), //high if rd_addr will be written
@@ -153,10 +152,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_alu_change_pc(alu_change_pc), //high when PC needs to change for taken branches and jumps
         .i_alu_next_pc(alu_next_pc), //next PC due to branch or jump
         /// Pipeline Control ///
-        .i_ce(fetch_ce), // input clk enable for pipeline stalling of this stage
         .o_ce(decoder_ce), // output clk enable for pipeline stalling of next stage
-        .i_stall(stall), //informs this stage to stall
-        .o_stall(stall[`FETCH]), //informs pipeline to stall
+        .i_stall((stall_decoder || stall_alu || stall_memoryaccess || stall_writeback)), //informs this stage to stall
         .i_flush(decoder_flush) //flush this stage
     ); 
   
@@ -179,8 +176,8 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
          /// Pipeline Control ///
         .i_ce(decoder_ce), // input clk enable for pipeline stalling of this stage
         .o_ce(alu_ce), // output clk enable for pipeline stalling of next stage
-        .i_stall(stall), //informs this stage to stall
-        .o_stall(stall[`DECODER]), //informs pipeline to stall
+        .i_stall((stall_alu || stall_memoryaccess || stall_writeback)), //informs this stage to stall
+        .o_stall(stall_decoder), //informs pipeline to stall
         .i_flush(alu_flush), //flush this stage
         .o_flush(decoder_flush) //flushes previous stages
     );
@@ -219,9 +216,9 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .o_stall_from_alu(o_stall_from_alu), //prepare to stall next stage(memory-access stage) for load/store instruction
         .i_ce(alu_ce), // input clk enable for pipeline stalling of this stage
         .o_ce(memoryaccess_ce), // output clk enable for pipeline stalling of next stage
-        .i_stall(stall), //informs this stage to stall
+        .i_stall((stall_memoryaccess || stall_writeback)), //informs this stage to stall
         .i_force_stall(alu_force_stall), //force this stage to stall
-        .o_stall(stall[`ALU]), //informs pipeline to stall
+        .o_stall(stall_alu), //informs pipeline to stall
         .i_flush(memoryaccess_flush), //flush this stage
         .o_flush(alu_flush) //flushes previous stages
     );
@@ -257,15 +254,13 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_stall_from_alu(o_stall_from_alu), //stalls this stage when incoming instruction is a load/store
         .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
         .o_ce(writeback_ce), // output clk enable for pipeline stalling of next stage
-        .i_stall(stall), //informs this stage to stall
-        .o_stall(stall[`MEMORYACCESS]), //informs pipeline to stall
+        .i_stall(stall_writeback), //informs this stage to stall
+        .o_stall(stall_memoryaccess), //informs pipeline to stall
         .i_flush(writeback_flush), //flush this stage
         .o_flush(memoryaccess_flush) //flushes previous stages
     );
     
     rv32i_writeback m5( //logic controller for the next PC and rd value [WRITEBACK STAGE , STAGE 5]
-        .i_clk(i_clk),
-        .i_rst_n(i_rst_n),
         .i_funct3(memoryaccess_funct3), //function type
         .i_data_load(memoryaccess_data_load), //data to be loaded to base reg (from previous stage)
         .i_csr_out(csr_out), //CSR value to be loaded to basereg
@@ -289,14 +284,13 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
         .i_trap_address(csr_trap_address), //mtvec CSR
         /// Pipeline Control ///
         .i_ce(writeback_ce), // input clk enable for pipeline stalling of this stage
-        .i_stall(stall), //informs this stage to stall
-        .o_stall(stall[`WRITEBACK]), //informs pipeline to stall
+        .o_stall(stall_writeback), //informs pipeline to stall
         .o_flush(writeback_flush) //flushes previous stages 
     );
     
     // removable extensions
     if(ZICSR_EXTENSION == 1) begin: zicsr
-        rv32i_csr #(.CLK_FREQ_MHZ(CLK_FREQ_MHZ), .TRAP_ADDRESS(TRAP_ADDRESS)) m6( // control logic for Control and Status Registers (CSR) [STAGE 4]
+        rv32i_csr #(.TRAP_ADDRESS(TRAP_ADDRESS)) m6( // control logic for Control and Status Registers (CSR) [STAGE 4]
             .i_clk(i_clk),
             .i_rst_n(i_rst_n),
             // Interrupts
@@ -313,7 +307,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
             .i_y(alu_y), //y value from ALU (address used in load/store/jump/branch)
             /// CSR instruction ///
             .i_funct3(alu_funct3), // CSR instruction operation
-            .i_csr_index(alu_imm[11:0]), //immediate value decoded by decoder
+            .i_csr_index(alu_imm), //immediate value decoded by decoder
             .i_imm({27'b0,alu_rs1_addr}), //unsigned immediate for immediate type of CSR instruction (new value to be stored to CSR)
             .i_rs1(alu_rs1), //Source register 1 value (new value to be stored to CSR)
             .o_csr_out(csr_out), //CSR value to be loaded to basereg
@@ -327,7 +321,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, CLK_FREQ_MHZ = 100, TR
             .i_minstret_inc(writeback_ce), //high for one clock cycle at the end of every instruction
             /// Pipeline Control ///
             .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
-            .i_stall(stall) //informs this stage to stall
+            .i_stall((stall_writeback || stall_memoryaccess)) //informs this stage to stall
         );
     end
     else begin: zicsr
