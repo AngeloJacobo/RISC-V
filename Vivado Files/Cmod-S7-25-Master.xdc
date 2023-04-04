@@ -10,15 +10,15 @@ create_clock -period 83.330 -name sys_clk_pin -waveform {0.000 41.660} -add [get
 set_property -dict { PACKAGE_PIN D2 IOSTANDARD LVCMOS33} [get_ports { i_rst }];
 
 
-set_property -dict { PACKAGE_PIN L12   IOSTANDARD LVCMOS33 } [get_ports { uart_tx }]; #IO_L6N_T0_D08_VREF_14 Sch=uart_rxd_out
-set_property -dict { PACKAGE_PIN K15   IOSTANDARD LVCMOS33 } [get_ports { uart_rx }]; #IO_L5N_T0_D07_14 Sch=uart_txd_in
+#set_property -dict { PACKAGE_PIN L12   IOSTANDARD LVCMOS33 } [get_ports { uart_tx }]; #IO_L6N_T0_D08_VREF_14 Sch=uart_rxd_out
+#set_property -dict { PACKAGE_PIN K15   IOSTANDARD LVCMOS33 } [get_ports { uart_rx }]; #IO_L5N_T0_D07_14 Sch=uart_txd_in
 
 
 set_property -dict { PACKAGE_PIN C5    IOSTANDARD LVCMOS33 } [get_ports { i2c_scl }]; #IO_L5P_T0_34 Sch=pio[40]
 set_property -dict { PACKAGE_PIN A2    IOSTANDARD LVCMOS33 } [get_ports { i2c_sda }]; #IO_L2N_T0_34 Sch=pio[41]
 
-#set_property -dict { PACKAGE_PIN B2    IOSTANDARD LVCMOS33 } [get_ports { uart_tx }]; #IO_L2P_T0_34 Sch=pio[42]
-#set_property -dict { PACKAGE_PIN B1    IOSTANDARD LVCMOS33 } [get_ports { uart_rx }]; #IO_L4N_T0_34 Sch=pio[43]
+set_property -dict { PACKAGE_PIN B2    IOSTANDARD LVCMOS33 } [get_ports { uart_tx }]; #IO_L2P_T0_34 Sch=pio[42]
+set_property -dict { PACKAGE_PIN B1    IOSTANDARD LVCMOS33 } [get_ports { uart_rx }]; #IO_L4N_T0_34 Sch=pio[43]
 
 set_property -dict { PACKAGE_PIN L1    IOSTANDARD LVCMOS33 } [get_ports { gpio_pins[0] }]; #IO_L18N_T2_34 Sch=pio[01]
 set_property -dict { PACKAGE_PIN M4    IOSTANDARD LVCMOS33 } [get_ports { gpio_pins[1] }]; #IO_L19P_T3_34 Sch=pio[02]
