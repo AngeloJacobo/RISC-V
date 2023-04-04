@@ -22,7 +22,7 @@ module rv32i_decoder(
     /// Pipeline Control ///
     input wire i_ce, // input clk enable for pipeline stalling of this stage
     output reg o_ce, // output clk enable for pipeline stalling of next stage
-    input wire[`STALL_WIDTH-1:0] i_stall, //informs this stage to stall
+    input wire i_stall, //informs this stage to stall
     output reg o_stall, //informs pipeline to stall
     input wire i_flush, //flush this stage
     output reg o_flush //flush previous stages
@@ -66,7 +66,7 @@ module rv32i_decoder(
     reg system_noncsr = 0;
     reg valid_opcode = 0;
     reg illegal_shift = 0;
-    wire stall_bit = i_stall[`DECODER] || i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall this stage when next stages are stalled
+    wire stall_bit = o_stall || i_stall; //stall this stage when next stages are stalled
 
     //register the outputs of this decoder module for shorter combinational timing paths
     always @(posedge i_clk, negedge i_rst_n) begin
@@ -97,20 +97,7 @@ module rv32i_decoder(
                 o_alu[`NEQ]  <= alu_neq_d;
                 o_alu[`GE]   <= alu_ge_d; 
                 o_alu[`GEU]  <= alu_geu_d;
-                
-                //// Opcode Type ////
-                opcode_rtype_d  = opcode == `OPCODE_RTYPE;
-                opcode_itype_d  = opcode == `OPCODE_ITYPE;
-                opcode_load_d   = opcode == `OPCODE_LOAD;
-                opcode_store_d  = opcode == `OPCODE_STORE;
-                opcode_branch_d = opcode == `OPCODE_BRANCH;
-                opcode_jal_d    = opcode == `OPCODE_JAL;
-                opcode_jalr_d   = opcode == `OPCODE_JALR;
-                opcode_lui_d    = opcode == `OPCODE_LUI;
-                opcode_auipc_d  = opcode == `OPCODE_AUIPC;
-                opcode_system_d = opcode == `OPCODE_SYSTEM;
-                opcode_fence_d  = opcode == `OPCODE_FENCE;
-                
+                          
                 o_opcode[`RTYPE]  <= opcode_rtype_d;
                 o_opcode[`ITYPE]  <= opcode_itype_d;
                 o_opcode[`LOAD]   <= opcode_load_d;
@@ -124,11 +111,6 @@ module rv32i_decoder(
                 o_opcode[`FENCE]  <= opcode_fence_d;
                 
                 /*********************** decode possible exceptions ***********************/
-                system_noncsr = opcode == `OPCODE_SYSTEM && funct3_d == 0 ; //system instruction but not CSR operation
-                
-                // Check if instruction is illegal    
-                valid_opcode = (opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d);
-                illegal_shift = (opcode_itype_d && (alu_sll_d || alu_srl_d || alu_sra_d)) && i_inst[25];
                 o_exception[`ILLEGAL] <= !valid_opcode || illegal_shift;
 
                 // Check if ECALL
@@ -147,14 +129,35 @@ module rv32i_decoder(
             else if(!stall_bit) begin //clock-enable will change only when not stalled
                 o_ce <= i_ce;
             end
-            else if(stall_bit && !i_stall[`ALU]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
+            else if(stall_bit && !i_stall) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
                                                                     //clock enable of next stage at next clock cycle (pipeline bubble)
         end
+    end
+    always @* begin
+        //// Opcode Type ////
+        opcode_rtype_d  = opcode == `OPCODE_RTYPE;
+        opcode_itype_d  = opcode == `OPCODE_ITYPE;
+        opcode_load_d   = opcode == `OPCODE_LOAD;
+        opcode_store_d  = opcode == `OPCODE_STORE;
+        opcode_branch_d = opcode == `OPCODE_BRANCH;
+        opcode_jal_d    = opcode == `OPCODE_JAL;
+        opcode_jalr_d   = opcode == `OPCODE_JALR;
+        opcode_lui_d    = opcode == `OPCODE_LUI;
+        opcode_auipc_d  = opcode == `OPCODE_AUIPC;
+        opcode_system_d = opcode == `OPCODE_SYSTEM;
+        opcode_fence_d  = opcode == `OPCODE_FENCE;
+        
+        /*********************** decode possible exceptions ***********************/
+        system_noncsr = opcode == `OPCODE_SYSTEM && funct3_d == 0 ; //system instruction but not CSR operation
+        
+        // Check if instruction is illegal    
+        valid_opcode = (opcode_rtype_d || opcode_itype_d || opcode_load_d || opcode_store_d || opcode_branch_d || opcode_jal_d || opcode_jalr_d || opcode_lui_d || opcode_auipc_d || opcode_system_d || opcode_fence_d);
+        illegal_shift = (opcode_itype_d && (alu_sll_d || alu_srl_d || alu_sra_d)) && i_inst[25];
     end
 
      //decode operation for ALU and the extended value of immediate
     always @* begin
-        o_stall = i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK]; //stall previous stage when decoder needs wait time
+        o_stall = i_stall; //stall previous stage when decoder needs wait time
         o_flush = i_flush; //flush this stage along with the previous stages 
         imm_d = 0;
         alu_add_d = 0;
