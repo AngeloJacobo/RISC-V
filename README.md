@@ -82,7 +82,13 @@ The RISC-V toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and 
 
 Below is the expected output after running `$ ./test.sh`:   
 
-![image](https://user-images.githubusercontent.com/87559347/229745971-c1e2265b-6344-4666-b93b-8685c5e06e2a.png)
+![image](https://user-images.githubusercontent.com/87559347/229745971-c1e2265b-6344-4666-b93b-8685c5e06e2a.png) 
+
+## Performance Metrics (Arty S7 with Xilinx Vivado)  
+- Maximum operating frequency: 90MHz  
+- Resource Utilization: 1780 LUT, 1346 FF   
+- Total Power: 0.106W  
+![image](https://user-images.githubusercontent.com/87559347/229773006-cede0efb-0162-43b6-a4d7-820e8a2d1838.png)  
 
 
 
