@@ -5,7 +5,6 @@
 `include "rv32i_header.vh"
 
 module rv32i_forwarding (
-    input wire i_clk,i_rst_n,
     input wire[31:0] i_rs1_orig, //current rs1 value saved in basereg
     input wire[31:0] i_rs2_orig, //current rs2 value saved in basereg
     input wire[4:0] i_decoder_rs1_addr_q, //address of operand rs1 used in ALU stage
@@ -13,7 +12,6 @@ module rv32i_forwarding (
     output reg o_alu_force_stall, //high to force ALU stage to stall
     output reg[31:0] o_rs1, //rs1 value with Operand Forwarding
     output reg[31:0] o_rs2, //rs2 value with Operand Forwarding
-    output reg o_fetch_ce, // clock enable logic for fetch stage
     // Stage 4 [MEMORYACCESS]
     input wire[4:0] i_alu_rd_addr, //destination register address
     input wire i_alu_wr_rd, //high if rd_addr will be written
@@ -26,10 +24,6 @@ module rv32i_forwarding (
     input wire[31:0] i_writeback_rd, //rd value in stage 5
     input wire i_writeback_ce //high if stage 4 is enabled
 );
-
-     always @(posedge i_clk, negedge i_rst_n) 
-         if(!i_rst_n) o_fetch_ce <= 0;
-         else o_fetch_ce<=1;
 
     always @* begin
         o_rs1 = i_rs1_orig; //original value from basereg
