@@ -4,7 +4,7 @@
 `default_nettype none
 `include "rv32i_header.vh"
 
-module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
+module rv32i_csr #(parameter TRAP_ADDRESS = 0) (
     input wire i_clk, i_rst_n,
     // Interrupts
     input wire i_external_interrupt, //interrupt from external source
@@ -34,7 +34,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     input wire i_minstret_inc, //increment minstret after executing an instruction
     /// Pipeline Control ///
     input wire i_ce, // input clk enable for pipeline stalling of this stage
-    input wire[`STALL_WIDTH-1:0] i_stall //informs this stage to stall
+    input wire i_stall //informs this stage to stall
 );
     
                //CSR operation type
@@ -65,8 +65,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                //machine counters/timers
                MCYCLE = 12'hB00,
                MCYCLEH = 12'hB80,
-               TIME = 12'hC01,
-               TIMEH = 12'hC81,
+               //TIME = 12'hC01,
+               //TIMEH = 12'hC81,
                MINSTRET = 12'hB02,
                MINSTRETH = 12'hBB2,
                MCOUNTINHIBIT = 12'h320;
@@ -83,9 +83,6 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                ECALL = 11;
     
     
-               //Wrap value for 1 millisecond
-    localparam MILLISEC_WRAP =  (CLK_FREQ_MHZ*10**6)/1000;
-    
     wire opcode_store=i_opcode[`STORE];
     wire opcode_load=i_opcode[`LOAD];
     wire opcode_branch=i_opcode[`BRANCH];
@@ -101,14 +98,14 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     reg is_load_addr_misaligned; 
     reg is_store_addr_misaligned;
     reg is_inst_addr_misaligned;
-    reg timer_interrupt;
+    //reg timer_interrupt;
     reg external_interrupt_pending; 
     reg software_interrupt_pending;
     reg timer_interrupt_pending;
     reg is_interrupt;
     reg is_exception;
     reg is_trap;
-    wire stall_bit =i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
+    wire stall_bit =i_stall;
 
     // CSR register bits
     reg mstatus_mie; //Machine Interrupt Enable
@@ -169,8 +166,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
     //control logic for writing to CSRs
     always @(posedge i_clk,negedge i_rst_n) begin
         if(!i_rst_n) begin
-            o_go_to_trap_q = 0;
-            o_return_from_trap_q = 0;        
+            o_go_to_trap_q <= 0;
+            o_return_from_trap_q <= 0;        
             mstatus_mie <= 0;
             mstatus_mpie <= 0;
             mstatus_mpp <= 2'b11;
@@ -367,7 +364,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
             if(i_csr_index == MINSTRETH && csr_enable) begin
                 minstret[63:32] <= csr_in; 
             end
-             minstret <= mcountinhibit_ir? minstret : minstret + (i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q); //increment minstret every instruction
+             minstret <= mcountinhibit_ir? minstret : minstret + {63'b0,(i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q)}; //increment minstret every instruction
              
              
             //MCOUNTINHIBIT (controls which hardware performance-monitoring counters can increment)
@@ -387,8 +384,8 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
                  BASE field. When MODE=Vectored (1), all synchronous exceptions into machine mode cause the i_pc to be set to the address 
                  in the BASE field, whereas interrupts cause the i_pc to be set to the address in the BASE field plus four times the
                  interrupt cause number */
-                 if(mtvec_mode[1] && is_interrupt) o_trap_address <= {mtvec_base,2'b00} + mcause_code<<2;
-                 else o_trap_address = {mtvec_base,2'b00};
+                 if(mtvec_mode[1] && is_interrupt) o_trap_address <= {mtvec_base,2'b00} + {28'b0,mcause_code<<2};
+                 else o_trap_address <= {mtvec_base,2'b00};
                  
                  /****************************************************************************************************************************/
                  
@@ -402,7 +399,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
         else begin
             // this CSR will always be updated
             mcycle <= mcountinhibit_cy? mcycle : mcycle + 1; //increments mcycle every clock cycle
-            minstret <= mcountinhibit_ir? minstret : minstret + (i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q); //increment minstret every instruction
+            minstret <= mcountinhibit_ir? minstret : minstret + {63'b0,(i_minstret_inc && !o_go_to_trap_q && !o_return_from_trap_q)}; //increment minstret every instruction
         end
     end
 
@@ -534,6 +531,7 @@ module rv32i_csr #(parameter CLK_FREQ_MHZ = 100, TRAP_ADDRESS = 0) (
            CSRRWI: csr_in = i_imm; //csr read-write immediate
            CSRRSI: csr_in = csr_data | i_imm;  //csr read-set immediate
            CSRRCI: csr_in = csr_data & (~i_imm); //csr read-clear immediate
+          default: csr_in = 0;
         endcase
         /*****************************************************************************************************************************/
    
