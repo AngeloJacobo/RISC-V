@@ -107,6 +107,20 @@ then
         iverilog -I "../rtl/" -DICARUS $rtlfiles
     fi
     
+elif [ "$1" == "lint" ] # run formal verification
+then
+    rtl="../rtl/rv32i_forwarding.v
+          ../rtl/rv32i_basereg.v 
+          ../rtl/rv32i_fetch.v
+          ../rtl/rv32i_decoder.v 
+          ../rtl/rv32i_alu.v 
+          ../rtl/rv32i_memoryaccess.v 
+          ../rtl/rv32i_writeback.v
+          ../rtl/rv32i_csr.v
+          ../rtl/rv32i_core.v"
+          
+    verilator -Wall -I"../rtl/"  -DICARUS --lint-only $rtl
+    
 elif [ "$1" == "formal" ] # run formal verification
 then
     sby -f rv32i_core.sby
@@ -567,6 +581,9 @@ else    # DEBUG MODE: first argument given is the assembly file to be tested and
     else
         printf "\e[31m\tTESTFILE DOES NOT EXIST\n\n\e[0m"    # testfile is missing
     fi
+    elapsed_time=$(( SECONDS-$start_time ))
+    printf "\n\n##############################################################\n"
+    eval "printf \"\n\nELAPSED TIME: $(date -ud "@$elapsed_time" +'%H hr %M min %S sec'))\n\n\""
 fi
 
 
