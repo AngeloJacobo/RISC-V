@@ -14,7 +14,7 @@ module rv32i_alu(
     input wire[31:0] i_rs2, //Source register 2 value
     output reg[31:0] o_rs2, //Source register 2 value
     input wire[31:0] i_imm, //Immediate value from previous stage
-    output reg[31:0] o_imm, //Immediate value
+    output reg[11:0] o_imm, //Immediate value
     input wire[2:0] i_funct3, //function type from previous stage
     output reg[2:0] o_funct3, // function type
     input wire[`OPCODE_WIDTH-1:0] i_opcode, //opcode type from previous stage
@@ -37,7 +37,7 @@ module rv32i_alu(
     output reg o_stall_from_alu, //prepare to stall next stage(memory-access stage) for load/store instruction
     input wire i_ce, // input clk enable for pipeline stalling of this stage
     output reg o_ce, // output clk enable for pipeline stalling of next stage
-    input wire[`STALL_WIDTH-1:0] i_stall, //informs this stage to stall
+    input wire i_stall, //informs this stage to stall
     input wire i_force_stall, //force this stage to stall
     output reg o_stall, //informs pipeline to stall
     input wire i_flush, //flush this stage
@@ -78,7 +78,7 @@ module rv32i_alu(
     reg rd_valid_d; //high if rd is valid (not load nor csr instruction)
     reg[31:0] a_pc;
     wire[31:0] sum;
-    wire stall_bit = i_stall[`ALU] || i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK];
+    wire stall_bit = o_stall || i_stall;
 
     //register the output of i_alu
     always @(posedge i_clk, negedge i_rst_n) begin
@@ -96,7 +96,7 @@ module rv32i_alu(
                 o_rs1 <= i_rs1;
                 o_rs2 <= i_rs2;
                 o_rd_addr <= i_rd_addr;
-                o_imm <= i_imm;
+                o_imm <= i_imm[11:0];
                 o_funct3 <= i_funct3;
                 o_rd <= rd_d;
                 o_rd_valid <= rd_valid_d;
@@ -110,7 +110,7 @@ module rv32i_alu(
             else if(!stall_bit) begin //clock-enable will change only when not stalled
                 o_ce <= i_ce;
             end
-            else if(stall_bit && !i_stall[`MEMORYACCESS]) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
+            else if(stall_bit && !i_stall) o_ce <= 0; //if this stage is stalled but next stage is not, disable 
                                                                     //clock enable of next stage at next clock cycle (pipeline bubble)
         end
         
@@ -126,8 +126,8 @@ module rv32i_alu(
         if(alu_add) y_d = a + b;
         if(alu_sub) y_d = a - b;
         if(alu_slt || alu_sltu) begin
-            y_d = a < b;
-            if(alu_slt) y_d = (a[31] ^ b[31])? a[31]:y_d;
+            y_d = {31'b0, (a < b)};
+            if(alu_slt) y_d = (a[31] ^ b[31])? {31'b0,a[31]}:y_d;
         end 
         if(alu_xor) y_d = a ^ b;
         if(alu_or)  y_d = a | b;
@@ -136,12 +136,12 @@ module rv32i_alu(
         if(alu_srl) y_d = a >> b[4:0];
         if(alu_sra) y_d = $signed(a) >>> b[4:0];
         if(alu_eq || alu_neq) begin
-            y_d = a == b;
-            if(alu_neq) y_d = !y_d;
+            y_d = {31'b0, (a == b)};
+            if(alu_neq) y_d = {31'b0,!y_d[0]};
         end
         if(alu_ge || alu_geu) begin
-            y_d = a >= b;
-            if(alu_ge) y_d = (a[31] ^ b[31])? b[31]:y_d;
+            y_d = {31'b0, (a >= b)};
+            if(alu_ge) y_d = (a[31] ^ b[31])? {31'b0, b[31]}:y_d;
         end
     end
 
@@ -180,7 +180,7 @@ module rv32i_alu(
         else rd_valid_d = 1;
 
         //stall logic (stall when upper stages are stalled, when forced to stall, or when needs to flush previous stages but are still stalled)
-        o_stall = (i_stall[`MEMORYACCESS] || i_stall[`WRITEBACK] || i_force_stall) && !i_flush; //stall when alu needs wait time
+        o_stall = (i_stall || i_force_stall) && !i_flush; //stall when alu needs wait time
     end
         
     assign sum = a_pc + i_imm; //share adder for all addition operation for less resource utilization
