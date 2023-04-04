@@ -5,7 +5,6 @@
 `include "rv32i_header.vh"
 
 module rv32i_writeback (
-    input wire i_clk, i_rst_n,
     input wire[2:0] i_funct3, //function type 
     input wire[31:0] i_data_load, //data to be loaded to base reg
     input wire[31:0] i_csr_out, //CSR value to be loaded to basereg
@@ -29,7 +28,6 @@ module rv32i_writeback (
     input wire[31:0] i_trap_address, //mtvec CSR
     /// Pipeline Control ///
     input wire i_ce, // input clk enable for pipeline stalling of this stage
-    input wire[`STALL_WIDTH-1:0] i_stall, //informs this stage to stall
     output reg o_stall, //informs pipeline to stall
     output reg o_flush //flush previous stages
 );
@@ -38,7 +36,7 @@ module rv32i_writeback (
     always @* begin
         o_stall = 0; //stall when this stage needs wait time
         o_flush = 0; //flush this stage along with previous stages when changing PC
-        o_wr_rd = i_wr_rd && i_ce && !i_stall[`WRITEBACK];
+        o_wr_rd = i_wr_rd && i_ce && !o_stall;
         o_rd_addr = i_rd_addr;
         o_rd = 0;
         o_next_pc = 0;
