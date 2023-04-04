@@ -33,13 +33,6 @@
 `define EBREAK 2
 `define MRET 3
 
-`define STALL_WIDTH 5
-`define FETCH 0
-`define DECODER 1
-`define ALU 2
-`define MEMORYACCESS 3
-`define WRITEBACK 4
-
 `define OPCODE_RTYPE 7'b0110011 
 `define OPCODE_ITYPE 7'b0010011
 `define OPCODE_LOAD 7'b0000011
