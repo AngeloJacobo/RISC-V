@@ -1,5 +1,36 @@
-//logic for fetching an instruction [FETCH]
-
+/* The rv32i_fetch module is primarily for fetching instructions from the memory
+and prepare them for the decode stage of the pipeline. The module is responsible
+for managing the Program Counter (PC), fetching instructions, and controlling 
+the pipeline. Below are the key functions of the rv32i_fetch module:
+ - Program Counter (PC) management: The module maintains a Program Counter (PC) 
+    that holds the address of the current instruction in memory. The PC is 
+    initialized at the reset vector address (specified by the parameter PC_RESET),
+    and it is incremented or updated based on the instruction flow control, 
+    such as branches, jumps, or traps.
+ - Instruction fetching: The module fetches the instruction from memory based on 
+    the current PC value. It sends a request for a new instruction (o_stb_inst) 
+    when the fetch stage is enabled (ce), and waits for an acknowledgment 
+    (i_ack_inst) from the memory. The fetched instruction (i_inst) is then sent
+    to the pipeline (o_inst).
+ - Pipeline control: The rv32i_fetch module manages the pipeline by controlling 
+    clock enable (o_ce) signals for the next stage. It can stall the fetch stage
+    (stall_fetch) when the next stages are stalled (i_stall), a requested 
+    instruction has not yet been acknowledged, or when there is no request for a
+    new instruction. Moreover, it can create pipeline bubbles when the PC needs 
+    to be changed, disabling clock enable signals for the next stages, ensuring
+    no instructions are executed during this period.
+ - PC control: The module updates the PC based on the control signals received 
+    from other stages in the pipeline. It can update the PC with a new address
+    (i_writeback_next_pc) when handling traps, or with the address of a taken 
+    branch or jump (i_alu_next_pc). The fetch stage can be stalled during this
+    process to prevent instructions from being executed in the pipeline.
+  - Handling stalls and flushes: The rv32i_fetch module can stall the fetch 
+    stage based on different conditions and store the current PC and instruction
+    values. When the stall condition is resolved, it can return to the stored 
+    values and continue fetching instructions. The module can also flush the 
+    fetch stage when required (i_flush), disabling the clock enable signal 
+    for the next stage, effectively clearing any pending instructions.
+*/
 `timescale 1ns / 1ps
 `default_nettype none
 `include "rv32i_header.vh"
