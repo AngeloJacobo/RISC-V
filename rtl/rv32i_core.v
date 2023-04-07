@@ -1,4 +1,45 @@
-//topmodule for the rv32i core
+/* The rv32i_core module represents the top module for an RV32I RISC-V processor 
+core. The module is structured around a 5-stage pipeline architecture, which 
+includes Fetch, Decode, Execute, Memory Access, and Writeback stages. The RV32I 
+core is designed to interface with separate instruction and data memories, and 
+supports external, software, and timer interrupts. The module contains several 
+sub-modules that carry out various functions within the processor:
+ - rv32i_forwarding: This sub-module is responsible for handling operand
+    forwarding. It ensures that the correct operand values are used in the ALU 
+    stage, even when they have not yet been written back to the register file.
+    Operand forwarding helps to reduce pipeline stalls caused by data 
+    dependencies.
+ - rv32i_basereg: This sub-module serves as a controller for the 32 integer 
+    base registers. It manages reading from and writing to the register file, 
+    with read operations occurring during the Decode stage and write operations 
+    during the Writeback stage.
+ - rv32i_fetch: This sub-module is responsible for fetching instructions from
+    the instruction memory. It generates the instruction address, retrieves 
+    the instruction, and controls the program counter (PC). It also manages 
+    the pipeline stall and flush signals for the Fetch stage.
+ - rv32i_decoder: This sub-module takes care of decoding the fetched 32-bit
+    instruction. It extracts various fields from the instruction, such as opcode,
+    function type, immediate value, and register addresses. The sub-module also 
+    detects exceptions, manages pipeline stall and flush signals for the Decode 
+    stage, and provides a clock enable signal for the next stage.
+ - rv32i_alu: This sub-module is the Arithmetic Logic Unit (ALU) of the core.
+    It performs arithmetic and logical operations based on the opcode and 
+    function type provided by the decoder. It also controls the program counter
+    for branches and jumps, manages register write enable signals, and handles 
+    pipeline stall and flush signals for the Execute stage.
+ - rv32i_memoryaccess: This sub-module controls data memory access for load and 
+    store operations. It computes the memory address based on the ALU output 
+    and provides the appropriate signals for reading from or writing to the data
+    memory. The sub-module also manages pipeline stall and flush signals for 
+    the Memory Access stage.
+ - rv32i_writeback: This sub-module is responsible for writing the results of ALU 
+    and load operations back to the register file. It also manages the program 
+    counter for returning from traps and provides clock enable signals for the 
+    Writeback stage.
+ - rv32i_csr: This sub-module manages the Control and Status Registers (CSRs) in 
+    the core. It handles traps and exceptions, updates CSR values, and controls 
+    the program counter for trap handling.
+*/
 
 `timescale 1ns / 1ps
 `default_nettype none
