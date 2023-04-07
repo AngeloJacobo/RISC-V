@@ -1,3 +1,33 @@
+/* The rv32i_writeback module serves as the writeback stage of the pipelined 
+processor. This stage is responsible for determining the next value of the
+program counter (PC), writing data back to the destination register, and 
+handling trap-related operations (interrupts and exceptions). In addition,
+the module manages pipeline control, such as stalling and flushing previous 
+stages. Key functionalities of the rv32i_writeback module include:
+ - Determining the next value of the program counter (PC) and updating the
+    o_next_pc register: If an interrupt or exception is detected, the module
+    sets the PC to the trap address (i_trap_address) and asserts the o_change_pc 
+    signal. If the processor is returning from a trap, the module sets the PC to 
+    the return address (i_return_address) and asserts the o_change_pc signal. In
+    normal operation, the PC value from the previous stage (i_pc) is passed through.
+ - Handling writeback to destination registers: The module writes data back to the
+    destination register based on the opcode and funct3 fields of the instruction:
+    If the instruction is a load operation, the data from the memory (i_data_load) 
+    is written back. If the instruction is a CSR write operation, the CSR value 
+    (i_csr_out) is written back. In other cases, the data is computed at the ALU
+    stage (i_rd) and is written back. The o_wr_rd signal is set based on the i_wr_rd 
+    input and the current pipeline control state (i_ce and o_stall). The destination 
+    register address (o_rd_addr) is passed through from the i_rd_addr input.
+ - Trap-handler control: The module handles interrupts and exceptions by checking the
+    i_go_to_trap and i_return_from_trap input signals. When the processor goes to a 
+    trap, the o_next_pc register is set to the trap address (i_trap_address) and the
+    pipeline is flushed. When the processor returns from a trap, the o_next_pc register
+    is set to the return address (i_return_address) and the pipeline is flushed.
+ - Pipeline control: The module can stall the pipeline by asserting the o_stall signal
+    when necessary. It can also flush the current stage and previous stages by asserting
+    the o_flush signal based on the state of the pipeline and trap-related operations.
+*/
+
 //logic controller for the next PC and rd value [WRITEBACK STAGE]
 
 `timescale 1ns / 1ps
