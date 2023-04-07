@@ -1,4 +1,39 @@
-// logic for Operand Forwarding
+/*The rv32i_forwarding module is responsible for handling data hazards in the
+pipelined processor by implementing operand forwarding. Data hazards occur 
+when a register value is about to be overwritten by previous instructions that 
+are still in the pipeline and have not yet been written to the base register. 
+Operand forwarding resolves this issue by either stalling the pipeline until 
+the base register is updated (less efficient) or forwarding the updated operand
+value directly from the pipeline stage where it is currently being computed. Key
+functionalities of the rv32i_forwarding module include:
+ - Forwarding rs1 and rs2 operands: The module initially sets the output values
+    o_rs1 and o_rs2 to their original values from the base register (i_rs1_orig
+    and i_rs2_orig). It then checks for any data hazards by comparing the register
+    addresses of the operands (i_decoder_rs1_addr_q and i_decoder_rs2_addr_q) with
+    the destination register addresses in the pipeline stages (i_alu_rd_addr and 
+    i_memoryaccess_rd_addr).
+ - Operand forwarding for rs1:If the next value of rs1 is in stage 4 (Memory Access), 
+    and the Memory Access stage is enabled and if the next value of rs1 comes from a
+    load or CSR instruction (i.e., rd is not valid at stage 4), the module stalls the
+    ALU stage by asserting o_alu_force_stall. Otherwise, the module forwards the value
+    of rd from stage 4 (i_alu_rd) to o_rs1. If the next value of rs1 is in stage 5 
+    (Writeback), and the Writeback stage is enabled, the module forwards the value of
+    rd from stage 5 (i_writeback_rd) to o_rs1.
+ - Operand forwarding for rs2: If the next value of rs2 is in stage 4 (Memory Access),
+    and the Memory Access stage is enabled and if the next value of rs2 comes from a 
+    load or CSR instruction (i.e., rd is not yet valid at stage 4), the module stalls 
+    the ALU stage by asserting o_alu_force_stall. Otherwise, the module forwards the
+    value of rd from stage 4 (i_alu_rd) to o_rs2. If the next value of rs2 is in stage
+    5 (Writeback), and the Writeback stage is enabled, the module forwards the value
+    of rd from stage 5 (i_writeback_rd) to o_rs2.
+ - Handling zero register (x0) forwarding: The module ensures that no operation 
+    forwarding is performed when the register address is zero, as this register is
+    hardwired to zero. If either i_decoder_rs1_addr_q or i_decoder_rs2_addr_q is zero,
+    the corresponding output register (o_rs1 or o_rs2) is set to zero. By implementing
+    operand forwarding, the rv32i_forwarding module helps to mitigate data hazards,
+    ensuring the correct execution of instructions and improving the overall efficiency
+    of the RV32I pipelined processor.
+*/
 
 `timescale 1ns / 1ps
 `default_nettype none
