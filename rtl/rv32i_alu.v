@@ -1,4 +1,29 @@
-//arithmetic logic unit [EXECUTE STAGE]
+/* The rv32i_alu module serves as the Arithmetic Logic Unit (ALU) for the RISC-V core 
+during the execute stage of the pipeline. The ALU is responsible for executing arithmetic, 
+logic, and comparison operations based on the instruction and operands provided. This
+module is a crucial part of the RISC-V core, as it processes the instructions and computes 
+the results required for program execution. Function includes:
+
+ - Operand Selection: The module first selects the appropriate operands for the ALU operation 
+    depending on the opcode. Operand A can be the program counter (PC) or the value of the 
+    first source register (rs1), while operand B can be either the second source register 
+    (rs2) or an immediate value.
+ - ALU Operation: The ALU performs various operations, such as ADD, SUB, SLT, SLTU, XOR, OR, 
+    AND, SLL, SRL, SRA, EQ, NEQ, GE, and GEU, depending on the instruction type. The result 
+    of the ALU operation is stored in the y_d register.
+- Handling Branches and Jumps: The module computes the next PC value based on the instruction 
+    type (e.g., branch, jump, or jump-and-link). It also generates the o_change_pc signal to 
+    indicate whether the PC needs to jump to a new address.
+- Register Writeback: The module computes the value to be written back to the destination 
+    register (rd) and sets the appropriate control signals (o_wr_rd and o_rd_valid) based on
+    the instruction type. For example, it disables writing to the destination register for 
+    branch or store instructions.
+ - Stalling and Flushing: The ALU manages stalling and flushing of the pipeline. It generates 
+    the o_stall_from_alu signal to stall the memory-access stage for load/store instructions 
+    since accessing data memory may take multiple cycles. It also handles pipeline stalls 
+    and flushes based on the input signals (i_stall, i_force_stall, and i_flush).
+    */
+
 
 `timescale 1ns / 1ps
 `default_nettype none
