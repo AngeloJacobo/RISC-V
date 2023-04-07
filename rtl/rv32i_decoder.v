@@ -1,4 +1,32 @@
-//logic for decoding the 32 bit instruction [DECODE STAGE]
+/* The rv32i_decoder module is responsible for decoding the 32-bit RISC-V instructions, 
+producing the necessary control signals, and extracting the operand addresses and immediate 
+values required by the execution stage of the RISC-V processor. It is a crucial component
+in the decode stage of the pipeline. This module has several key components:
+ - Operand address extraction:
+    The module extracts the source and destination register addresses (rs1, rs2, and rd) 
+    from the input instruction. These addresses are used to access the register file in 
+    the next stage of the pipeline.
+ - Immediate value extraction: Depending on the instruction type, this module extracts 
+    and sign-extends the immediate value (imm) from the input instruction. This value is
+    used as an operand for arithmetic or load/store instructions, or as an offset for 
+    branch and jump instructions.
+ - ALU operation decoding: The module decodes the required ALU operation based on the 
+    opcode and funct3 fields of the instruction. It sets the appropriate signals 
+    (alu_add_d, alu_sub_d, alu_slt_d, etc.) to indicate the desired operation to be 
+    executed in the ALU during the execution stage.
+ - Opcode type decoding: The module identifies the type of instruction based on its opcode 
+    (opcode_rtype_d, opcode_itype_d, opcode_load_d, etc.). These signals are used in the 
+    next stages of the pipeline to control the flow of data and determine the required 
+    operations.
+ - Exception decoding: The module checks for illegal instructions, system instructions 
+    (ECALL, EBREAK, and MRET), and unsupported shift operations. If any of these conditions 
+    are detected, the corresponding exception signals (o_exception) are set.
+ - Pipeline control: The module supports pipeline stalling and flushing. If the next stage 
+    of the pipeline is stalled (i_stall), the module will stall the decode stage (o_stall) 
+    and prevent updating the output registers. If a flush signal (i_flush) is received, the 
+    module will flush its internal state and disable the clock enable signal (o_ce) for the 
+    next stage.
+*/
 
 `timescale 1ns / 1ps
 `default_nettype none
