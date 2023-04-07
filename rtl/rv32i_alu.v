@@ -3,7 +3,6 @@ during the execute stage of the pipeline. The ALU is responsible for executing a
 logic, and comparison operations based on the instruction and operands provided. This
 module is a crucial part of the RISC-V core, as it processes the instructions and computes 
 the results required for program execution. Function includes:
-
  - Operand Selection: The module first selects the appropriate operands for the ALU operation 
     depending on the opcode. Operand A can be the program counter (PC) or the value of the 
     first source register (rs1), while operand B can be either the second source register 
@@ -22,7 +21,7 @@ the results required for program execution. Function includes:
     the o_stall_from_alu signal to stall the memory-access stage for load/store instructions 
     since accessing data memory may take multiple cycles. It also handles pipeline stalls 
     and flushes based on the input signals (i_stall, i_force_stall, and i_flush).
-    */
+*/
 
 
 `timescale 1ns / 1ps
