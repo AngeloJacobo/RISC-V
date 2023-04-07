@@ -1,4 +1,34 @@
- //logic controller for data memory access (load/store) [MEMORY ACCESS STAGE]
+ /* The rv32i_memoryaccess module serves as the memory access stage of the 
+ pipelined processor. This module primarily handles data memory access for
+ load and store instructions, as well as passing the necessary information 
+ to subsequent pipeline stages. The module is responsible for generating 
+ appropriate data memory addresses, data to be stored, and write masks for
+ different load/store operations, as well as handling pipeline stalls and 
+ flushes when required. Key functionalities of the rv32i_memoryaccess module
+ include:
+ - Address and data handling for load/store operations: The module uses the 
+ incoming address (i_y) to generate the appropriate data memory address (o_y)
+ and stores it in the o_data_store register. It also selects the correct byte, 
+ halfword, or word data from the data memory input (i_din) based on the 
+ instruction's funct3 field and stores it in the o_data_load register. The 
+ write mask (o_wr_mask) is generated based on the address and the size of the 
+ operation (byte, halfword, or word). The mask is used to control which part
+ of the data memory will be written during store operations.
+ - Register writeback control: The module determines whether a destination register
+ should be written (o_wr_rd) based on the input i_wr_rd signal. It passes the 
+ destination register address (o_rd_addr) and the data to be written (o_rd) to the 
+ next stage.
+ - Data memory control: The module controls the data memory read/write requests by
+ generating the o_stb_data signal, which indicates a request for data memory access.
+It also generates the o_wr_mem signal, which indicates whether a write operation 
+should be performed on the data memory.
+ - Pipeline control: The module can stall the pipeline by asserting the o_stall signal
+ if the data memory access is not yet acknowledged (i_ack_data) or if there is a stall
+ request from the ALU stage (i_stall_from_alu). It can also flush the current stage and
+ previous stages using the o_flush signal based on the input i_flush signal. The module 
+ controls the clock enable signals (o_ce) for the next stage based on the stall and flush 
+ conditions.
+*/ 
  
 `timescale 1ns / 1ps
 `default_nettype none
