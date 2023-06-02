@@ -117,4 +117,4 @@ Support these open-source projects by donating
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate?hosted_button_id=GBJQGJNCJZVRU)
 
 # Inquiries  
-Connect with me at my LinkedIn: https://www.linkedin.com/in/angelo-jacobo/
+Connect with me on LinkedIn: https://www.linkedin.com/in/angelo-jacobo/
