@@ -98,6 +98,8 @@ Below is the expected output after running `$ ./test.sh`:
 The application code for this project can be found in `test/freertos/freertos.c`. The schematic is presented below along with the mobile app to access the device via Bluetooth. This mobile app was developed using [MIT App Inventor](https://appinventor.mit.edu/). The `apk` file is located at `test/freertos/mobile_app.apk` and the `aia` file, which can be imported to MIT App Inventor for further customization, is at `test/freertos/mobile_app.aia`.  
 ![image](https://github.com/AngeloJacobo/RISC-V/assets/87559347/f3ccf912-d768-4635-a7ee-a862aa411870)
  Below is the video demonstration for the sample application:  
+ 
+[![optimized_1685749569](https://github.com/AngeloJacobo/RISC-V/assets/87559347/b374190a-c51d-465e-a8f4-98bc5a34159f)](https://youtu.be/azBM6czbunY)
 
 
 ## Performance Metrics 
