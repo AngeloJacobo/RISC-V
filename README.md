@@ -42,7 +42,6 @@ Inside the `Vivado Files/` folder are the following:
 
 ## Top Level Diagram (Classic 5-stage Pipeline)
 ![338910881_6488549441175863_7408166598375532727_n](https://user-images.githubusercontent.com/87559347/229502697-9e7bd8c9-cb11-44e1-9ccb-7dcd42e52f9f.png)
-
 ## Top Level Diagram (Memory-mapped Peripherals)
 ![338677885_186797960804225_4190069677959905489_n](https://user-images.githubusercontent.com/87559347/229550336-ae914d2f-a207-404a-8652-eda9cf90b9a6.png)
 
@@ -73,16 +72,16 @@ The RISC-V toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and 
  ## Run Individual Tests
  - `$ ./test.sh <testfile>` = test and debug testfile (without simulating) which is located at INDIVIDUAL_TESTDIR
  - `$ ./test.sh <testfile> -gui` = test and debug testfile and open wave in Icarus
- - `$ ./test.sh <testfile> -nosim` = compile and debug testfile without simulating it
+ - `$ ./test.sh <testfile> -nosim` = compile and debug testfile without simulating it  
 Below is the expected output after running `$ ./test.sh`:   
 ![image](https://user-images.githubusercontent.com/87559347/229745971-c1e2265b-6344-4666-b93b-8685c5e06e2a.png) 
 
 ## Install Design to FPGA (CMOD S7 FPGA Board)
  - `$ ./test.sh <design> -install` = compile and install design (located at INDIVIDUAL_TESTDIR) to FPGA board
- - `$ ./test.sh freertos -install` = compile and install FreeRTOS progam to FPGA board
+ - `$ ./test.sh freertos -install` = compile and install FreeRTOS program to FPGA board
 
 ## Sample Application [Smart Garden Assistant with Real-time Monitoring and Security]
-The application code for this project is in `test/freertos/freertos.c`. The schematic is presented below along with the mobile application to access the device via Bluetooth. The mobile app was developed using the [MIT App Inventor](https://appinventor.mit.edu/). The `apk` file is in  `test/freertos/mobile_app.apk`. The `aia` file for the mobile app is in `test/freertos/mobile_app.aia` which can be imported to MIT App Inventor for further customization. 
+The application code for this project can be found in `test/freertos/freertos.c`. The schematic is presented below along with the mobile app to access the device via Bluetooth. This mobile app was developed using [MIT App Inventor](https://appinventor.mit.edu/). The `apk` file is located at `test/freertos/mobile_app.apk` and the `aia` file, which can be imported to MIT App Inventor for further customization, is at `test/freertos/mobile_app.aia`.  
 ![image](https://github.com/AngeloJacobo/RISC-V/assets/87559347/f3ccf912-d768-4635-a7ee-a862aa411870)
  Below is the video demonstration for the sample application:  
 
@@ -96,7 +95,7 @@ The whole design (core + zicsr + memory-mapped peripherals + 16KB memory) is imp
 ![image](https://user-images.githubusercontent.com/87559347/229773269-1f06e104-c436-4aee-9ab1-b7cb840e866e.png)
 
 ## Paper Access
-The title of the paper is `Design, Implementation, and Verification of a 32-bit RISC-V Processor with Real-Time Operating System and Regression Testing Framework`. As of this moment, the paper is still unpublished so I was refrained on linking the paper in this public repository. But I will post it here as soon as it is published (hopefully). But if you are still interested to have a look at the paper, you can chat me at [my LinkedIn](https://www.linkedin.com/in/angelo-jacobo/) so we can talk about it. Below is the paper abstract:   
+The title of the paper is `Design, Implementation, and Verification of a 32-bit RISC-V Processor with Real-Time Operating System and Regression Testing Framework`. As of this moment, the paper remains unpublished so I have refrained on linking it in this public repository. But I will post it here as soon as it is published (hopefully). But if you are still interested to have a look at the paper, you can chat me via [my LinkedIn](https://www.linkedin.com/in/angelo-jacobo/) so we can discuss it. Below is the abstract of the paper:   
 
 > RISC-V, an open standard Instruction Set Architecture (ISA), is gaining traction in various industries recently due to its open nature, straightforward design, modularity, and scalability. This paper presents the design, implementation, and verification of a 32-bit RISC-V processor with Real-Time Operating System (RTOS) support and a regression testing framework. The RISC-V core is designed using Verilog Hardware Description Language (HDL) based on the classic five-stage pipeline architecture. A comprehensive regression test is then conducted to ensure the processor core's compliance with the RISC-V ISA specifications. Thereafter, FreeRTOS is then integrated into the core, enabling effective management of time-sensitive microcontroller applications and multitasking, proving its relevance in the Internet of Things (IoT) domain. Top-level peripherals and a custom software library are also integrated to enhance the core's versatility and user-friendliness. A real-world application, the "Smart Garden Assistant with Real-time Monitoring and Security," is then developed to demonstrate the functioning RISC-V core with RTOS capability. Finally, a design evaluation is conducted and a comparative analysis is then performed to assess the design implementation against previous studies. This study aims to contribute to the growing body of research on RISC-V processors, emphasizing their value in the emerging era of open-source and customizable processor architectures.
 
