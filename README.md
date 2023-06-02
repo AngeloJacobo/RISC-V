@@ -1,5 +1,18 @@
-## About
-Design implementation of the RISC-V Base 32 Integer core in Verilog HDL. This is a 5-stage pipeline processor core and supports the Zicsr (Control Status Registers) extension. This is RISC-V compliant and passed `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests of RISC-V International.](https://github.com/riscv-software-src/riscv-tests) Formal verification via [SymbiYosys](https://github.com/YosysHQ/sby) is also utilized to  test the pipeline design. Includes support for [FreeRTOS](https://www.freertos.org/).  
+# Table of Contents  
+- [Project Overview](https://github.com/AngeloJacobo/RISC-V/tree/main#table-of-contents)
+- [Top Level Diagram (Classic 5-stage Pipeline)](https://github.com/AngeloJacobo/RISC-V/tree/main#top-level-diagram-classic-5-stage-pipeline)
+- [Top Level Diagram (Memory-mapped Peripherals)](https://github.com/AngeloJacobo/RISC-V/tree/main#top-level-diagram-memory-mapped-peripherals)
+- [Pipeline Features](https://github.com/AngeloJacobo/RISC-V/tree/main#pipeline-features)
+- [Supported Features of Zicsr Extension Module](https://github.com/AngeloJacobo/RISC-V/tree/main#supported-features-of-zicsr-extension-module)
+- [Regression Tests](https://github.com/AngeloJacobo/RISC-V/tree/main#regression-tests)
+- [Run Individual Tests](https://github.com/AngeloJacobo/RISC-V/tree/main#run-individual-tests)
+- [Install Design to FPGA (CMOD S7 FPGA Board)](https://github.com/AngeloJacobo/RISC-V/tree/main#install-design-to-fpga-cmod-s7-fpga-board)
+- [Sample Application [Smart Garden Assistant with Real-time Monitoring and Security]](https://github.com/AngeloJacobo/RISC-V/tree/main#sample-application-smart-garden-assistant-with-real-time-monitoring-and-security)
+- [Performance Metrics](https://github.com/AngeloJacobo/RISC-V/tree/main#performance-metrics)
+- [Paper Access](https://github.com/AngeloJacobo/RISC-V/tree/main#paper-access)
+
+## Project Overview
+This project involves the design and implementation of the RISC-V Base 32 Integer core using Verilog HDL. This work includes a 5-stage pipeline processor core, which supports the Zicsr (Control Status Registers) extension. The design is RISC-V compliant and has successfully passed the `rv32ui` (RV32 User-Mode Integer-Only) and `rv32mi` (RV32 Machine-Mode Integer-Only) [tests provided by RISC-V International](https://github.com/riscv-software-src/riscv-tests). Additionally, this includes support for [FreeRTOS](https://www.freertos.org/).
 
 The RISC-V ISA implemented here is based on [Volume 1, Unprivileged Spec v. 20191213](https://github.com/riscv/riscv-isa-manual/releases/tag/Ratified-IMAFDQC) and [Volume 2, Privileged Spec v. 20211203.](https://github.com/riscv/riscv-isa-manual/releases/tag/Priv-v1.12) 
 
@@ -74,6 +87,7 @@ The RISC-V toolchain `riscv64-unknown-elf-` and Modelsim executables `vsim` and 
  - `$ ./test.sh <testfile> -gui` = test and debug testfile and open wave in Icarus
  - `$ ./test.sh <testfile> -nosim` = compile and debug testfile without simulating it  
 Below is the expected output after running `$ ./test.sh`:   
+
 ![image](https://user-images.githubusercontent.com/87559347/229745971-c1e2265b-6344-4666-b93b-8685c5e06e2a.png) 
 
 ## Install Design to FPGA (CMOD S7 FPGA Board)
