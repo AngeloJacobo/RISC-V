@@ -1,5 +1,5 @@
 # Table of Contents  
-- [Project Overview](https://github.com/AngeloJacobo/RISC-V/tree/main#table-of-contents)
+- [Project Overview](https://github.com/AngeloJacobo/RISC-V/tree/main#project-overview)
 - [Top Level Diagram (Classic 5-stage Pipeline)](https://github.com/AngeloJacobo/RISC-V/tree/main#top-level-diagram-classic-5-stage-pipeline)
 - [Top Level Diagram (Memory-mapped Peripherals)](https://github.com/AngeloJacobo/RISC-V/tree/main#top-level-diagram-memory-mapped-peripherals)
 - [Pipeline Features](https://github.com/AngeloJacobo/RISC-V/tree/main#pipeline-features)
