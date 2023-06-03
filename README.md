@@ -99,7 +99,7 @@ The application code for this project can be found in `test/freertos/freertos.c`
 ![image](https://github.com/AngeloJacobo/RISC-V/assets/87559347/f3ccf912-d768-4635-a7ee-a862aa411870)
  Below is the video demonstration for the sample application:  
  
-[![optimized_1685749569](https://github.com/AngeloJacobo/RISC-V/assets/87559347/b374190a-c51d-465e-a8f4-98bc5a34159f)](https://youtu.be/azBM6czbunY)
+[![optimized_1685749569](https://github-production-user-asset-6210df.s3.amazonaws.com/87559347/243013492-b374190a-c51d-465e-a8f4-98bc5a34159f.png)](https://youtu.be/azBM6czbunY)
 
 
 ## Performance Metrics 
