@@ -125,15 +125,13 @@ module rv32i_memoryaccess(
                 o_wb_stb_data <= 0;
             end
 
-            //request completed after acki_wb_ack_data
-            if(i_wb_ack_data) begin 
-                pending_request <= 0;
-            end
+            if(!i_ce) begin
+                o_wb_stb_data <= 0;
+            end 
             
-            //flush this stage so cloco_data_loadk-enable of next stage is disabled at next clock cycle
+            //flush this stage so clock-enable of next stage is disabled at next clock cycle
             if(i_flush && !stall_bit) begin 
                 o_ce <= 0;
-                o_wb_we_data <= 0;
             end
             else if(!stall_bit) begin //clock-enable will change only when not stalled
                 o_ce <= i_ce;
@@ -186,78 +184,15 @@ module rv32i_memoryaccess(
                    end
         endcase
     end
+    
+`ifdef FORMAL
+    always @* begin
+        if(o_wb_stb_data) begin
+            assert(pending_request);
+        end
+    end
 
+`endif 
 
 endmodule
 
-`ifdef FORMAL
-    fwb_master #(
-		// {{{
-		parameter		AW=32, DW=32,
-		parameter		F_MAX_STALL = 0,
-					F_MAX_ACK_DELAY = 0,
-		parameter		F_LGDEPTH = 4,
-		parameter [(F_LGDEPTH-1):0] F_MAX_REQUESTS = 0,
-		// OPT_BUS_ABORT: If true, the master can drop CYC at any time
-		// and must drop CYC following any bus error
-		parameter [0:0]		OPT_BUS_ABORT = 1'b1,
-		//
-		// If true, allow the bus to be kept open when there are no
-		// outstanding requests.  This is useful for any master that
-		// might execute a read modify write cycle, such as an atomic
-		// add.
-		parameter [0:0]		F_OPT_RMW_BUS_OPTION = 1,
-		//
-		//
-		// If true, allow the bus to issue multiple discontinuous
-		// requests.
-		// Unlike F_OPT_RMW_BUS_OPTION, these requests may be issued
-		// while other requests are outstanding
-		parameter	[0:0]	F_OPT_DISCONTINUOUS = 1,
-		//
-		//
-		// If true, insist that there be a minimum of a single clock
-		// delay between request and response.  This defaults to off
-		// since the wishbone specification specifically doesn't
-		// require this.  However, some interfaces do, so we allow it
-		// as an option here.
-		parameter	[0:0]	F_OPT_MINCLOCK_DELAY = 0,
-		//
-		//
-		//
-		localparam [(F_LGDEPTH-1):0] MAX_OUTSTANDING
-						= {(F_LGDEPTH){1'b1}},
-		localparam	MAX_DELAY = (F_MAX_STALL > F_MAX_ACK_DELAY)
-				? F_MAX_STALL : F_MAX_ACK_DELAY,
-		localparam	DLYBITS= (MAX_DELAY < 4) ? 2
-				: (MAX_DELAY >= 65536) ? 32
-				: $clog2(MAX_DELAY+1),
-		//
-		parameter [0:0]		F_OPT_SHORT_CIRCUIT_PROOF = 0,
-		//
-		// If this is the source of a request, then we can assume STB and CYC
-		// will initially start out high.  Master interfaces following the
-		// source on the way to the slave may not have this property
-		parameter [0:0]		F_OPT_SOURCE = 0
-		//
-		//
-		// }}}
-	) (
-		// {{{
-		input	wire			i_clk, i_reset,
-		// The Wishbone bus
-		input	wire			i_wb_cyc, i_wb_stb, i_wb_we,
-		input	wire	[(AW-1):0]	i_wb_addr,
-		input	wire	[(DW-1):0]	i_wb_data,
-		input	wire	[(DW/8-1):0]	i_wb_sel,
-		//
-		input	wire			i_wb_ack,
-		input	wire			i_wb_stall,
-		input	wire	[(DW-1):0]	i_wb_idata,
-		input	wire			i_wb_err,
-		// Some convenience output parameters
-		output	reg	[(F_LGDEPTH-1):0]	f_nreqs, f_nacks,
-		output	wire	[(F_LGDEPTH-1):0]	f_outstanding
-		// }}}
-	);
-`endif 

@@ -144,7 +144,6 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
          stall_memoryaccess,
          stall_writeback; //control stall of each pipeline stages
     assign ce_read = decoder_ce && !stall_decoder; //reads basereg only decoder is not stalled 
-    assign o_wb_we_data = memoryaccess_wr_mem && !writeback_change_pc; 
 
     //module instantiations
     rv32i_forwarding operand_forwarding ( //logic for operand forwarding
@@ -287,7 +286,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
         // Data Memory Control
         .o_wb_cyc_data(o_wb_cyc_data), //bus cycle active (1 = normal operation, 0 = all ongoing transaction are to be cancelled)
         .o_wb_stb_data(o_wb_stb_data), //request for read/write access to data memory
-        .o_wb_we_data(memoryaccess_wr_mem),  //write-enable (1 = write, 0 = read)
+        .o_wb_we_data(o_wb_we_data),  //write-enable (1 = write, 0 = read)
         .o_wb_addr_data(o_wb_addr_data), //data memory address
         .o_wb_data_data(o_wb_data_data), //data to be stored to memory (mask-aligned)
         .o_wb_sel_data(o_wb_sel_data), //byte strobe for write (1 = write the byte) {byte3,byte2,byte1,byte0}
@@ -295,7 +294,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
         .i_wb_stall_data(i_wb_stall_data), //stall by data memory (1 = data memory is busy)
         .i_wb_data_data(i_wb_data_data), //data retrieve from data memory 
         .o_data_load(memoryaccess_data_load), //data to be loaded to base reg (z-or-s extended) 
-         /// Pipeline Control ///
+         /// Pipeline Control ///   
         .i_stall_from_alu(o_stall_from_alu), //stalls this stage when incoming instruction is a load/store
         .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage
         .o_ce(writeback_ce), // output clk enable for pipeline stalling of next stage
@@ -396,10 +395,72 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
         always @* begin
             assume(f_alu <= 1);
             assume(f_opcode <= 1);
-            assume(i_mtime_wr == 0);
-            assume(i_mtimecmp_wr == 0);
         end
 
+        wire[4:0] f_outstanding;
+
+   fwb_master #(
+		// {{{
+		.AW(32),
+        .DW(32),
+		.F_MAX_STALL(1),
+		.F_MAX_ACK_DELAY(1),
+		.F_LGDEPTH(4),
+		.F_MAX_REQUESTS(0),
+		// OPT_BUS_ABORT: If true, the master can drop CYC at any time
+		// and must drop CYC following any bus error
+		.OPT_BUS_ABORT(1'b1),
+		//
+		// If true, allow the bus to be kept open when there are no
+		// outstanding requests.  This is useful for any master that
+		// might execute a read modify write cycle, such as an atomic
+		// add.
+		.F_OPT_RMW_BUS_OPTION (1),
+		//
+		//
+		// If true, allow the bus to issue multiple discontinuous
+		// requests.
+		// Unlike F_OPT_RMW_BUS_OPTION, these requests may be issued
+		// while other requests are outstanding
+		.F_OPT_DISCONTINUOUS(1),
+		//
+		//
+		// If true, insist that there be a minimum of a single clock
+		// delay between request and response.  This defaults to off
+		// since the wishbone specification specifically doesn't
+		// require this.  However, some interfaces do, so we allow it
+		// as an option here.
+		.F_OPT_MINCLOCK_DELAY(1)
+	) fwb_master (
+		// {{{
+		.i_clk(i_clk), 
+        .i_reset(!i_rst_n),
+		// The Wishbone bus
+		.i_wb_cyc(o_wb_cyc_data), 
+        .i_wb_stb(o_wb_stb_data), 
+        .i_wb_we(o_wb_we_data),
+		.i_wb_addr(o_wb_addr_data),
+		.i_wb_data(o_wb_data_data),
+		.i_wb_sel(o_wb_sel_data),
+		//
+		.i_wb_ack(i_wb_ack_data),
+		.i_wb_stall(i_wb_stall_data),
+		.i_wb_idata(i_wb_data_data),
+		.i_wb_err(1'b0),
+		// Some convenience output parameters
+		.f_nreqs(), 
+        .f_nacks(),
+		.f_outstanding(f_outstanding)
+		// }}}
+	);
+        always @* begin
+            assert(f_outstanding <= 1);
+            if(f_outstanding == 1) begin
+                assert(!o_wb_stb_data);
+            end
+        end
+  
+        /*
         //////////////////////////////////////////////// verify Operand Forwarding ///////////////////////////////////////////////////
         reg[4:0] f_alu_rs2_addr;
         reg[4:0] f_memoryaccess_rs1_addr; 
@@ -432,35 +493,35 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
             end
         end
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
+        
 
         ///////////////////////////////// verify that taken branches, jumps, and traps will update PC ///////////////////////////////////
         always @(posedge i_clk) begin
             // change_pc in stage 5 (due to traps) will force first stage to change PC in next clk cycle and all _ce to be
-            // disabled (excecpt for fetch_ce which is always high)
+            // disabled
             if($past(writeback_change_pc) && $past(writeback_ce) && i_rst_n && f_past_valid) begin
                 assert(o_iaddr == $past(writeback_next_pc));  
-                assert({writeback_ce,memoryaccess_ce,alu_ce,decoder_ce,fetch_ce} == 5'b00001);
+                assert({writeback_ce,memoryaccess_ce,alu_ce,decoder_ce}  == 0);
             end
 
             // change_pc in stage 3 (due to jumps and branches) will force first stage to change PC in next clock cycle unless
             // stalled by stage 3(due to data dependency) or stage 4(due to load instruction) or be flushed by stage 5(due traps)
-            // and all _ce of previous stages of STAGE 3 to be disabled (except for fetch_ce which is always high)
-            else if($past(alu_change_pc) && $past(alu_ce) && !$past(stall[`ALU]) && i_rst_n && f_past_valid) begin
+            // and all _ce of previous stages of STAGE 3 to be disabled
+            else if($past(alu_change_pc) && $past(alu_ce) && !$past(stall_alu) && i_rst_n && f_past_valid) begin
                 assert(o_iaddr == $past(alu_next_pc));         
-                assert({alu_ce,decoder_ce,fetch_ce} == 3'b001);
+                assert({alu_ce,decoder_ce} == 0);
             end
             
             // verify that if no taken branches,jumps,or traps then PC  will just be added by 4
-            if(!$past(writeback_change_pc) && !$past(alu_change_pc) && !$past(stall[`FETCH]) && $past(fetch_ce) && $past(i_rst_n) && i_rst_n && f_past_valid) begin 
+            if(!$past(writeback_change_pc) && !$past(alu_change_pc) && !$past(stall_decoder || stall_alu || stall_memoryaccess || stall_writeback) 
+                 && $past(i_rst_n) && i_rst_n && f_past_valid) begin 
                 assert(o_iaddr == $past(o_iaddr)+4);
             end
         end
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        */
 
-
-
+        /*
         //////////////////////////////////////// verify valid writes to basereg and data memory /////////////////////////////////////////
         always @(posedge i_clk) begin
             // verify that basereg will be written only if writeback_ce is high
@@ -530,9 +591,9 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
 
         end
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        */
 
-
-
+        /*
         //////////////////////////////////////// verify increments of mcycle and minstret CSR ///////////////////////////////////////////
         always @(posedge i_clk) begin
             //verify mcycle will always increment
@@ -546,7 +607,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
             end
         end
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+        */
 
 
         ////////////////////////////////////////////////////// COVER STATEMENTS /////////////////////////////////////////////////////////

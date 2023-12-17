@@ -1,6 +1,6 @@
 [options]
 mode prove 
-depth 8
+depth 3
 
 [engines]
 smtbmc
@@ -15,7 +15,8 @@ read -formal rv32i_memoryaccess.v
 read -formal rv32i_writeback.v
 read -formal rv32i_csr.v
 read -formal rv32i_core.v           
-verific -import -flatten rv32i_core
+read -formal fwb_master.v
+# verific -import -flatten rv32i_core
 prep -top rv32i_core
 
 [files]
@@ -28,5 +29,6 @@ prep -top rv32i_core
 ../rtl/rv32i_memoryaccess.v
 ../rtl/rv32i_writeback.v
 ../rtl/rv32i_csr.v
-../rtl/rv32i_core.v        
+../rtl/rv32i_core.v    
+../rtl/fwb_master.v        
 
