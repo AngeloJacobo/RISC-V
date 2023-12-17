@@ -92,6 +92,16 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     wire device4_wb_stall;
     wire[31:0] i_device4_wb_data;
 
+    wire device5_wb_cyc;
+    wire device5_wb_stb;
+    wire device5_wb_we;
+    wire[31:0] device5_wb_addr;
+    wire[31:0] o_device5_wb_data;
+    wire[3:0] device5_wb_sel;
+    wire device5_wb_ack;
+    wire device5_wb_stall;
+    wire[31:0] i_device5_wb_data;
+
     rv32i_core #(.PC_RESET(PC_RESET), .TRAP_ADDRESS(TRAP_ADDRESS), .ZICSR_EXTENSION(ZICSR_EXTENSION)) m0( //main RV32I core
         .i_clk(i_clk),
         .i_rst_n(!i_rst),
@@ -181,7 +191,18 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
         .o_device4_wb_sel(device4_wb_sel),
         .i_device4_wb_ack(device4_wb_ack),
         .i_device4_wb_stall(device4_wb_stall),
-        .i_device4_wb_data(i_device4_wb_data)
+        .i_device4_wb_data(i_device4_wb_data),
+
+        //Device 5 Interface (DDR3)
+        .o_device5_wb_cyc(device5_wb_cyc),
+        .o_device5_wb_stb(device5_wb_stb),
+        .o_device5_wb_we(device5_wb_we),
+        .o_device5_wb_addr(device5_wb_addr),
+        .o_device5_wb_data(o_device5_wb_data),
+        .o_device5_wb_sel(device5_wb_sel),
+        .i_device5_wb_ack(device5_wb_ack),
+        .i_device5_wb_stall(device5_wb_stall),
+        .i_device5_wb_data(i_device5_wb_data)
     );   
 
     // DEVICE 0
@@ -315,6 +336,103 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
         .gpio(gpio_pins) //gpio pins
     );
 
+`ifdef DDR3
+    wire clk_locked;
+    wire i_controller_clk, i_ddr3_clk, i_ref_clk, i_ddr3_clk_90;
+
+    clk_wiz_0 clk_wiz_inst
+    (
+    // Clock out ports
+    .clk_out1(i_controller_clk), //83.33333 Mhz
+    .clk_out2(i_ddr3_clk), // 333.33333 MHz
+    .clk_out3(i_ref_clk), //200MHz
+    .clk_out4(i_ddr3_clk_90), // 333.33333 MHz vs 90 degrees shift
+    // Status and control signals
+    .reset(i_rst),
+    .locked(clk_locked),
+    // Clock in ports
+    .clk_in1(i_clk) 
+    );
+
+    //DEVICE 5 (DDR3 Controller)
+    ddr3_top #(
+        .CONTROLLER_CLK_PERIOD(12_000), //ps, clock period of the controller interface
+        .DDR3_CLK_PERIOD(3_000), //ps, clock period of the DDR3 RAM device (must be 1/4 of the CONTROLLER_CLK_PERIOD) 
+        .ROW_BITS(14), //width of row address
+        .COL_BITS(10), //width of column address
+        .BA_BITS(3), //width of bank address
+        .DQ_BITS(8),  //device width
+        .LANES(2), //number of DDR3 device to be controlled
+        .AUX_WIDTH(4), //width of aux line (must be >= 4) 
+        .WB2_ADDR_BITS(32), //width of 2nd wishbone address bus 
+        .WB2_DATA_BITS(32), //width of 2nd wishbone data bus
+        .OPT_LOWPOWER(1), //1 = low power, 0 = low logic
+        .OPT_BUS_ABORT(1),  //1 = can abort bus, 0 = no absort (i_wb_cyc will be ignored, ideal for an AXI implementation which cannot abort transaction)
+        .MICRON_SIM(0), //enable faster simulation for micron ddr3 model (shorten POWER_ON_RESET_HIGH and INITIAL_CKE_LOW)
+        .ODELAY_SUPPORTED(0), //set to 1 when ODELAYE2 is supported
+        .SECOND_WISHBONE(0) //set to 1 if 2nd wishbone is needed 
+        ) ddr3_top
+        (
+            //clock and reset
+            .i_controller_clk(i_controller_clk),
+            .i_ddr3_clk(i_ddr3_clk), //i_controller_clk has period of CONTROLLER_CLK_PERIOD, i_ddr3_clk has period of DDR3_CLK_PERIOD 
+            .i_ref_clk(i_ref_clk),
+            .i_ddr3_clk_90(i_ddr3_clk_90),
+            .i_rst_n(!i_rst && clk_locked), 
+            //
+            // Wishbone inputs
+            .i_wb_cyc(device5_wb_cyc), //bus cycle active (1 = normal operation, 0 = all ongoing transaction are to be cancelled)
+            .i_wb_stb(device5_wb_stb), //request a transfer
+            .i_wb_we(device5_wb_we), //write-enable (1 = write, 0 = read)
+            .i_wb_addr(device5_wb_addr), //burst-addressable {row,bank,col} 
+            .i_wb_data(o_device5_wb_data), //write data, for a 4:1 controller data width is 8 times the number of pins on the device
+            .i_wb_sel(device5_wb_sel), //byte strobe for write (1 = write the byte)
+            .i_aux(0), //for AXI-interface compatibility (given upon strobe)
+            // Wishbone outputs
+            .o_wb_stall(device5_wb_stall), //1 = busy, cannot accept requests
+            .o_wb_ack(device5_wb_ack), //1 = read/write request has completed
+            .o_wb_data(i_device5_wb_data), //read data, for a 4:1 controller data width is 8 times the number of pins on the device
+            .o_aux(),
+            //
+            // Wishbone 2 (PHY) inputs
+            .i_wb2_cyc(), //bus cycle active (1 = normal operation, 0 = all ongoing transaction are to be cancelled)
+            .i_wb2_stb(), //request a transfer
+            .i_wb2_we(), //write-enable (1 = write, 0 = read)
+            .i_wb2_addr(), //burst-addressable {row,bank,col} 
+            .i_wb2_data(), //write data, for a 4:1 controller data width is 8 times the number of pins on the device
+            .i_wb2_sel(), //byte strobe for write (1 = write the byte)
+            // Wishbone 2 (Controller) outputs
+            .o_wb2_stall(), //1 = busy, cannot accept requests
+            .o_wb2_ack(), //1 = read/write request has completed
+            .o_wb2_data(), //read data, for a 4:1 controller data width is 8 times the number of pins on the device
+            //
+            // DDR3 I/O Interface
+            .o_ddr3_clk_p(ddr3_clk_p),
+            .o_ddr3_clk_n(ddr3_clk_n),
+            .o_ddr3_reset_n(ddr3_reset_n),
+            .o_ddr3_cke(ddr3_cke), // CKE
+            .o_ddr3_cs_n(ddr3_cs_n), // chip select signal (controls rank 1 only)
+            .o_ddr3_ras_n(ddr3_ras_n), // RAS#
+            .o_ddr3_cas_n(ddr3_cas_n), // CAS#
+            .o_ddr3_we_n(ddr3_we_n), // WE#
+            .o_ddr3_addr(ddr3_addr),
+            .o_ddr3_ba_addr(ddr3_ba),
+            .io_ddr3_dq(ddr3_dq),
+            .io_ddr3_dqs(ddr3_dqs_p),
+            .io_ddr3_dqs_n(ddr3_dqs_n),
+            .o_ddr3_dm(ddr3_dm),
+            .o_ddr3_odt(ddr3_odt), // on-die termination
+            // Debug outputs
+            .o_debug1(),
+            .o_debug2(),
+            .o_debug3(),
+            .o_ddr3_debug_read_dqs_p(),
+            .o_ddr3_debug_read_dqs_n()
+            ////////////////////////////////////
+        );
+        
+`endif
+
 endmodule
 
 
@@ -383,7 +501,18 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
     output reg[3:0] o_device4_wb_sel,
     input wire i_device4_wb_ack,
     input wire i_device4_wb_stall,
-    input wire[31:0] i_device4_wb_data
+    input wire[31:0] i_device4_wb_data,
+
+    //Device 5 Interface (DDR3)
+    output reg o_device5_wb_cyc,
+    output reg o_device5_wb_stb,
+    output reg o_device5_wb_we,
+    output reg[31:0] o_device5_wb_addr,
+    output reg[31:0] o_device5_wb_data,
+    output reg[3:0] o_device5_wb_sel,
+    input wire i_device5_wb_ack,
+    input wire i_device5_wb_stall,
+    input wire[31:0] i_device5_wb_data
 );
 
 
@@ -426,6 +555,13 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
         o_device4_wb_addr = 0;
         o_device4_wb_data = 0;
         o_device4_wb_sel = 0;
+
+        o_device5_wb_cyc = 0;
+        o_device5_wb_stb = 0;
+        o_device5_wb_we = 0;
+        o_device5_wb_addr = 0;
+        o_device5_wb_data = 0;
+        o_device5_wb_sel = 0;
 
         // Memory-mapped peripherals address has MSB set to 1
         if(i_wb_addr[31]) begin
@@ -476,6 +612,18 @@ module memory_wrapper ( //decodes address and access the corresponding memory-ma
                 o_wb_stall = i_device4_wb_stall;
                 o_wb_data = i_device4_wb_data;
             end
+
+            if(i_wb_addr[30]) begin //Device 5 Interface (DDR3) (last two bits of address are high)
+                o_device5_wb_cyc = i_wb_cyc;
+                o_device5_wb_stb = i_wb_stb;
+                o_device5_wb_we = i_wb_we;
+                o_device5_wb_addr = i_wb_addr; 
+                o_device5_wb_data = i_wb_data;
+                o_device5_wb_sel = i_wb_sel; 
+                o_wb_ack = i_device5_wb_ack;
+                o_wb_stall = i_device5_wb_stall;
+                o_wb_data = i_device5_wb_data;
+            end
         end
         
         // Else access RAM
@@ -516,7 +664,6 @@ module main_memory #(parameter MEMORY_DEPTH=1024) ( //Instruction and Data memor
     assign o_wb_stall = 0; // never stall
 
     initial begin //initialize memory to zero
-        $readmemh("memory.mem",memory_regfile); //initialize memory
         o_ack_inst <= 0;
         o_wb_ack <= 0;
         o_inst_out <= 0;
