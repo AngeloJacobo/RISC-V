@@ -53,13 +53,15 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
     output wire o_stb_inst, //request for read access to instruction memory
     input wire i_ack_inst, //ack (high if new instruction is ready)
     //Data Memory Interface (32 bit ram)
-    input wire[31:0] i_din, //data retrieve from memory
-    output wire[31:0] o_dout, //data to be stored to memory
-    output wire[31:0] o_daddr, //address of data memory for store/load
-    output wire[3:0] o_wr_mask, //write mask control
-    output wire o_wr_en, //write enable 
-    output wire o_stb_data, //request for read/write access to data memory
-    input wire i_ack_data, //ack by data memory (high when read data is ready or when write data is already written)
+    output wire o_wb_cyc_data, //bus cycle active (1 = normal operation, 0 = all ongoing transaction are to be cancelled)
+    output wire o_wb_stb_data, //request for read/write access to data memory
+    output wire o_wb_we_data, //write-enable (1 = write, 0 = read)
+    output wire[31:0] o_wb_addr_data, //address of data memory for store/load
+    output wire[31:0] o_wb_data_data, //data to be stored to memory
+    output wire[3:0] o_wb_sel_data, //byte strobe for write (1 = write the byte) {byte3,byte2,byte1,byte0}
+    input wire i_wb_ack_data, //ack by data memory (high when read data is ready or when write data is already written)
+    input wire i_wb_stall_data, //stall by data memory 
+    input wire[31:0] i_wb_data_data, //data retrieve from memory
     //Interrupts
     input wire i_external_interrupt, //interrupt from external source
     input wire i_software_interrupt, //interrupt from software (inter-processor interrupt)
@@ -142,7 +144,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
          stall_memoryaccess,
          stall_writeback; //control stall of each pipeline stages
     assign ce_read = decoder_ce && !stall_decoder; //reads basereg only decoder is not stalled 
-    assign o_wr_en = memoryaccess_wr_mem && !writeback_change_pc; 
+    assign o_wb_we_data = memoryaccess_wr_mem && !writeback_change_pc; 
 
     //module instantiations
     rv32i_forwarding operand_forwarding ( //logic for operand forwarding
@@ -268,9 +270,7 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
         .i_clk(i_clk),
         .i_rst_n(i_rst_n),
         .i_rs2(alu_rs2), //data to be stored to memory is always rs2
-        .i_din(i_din), //data retrieve from memory 
         .i_y(alu_y), //y value from ALU (address of data to memory be stored or loaded)
-        .o_y(o_daddr), //y value used as data memory address
         .i_funct3(alu_funct3), //funct3 from previous stage
         .o_funct3(memoryaccess_funct3), //funct3 (byte,halfword,word)
         .i_opcode(alu_opcode), //opcode type from previous stage
@@ -285,12 +285,16 @@ module rv32i_core #(parameter PC_RESET = 32'h00_00_00_00, TRAP_ADDRESS = 0, ZICS
         .i_rd(alu_rd), //value to be written back to destination reg
         .o_rd(memoryaccess_rd), //value to be written back to destination register
         // Data Memory Control
-        .o_stb_data(o_stb_data), //request for read/write access to data memory
-        .i_ack_data(i_ack_data), //ack by data memory (high when read data is ready or when write data is already written
-        .o_data_store(o_dout), //data to be stored to memory (mask-aligned)
+        .o_wb_cyc_data(o_wb_cyc_data), //bus cycle active (1 = normal operation, 0 = all ongoing transaction are to be cancelled)
+        .o_wb_stb_data(o_wb_stb_data), //request for read/write access to data memory
+        .o_wb_we_data(memoryaccess_wr_mem),  //write-enable (1 = write, 0 = read)
+        .o_wb_addr_data(o_wb_addr_data), //data memory address
+        .o_wb_data_data(o_wb_data_data), //data to be stored to memory (mask-aligned)
+        .o_wb_sel_data(o_wb_sel_data), //byte strobe for write (1 = write the byte) {byte3,byte2,byte1,byte0}
+        .i_wb_ack_data(i_wb_ack_data), //ack by data memory (high when read data is ready or when write data is already written
+        .i_wb_stall_data(i_wb_stall_data), //stall by data memory (1 = data memory is busy)
+        .i_wb_data_data(i_wb_data_data), //data retrieve from data memory 
         .o_data_load(memoryaccess_data_load), //data to be loaded to base reg (z-or-s extended) 
-        .o_wr_mask(o_wr_mask), //write mask {byte3,byte2,byte1,byte0}
-        .o_wr_mem(memoryaccess_wr_mem), //write to data memory if enabled
          /// Pipeline Control ///
         .i_stall_from_alu(o_stall_from_alu), //stalls this stage when incoming instruction is a load/store
         .i_ce(memoryaccess_ce), // input clk enable for pipeline stalling of this stage

@@ -26,13 +26,15 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     wire o_ack_inst;
     
     //Data Memory Interface
-    wire[31:0] din; //data r
-    wire[31:0] dout; //data to be stored to memory
-    wire[31:0] daddr; //address of data memory for store/load
-    wire[3:0] wr_mask; //write mask control
-    wire wr_en; //write enable 
-    wire i_stb_data;
-    wire o_ack_data;
+    wire[31:0] i_wb_data_data; //data retrieved from memory
+    wire[31:0] o_wb_data_data; //data to be stored to memory
+    wire[31:0] wb_addr_data; //address of data memory for store/load
+    wire[3:0] wb_sel_data; //byte strobe for write (1 = write the byte) {byte3,byte2,byte1,byte0}
+    wire wb_we_data; //write-enable (1 = write, 0 = read) 
+    wire wb_stb_data; //request for read/write access to data memory
+    wire wb_ack_data; //ack by data memory (high when data to be read is ready or when write data is already written
+    wire wb_cyc_data; //bus cycle active (1 = normal operation, 0 = all ongoing transaction are to be cancelled)
+    wire wb_stall_data; //stall by data memory
     
     //Interrupts
     wire i_external_interrupt = 0; //interrupt from external source
@@ -40,41 +42,55 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     wire o_software_interrupt; //interrupt from CLINT
     
     //Memory Wrapper
-    wire[31:0] o_device0_data_addr;
-    wire[31:0] o_device0_wdata;
-    wire[31:0] i_device0_rdata;
-    wire o_device0_wr_en;
-    wire[3:0]  o_device0_wr_mask;
-    wire o_device0_stb_data;
-    wire i_device0_ack_data;
-    wire[31:0] o_device1_data_addr;
-    wire[31:0] o_device1_wdata;
-    wire[31:0] i_device1_rdata;
-    wire o_device1_wr_en;
-    wire[3:0] o_device1_wr_mask;
-    wire o_device1_stb_data;
-    wire i_device1_ack_data;
-    wire[31:0] o_device2_data_addr;
-    wire[31:0] o_device2_wdata;
-    wire[31:0] i_device2_rdata;
-    wire o_device2_wr_en;
-    wire[3:0] o_device2_wr_mask;
-    wire o_device2_stb_data;
-    wire i_device2_ack_data;
-    wire[31:0] o_device3_data_addr;
-    wire[31:0] o_device3_wdata;
-    wire[31:0] i_device3_rdata;
-    wire o_device3_wr_en;
-    wire[3:0] o_device3_wr_mask;
-    wire o_device3_stb_data;
-    wire i_device3_ack_data;
-    wire[31:0] o_device4_data_addr;
-    wire[31:0] o_device4_wdata;
-    wire[31:0] i_device4_rdata;
-    wire o_device4_wr_en;
-    wire[3:0] o_device4_wr_mask;
-    wire o_device4_stb_data;
-    wire i_device4_ack_data;
+    wire device0_wb_cyc;
+    wire device0_wb_stb;
+    wire device0_wb_we;
+    wire[31:0] device0_wb_addr;
+    wire[31:0] o_device0_wb_data;
+    wire[3:0] device0_wb_sel;
+    wire device0_wb_ack;
+    wire device0_wb_stall;
+    wire[31:0] i_device0_wb_data;
+
+    wire device1_wb_cyc;
+    wire device1_wb_stb;
+    wire device1_wb_we;
+    wire[31:0] device1_wb_addr;
+    wire[31:0] o_device1_wb_data;
+    wire[3:0] device1_wb_sel;
+    wire device1_wb_ack;
+    wire device1_wb_stall;
+    wire[31:0] i_device1_wb_data;
+
+    wire device2_wb_cyc;
+    wire device2_wb_stb;
+    wire device2_wb_we;
+    wire[31:0] device2_wb_addr;
+    wire[31:0] o_device2_wb_data;
+    wire[3:0] device2_wb_sel;
+    wire device2_wb_ack;
+    wire device2_wb_stall;
+    wire[31:0] i_device2_wb_data;
+
+    wire device3_wb_cyc;
+    wire device3_wb_stb;
+    wire device3_wb_we;
+    wire[31:0] device3_wb_addr;
+    wire[31:0] o_device3_wb_data;
+    wire[3:0] device3_wb_sel;
+    wire device3_wb_ack;
+    wire device3_wb_stall;
+    wire[31:0] i_device3_wb_data;
+
+    wire device4_wb_cyc;
+    wire device4_wb_stb;
+    wire device4_wb_we;
+    wire[31:0] device4_wb_addr;
+    wire[31:0] o_device4_wb_data;
+    wire[3:0] device4_wb_sel;
+    wire device4_wb_ack;
+    wire device4_wb_stall;
+    wire[31:0] i_device4_wb_data;
 
     rv32i_core #(.PC_RESET(PC_RESET), .TRAP_ADDRESS(TRAP_ADDRESS), .ZICSR_EXTENSION(ZICSR_EXTENSION)) m0( //main RV32I core
         .i_clk(i_clk),
@@ -85,13 +101,15 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
         .o_stb_inst(i_stb_inst), //request for read access to instruction memory
         .i_ack_inst(o_ack_inst),  //ack (high if new instruction is ready)
         //Data Memory Interface
-        .i_din(din), //data retrieved from memory
-        .o_dout(dout), //data to be stored to memory
-        .o_daddr(daddr), //address of data memory for store/load
-        .o_wr_mask(wr_mask), //write mask control
-        .o_wr_en(wr_en), //write enable 
-        .o_stb_data(i_stb_data), //request for read/write access to data memory
-        .i_ack_data(o_ack_data), //ack by data memory (high when read data is ready or when write data is already written)
+        .o_wb_cyc_data(wb_cyc_data), //bus cycle active (1 = normal operation, 0 = all ongoing transaction are to be cancelled)
+        .o_wb_stb_data(wb_stb_data), //request for read/write access to data memory
+        .o_wb_we_data(wb_we_data), //write-enable (1 = write, 0 = read)
+        .o_wb_addr_data(wb_addr_data), //address of data memory for store/load
+        .o_wb_data_data(o_wb_data_data), //data to be stored to memory
+        .o_wb_sel_data(wb_sel_data), //byte strobe for write (1 = write the byte) {byte3,byte2,byte1,byte0}
+        .i_wb_ack_data(wb_ack_data), //ack by data memory (high when read data is ready or when write data is already written)
+        .i_wb_stall_data(wb_stall_data), //stall by data memory
+        .i_wb_data_data(i_wb_data_data), //data retrieved from memory
         //Interrupts
         .i_external_interrupt(i_external_interrupt), //interrupt from external source
         .i_software_interrupt(o_software_interrupt), //interrupt from software (inter-processor interrupt)
@@ -100,58 +118,70 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
         
     memory_wrapper wrapper( //decodes address and access the corresponding memory-mapped device
         //RISC-V Core
-        .i_data_addr(daddr),
-        .i_wdata(dout),
-        .o_rdata(din),
-        .i_wr_en(wr_en),
-        .i_wr_mask(wr_mask),
-        .i_stb_data(i_stb_data),
-        .o_ack_data(o_ack_data),
+        .i_wb_cyc(wb_cyc_data),
+        .i_wb_stb(wb_stb_data),
+        .i_wb_we(wb_we_data),
+        .i_wb_addr(wb_addr_data),
+        .i_wb_data(o_wb_data_data),
+        .i_wb_sel(wb_sel_data),
+        .o_wb_ack(wb_ack_data),
+        .o_wb_stall(wb_stall_data),
+        .o_wb_data(i_wb_data_data),
 
         //Device 0 Interface (RAM)
-        .o_device0_data_addr(o_device0_data_addr),
-        .o_device0_wdata(o_device0_wdata),
-        .i_device0_rdata(i_device0_rdata),
-        .o_device0_wr_en(o_device0_wr_en),
-        .o_device0_wr_mask(o_device0_wr_mask),
-        .o_device0_stb_data(o_device0_stb_data),
-        .i_device0_ack_data(i_device0_ack_data),
+        .o_device0_wb_cyc(device0_wb_cyc),
+        .o_device0_wb_stb(device0_wb_stb),
+        .o_device0_wb_we(device0_wb_we),
+        .o_device0_wb_addr(device0_wb_addr),
+        .o_device0_wb_data(o_device0_wb_data),
+        .o_device0_wb_sel(device0_wb_sel),
+        .i_device0_wb_ack(device0_wb_ack),
+        .i_device0_wb_stall(device0_wb_stall),
+        .i_device0_wb_data(i_device0_wb_data),
 
         //Device 1 Interface (CLINT)
-        .o_device1_data_addr(o_device1_data_addr),
-        .o_device1_wdata(o_device1_wdata),
-        .i_device1_rdata(i_device1_rdata),
-        .o_device1_wr_en(o_device1_wr_en),
-        .o_device1_wr_mask(o_device1_wr_mask),
-        .o_device1_stb_data(o_device1_stb_data),
-        .i_device1_ack_data(i_device1_ack_data),
+        .o_device1_wb_cyc(device1_wb_cyc),
+        .o_device1_wb_stb(device1_wb_stb),
+        .o_device1_wb_we(device1_wb_we),
+        .o_device1_wb_addr(device1_wb_addr),
+        .o_device1_wb_data(o_device1_wb_data),
+        .o_device1_wb_sel(device1_wb_sel),
+        .i_device1_wb_ack(device1_wb_ack),
+        .i_device1_wb_stall(device1_wb_stall),
+        .i_device1_wb_data(i_device1_wb_data),
         
         //Device 2 Interface (UART)
-        .o_device2_data_addr(o_device2_data_addr),
-        .o_device2_wdata(o_device2_wdata),
-        .i_device2_rdata(i_device2_rdata),
-        .o_device2_wr_en(o_device2_wr_en),
-        .o_device2_wr_mask(o_device2_wr_mask),
-        .o_device2_stb_data(o_device2_stb_data),
-        .i_device2_ack_data(i_device2_ack_data),
+        .o_device2_wb_cyc(device2_wb_cyc),
+        .o_device2_wb_stb(device2_wb_stb),
+        .o_device2_wb_we(device2_wb_we),
+        .o_device2_wb_addr(device2_wb_addr),
+        .o_device2_wb_data(o_device2_wb_data),
+        .o_device2_wb_sel(device2_wb_sel),
+        .i_device2_wb_ack(device2_wb_ack),
+        .i_device2_wb_stall(device2_wb_stall),
+        .i_device2_wb_data(i_device2_wb_data),
         
         //Device 3 Interface (I2C)
-        .o_device3_data_addr(o_device3_data_addr),
-        .o_device3_wdata(o_device3_wdata),
-        .i_device3_rdata(i_device3_rdata),
-        .o_device3_wr_en(o_device3_wr_en),
-        .o_device3_wr_mask(o_device3_wr_mask),
-        .o_device3_stb_data(o_device3_stb_data),
-        .i_device3_ack_data(i_device3_ack_data),
+        .o_device3_wb_cyc(device3_wb_cyc),
+        .o_device3_wb_stb(device3_wb_stb),
+        .o_device3_wb_we(device3_wb_we),
+        .o_device3_wb_addr(device3_wb_addr),
+        .o_device3_wb_data(o_device3_wb_data),
+        .o_device3_wb_sel(device3_wb_sel),
+        .i_device3_wb_ack(device3_wb_ack),
+        .i_device3_wb_stall(device3_wb_stall),
+        .i_device3_wb_data(i_device3_wb_data),
         
         //Device 4 Interface (GPIO)
-        .o_device4_data_addr(o_device4_data_addr),
-        .o_device4_wdata(o_device4_wdata),
-        .i_device4_rdata(i_device4_rdata),
-        .o_device4_wr_en(o_device4_wr_en),
-        .o_device4_wr_mask(o_device4_wr_mask),
-        .o_device4_stb_data(o_device4_stb_data),
-        .i_device4_ack_data(i_device4_ack_data)
+        .o_device4_wb_cyc(device4_wb_cyc),
+        .o_device4_wb_stb(device4_wb_stb),
+        .o_device4_wb_we(device4_wb_we),
+        .o_device4_wb_addr(device4_wb_addr),
+        .o_device4_wb_data(o_device4_wb_data),
+        .o_device4_wb_sel(device4_wb_sel),
+        .i_device4_wb_ack(device4_wb_ack),
+        .i_device4_wb_stall(device4_wb_stall),
+        .i_device4_wb_data(i_device4_wb_data)
     );   
 
     // DEVICE 0
@@ -163,13 +193,15 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
         .i_stb_inst(i_stb_inst), 
         .o_ack_inst(o_ack_inst), 
         // Data Memory
-        .i_data_addr(o_device0_data_addr[$clog2(MEMORY_DEPTH)-1:0]),
-        .i_data_in(o_device0_wdata),
-        .i_wr_mask(o_device0_wr_mask),
-        .i_wr_en(o_device0_wr_en),
-        .i_stb_data(o_device0_stb_data),
-        .o_ack_data(i_device0_ack_data),
-        .o_data_out(i_device0_rdata)
+        .i_wb_cyc(device0_wb_cyc),
+        .i_wb_stb(device0_wb_stb),
+        .i_wb_we(device0_wb_we),
+        .i_wb_addr(device0_wb_addr[$clog2(MEMORY_DEPTH)-1:0]),
+        .i_wb_data(o_device0_wb_data),
+        .i_wb_sel(device0_wb_sel),
+        .o_wb_ack(device0_wb_ack),
+        .o_wb_stall(device0_wb_stall),
+        .o_wb_data(i_device0_wb_data)
     );
 
     // DEVICE 1
@@ -181,22 +213,26 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     ) clint  (
         .clk(i_clk),
         .rst_n(!i_rst),
-        .clint_address(o_device1_data_addr), //read/write address (access the memory-mapped registers for controlling i2c)
-        .clint_wdata(o_device1_wdata), //data to be written to slave or to memory-mapped registers of i2c
-        .clint_rdata(i_device1_rdata), //data retrieved from slave or from the memory-mapped registers of i2c
-        .clint_wr_en(o_device1_wr_en), //write-enable
-        .i_stb(o_device1_stb_data), //request to access CLINT
-        .o_ack(i_device1_ack_data), //acknowledge by CLINT
+        .i_wb_cyc(device1_wb_cyc),
+        .i_wb_stb(device1_wb_stb),
+        .i_wb_we(device1_wb_we),
+        .i_wb_addr(device1_wb_addr),
+        .i_wb_data(o_device1_wb_data),
+        .i_wb_sel(device1_wb_sel),
+        .o_wb_ack(device1_wb_ack),
+        .o_wb_stall(device1_wb_stall),
+        .o_wb_data(i_device1_wb_data),
         // Interrupts
         .o_timer_interrupt(o_timer_interrupt),
         .o_software_interrupt(o_software_interrupt)
     );
-    
+
     // DEVICE 2
     uart #( .CLOCK_FREQ(CLK_FREQ_MHZ*1_000_000), //UART (TX only) [memory-mapped to >=h50,<hA0 (MSB=1)]
             .BAUD_RATE( //UART Baud rate
               `ifdef ICARUS
-               2_000_000 //faster simulation
+               2_000_000 //faster simulation            delay_count <= 5;
+
                `else 
                9600 //9600 Baud
                `endif),
@@ -208,18 +244,22 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
             .SBIT(1) //UART Stop Bits
      ) uart
      (
-      .clk(i_clk),
-      .rst_n(!i_rst),
-      .uart_rw_address(o_device2_data_addr), //read/write address (access the memory-mapped registers for controlling UART)
-      .uart_wdata(o_device2_wdata[7:0]), //TX data
-      .uart_wr_en(o_device2_wr_en), //write-enable
-      .uart_rx(uart_rx), //UART RX line
-      .uart_tx(uart_tx), //UART TX line
-      .uart_rdata(i_device2_rdata[7:0]), //data read from memory-mapped register 
-      .o_ack_data(i_device2_ack_data), //request to access UART
-      .i_stb_data(o_device2_stb_data) //acknowledge by UART
+        .clk(i_clk),
+        .rst_n(!i_rst),
+        .i_wb_cyc(device2_wb_cyc),
+        .i_wb_stb(device2_wb_stb),
+        .i_wb_we(device2_wb_we),
+        .i_wb_addr(device2_wb_addr),
+        .i_wb_data(o_device2_wb_data[7:0]),
+        .i_wb_sel(device2_wb_sel),
+        .o_wb_ack(device2_wb_ack),
+        .o_wb_stall(device2_wb_stall),
+        .o_wb_data(i_device2_wb_data[7:0]),
+        .uart_rx(uart_rx), //UART RX line
+        .uart_tx(uart_tx) //UART TX line
       );
 
+    // CONTINUE////////////////////////////////////////
     //DEVICE 3
     i2c #(.main_clock(CLK_FREQ_MHZ*1_000_000), //SCCB mode(no pullups resistors needed) [memory-mapped to >=A0,<F0 (MSB=1)]
           .freq( //i2c freqeuncy
@@ -240,12 +280,15 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
       (
         .clk(i_clk),
         .rst_n(!i_rst),
-        .i2c_rw_address(o_device3_data_addr), //read/write address (access the memory-mapped registers for controlling i2c)
-        .i2c_wdata(o_device3_wdata[7:0]),  //data to be written to slave or to memory-mapped registers of i2c
-        .i2c_rdata(i_device3_rdata[7:0]),  //data retrieved from slave or from the memory-mapped registers of i2c
-        .i2c_wr_en(o_device3_wr_en), //write-enable
-        .i_stb_data(o_device3_stb_data), //request to access i2c
-        .o_ack_data(i_device3_ack_data), //acknowledge by i2c
+        .i_wb_cyc(device3_wb_cyc),
+        .i_wb_stb(device3_wb_stb),
+        .i_wb_we(device3_wb_we),
+        .i_wb_addr(device3_wb_addr),
+        .i_wb_data(o_device3_wb_data[7:0]),
+        .i_wb_sel(device3_wb_sel),
+        .o_wb_ack(device3_wb_ack),
+        .o_wb_stall(device3_wb_stall),
+        .o_wb_data(i_device3_wb_data[7:0]),
         .scl(i2c_scl), //i2c bidrectional clock line
         .sda(i2c_sda) //i2c bidrectional data line
     );
@@ -259,12 +302,15 @@ module rv32i_soc #(parameter CLK_FREQ_MHZ=12, PC_RESET=32'h00_00_00_00, TRAP_ADD
     ) gpio (
         .clk(i_clk),
         .rst_n(!i_rst),
-        .gpio_rw_address(o_device4_data_addr), //read/write address of memory-mapped register 
-        .gpio_wdata(o_device4_wdata[GPIO_COUNT-1:0]), //write data to memory-mapped register
-        .gpio_rdata(i_device4_rdata[GPIO_COUNT-1:0]), //read data from memory-mapped register 
-        .gpio_wr_en(o_device4_wr_en), //write-enable
-        .i_stb_data(o_device4_stb_data), //request to access UART
-        .o_ack_data(i_device4_ack_data), //acknowledge by UART
+        .i_wb_cyc(device4_wb_cyc),
+        .i_wb_stb(device4_wb_stb),
+        .i_wb_we(device4_wb_we),
+        .i_wb_addr(device4_wb_addr),
+        .i_wb_data(o_device4_wb_data[GPIO_COUNT-1:0]),
+        .i_wb_sel(device4_wb_sel),
+        .o_wb_ack(device4_wb_ack),
+        .o_wb_stall(device4_wb_stall),
+        .o_wb_data(i_device4_wb_data[GPIO_COUNT-1:0]),
         //GPIO
         .gpio(gpio_pins) //gpio pins
     );
@@ -274,154 +320,179 @@ endmodule
 
 module memory_wrapper ( //decodes address and access the corresponding memory-mapped device
     //RISC-V Core
-    input wire[31:0] i_data_addr,
-    input wire[31:0] i_wdata,
-    output reg[31:0] o_rdata,
-    input wire i_wr_en,
-    input wire[3:0] i_wr_mask,
-    input wire i_stb_data,
-    output reg o_ack_data,
+    input wire i_wb_cyc,
+    input wire i_wb_stb,
+    input wire i_wb_we,
+    input wire[31:0] i_wb_addr,
+    input wire[31:0] i_wb_data,
+    input wire[3:0] i_wb_sel,
+    output reg o_wb_ack,
+    output reg o_wb_stall,
+    output reg[31:0] o_wb_data,
 
     //Device 0 Interface (RAM)
-    output reg[31:0] o_device0_data_addr,
-    output reg[31:0] o_device0_wdata,
-    input wire[31:0] i_device0_rdata,
-    output reg o_device0_wr_en,
-    output reg[3:0] o_device0_wr_mask,
-    output reg o_device0_stb_data,
-    input wire i_device0_ack_data,
+    output reg o_device0_wb_cyc,
+    output reg o_device0_wb_stb,
+    output reg o_device0_wb_we,
+    output reg[31:0] o_device0_wb_addr,
+    output reg[31:0] o_device0_wb_data,
+    output reg[3:0] o_device0_wb_sel,
+    input wire i_device0_wb_ack,
+    input wire i_device0_wb_stall,
+    input wire[31:0] i_device0_wb_data,
 
     //Device 1 Interface (CLINT)
-    output reg[31:0] o_device1_data_addr,
-    output reg[31:0] o_device1_wdata,
-    input wire[31:0] i_device1_rdata,
-    output reg o_device1_wr_en,
-    output reg[3:0] o_device1_wr_mask,
-    output reg o_device1_stb_data,
-    input wire i_device1_ack_data,
+    output reg o_device1_wb_cyc,
+    output reg o_device1_wb_stb,
+    output reg o_device1_wb_we,
+    output reg[31:0] o_device1_wb_addr,
+    output reg[31:0] o_device1_wb_data,
+    output reg[3:0] o_device1_wb_sel,
+    input wire i_device1_wb_ack,
+    input wire i_device1_wb_stall,
+    input wire[31:0] i_device1_wb_data,
 
     //Device 2 Interface (UART)
-    output reg[31:0] o_device2_data_addr,
-    output reg[31:0] o_device2_wdata,
-    input wire[31:0] i_device2_rdata,
-    output reg o_device2_wr_en,
-    output reg[3:0] o_device2_wr_mask,
-    output reg o_device2_stb_data,
-    input wire i_device2_ack_data,
+    output reg o_device2_wb_cyc,
+    output reg o_device2_wb_stb,
+    output reg o_device2_wb_we,
+    output reg[31:0] o_device2_wb_addr,
+    output reg[31:0] o_device2_wb_data,
+    output reg[3:0] o_device2_wb_sel,
+    input wire i_device2_wb_ack,
+    input wire i_device2_wb_stall,
+    input wire[31:0] i_device2_wb_data,
 
     //Device 3 Interface (I2C)
-    output reg[31:0] o_device3_data_addr,
-    output reg[31:0] o_device3_wdata,
-    input wire[31:0] i_device3_rdata,
-    output reg o_device3_wr_en,
-    output reg[3:0] o_device3_wr_mask,
-    output reg o_device3_stb_data,
-    input wire i_device3_ack_data,
+    output reg o_device3_wb_cyc,
+    output reg o_device3_wb_stb,
+    output reg o_device3_wb_we,
+    output reg[31:0] o_device3_wb_addr,
+    output reg[31:0] o_device3_wb_data,
+    output reg[3:0] o_device3_wb_sel,
+    input wire i_device3_wb_ack,
+    input wire i_device3_wb_stall,
+    input wire[31:0] i_device3_wb_data,
     
     //Device 4 Interface (GPIO)
-    output reg[31:0] o_device4_data_addr,
-    output reg[31:0] o_device4_wdata,
-    input wire[31:0] i_device4_rdata,
-    output reg o_device4_wr_en,
-    output reg[3:0] o_device4_wr_mask,
-    output reg o_device4_stb_data,
-    input wire i_device4_ack_data
+    output reg o_device4_wb_cyc,
+    output reg o_device4_wb_stb,
+    output reg o_device4_wb_we,
+    output reg[31:0] o_device4_wb_addr,
+    output reg[31:0] o_device4_wb_data,
+    output reg[3:0] o_device4_wb_sel,
+    input wire i_device4_wb_ack,
+    input wire i_device4_wb_stall,
+    input wire[31:0] i_device4_wb_data
 );
 
 
     always @* begin 
-        o_device0_data_addr = 0; 
-        o_device0_wdata = 0;
-        o_rdata = 0;
-        o_device0_wr_en = 0;
-        o_device0_wr_mask = 0;
-        o_device0_stb_data = 0;
-        o_ack_data = 0;
-        
-        o_device0_data_addr = 0; 
-        o_device0_wdata = 0;
-        o_device0_wr_en = 0;
-        o_device0_wr_mask = 0;
-        o_device0_stb_data = 0;
-        o_device1_data_addr = 0; 
-        o_device1_wdata = 0;
-        o_device1_wr_en = 0;
-        o_device1_wr_mask = 0;
-        o_device1_stb_data = 0;
-        o_device2_data_addr = 0; 
-        o_device2_wdata = 0;
-        o_device2_wr_en = 0;
-        o_device2_wr_mask = 0;
-        o_device2_stb_data = 0;
-        o_device3_data_addr = 0; 
-        o_device3_wdata = 0;
-        o_device3_wr_en = 0;
-        o_device3_wr_mask = 0;
-        o_device3_stb_data = 0;
-        o_device4_data_addr = 0; 
-        o_device4_wdata = 0;
-        o_device4_wr_en = 0;
-        o_device4_wr_mask = 0;
-        o_device4_stb_data = 0;
+        o_wb_ack = 0;
+        o_wb_stall = 0;
+        o_wb_data = 0;
+
+        o_device0_wb_cyc = 0;
+        o_device0_wb_stb = 0;
+        o_device0_wb_we = 0;
+        o_device0_wb_addr = 0;
+        o_device0_wb_data = 0;
+        o_device0_wb_sel = 0;
+
+        o_device1_wb_cyc = 0;
+        o_device1_wb_stb = 0;
+        o_device1_wb_we = 0;
+        o_device1_wb_addr = 0;
+        o_device1_wb_data = 0;
+        o_device1_wb_sel = 0;
+
+        o_device2_wb_cyc = 0;
+        o_device2_wb_stb = 0;
+        o_device2_wb_we = 0;
+        o_device2_wb_addr = 0;
+        o_device2_wb_data = 0;
+        o_device2_wb_sel = 0;
+
+        o_device3_wb_cyc = 0;
+        o_device3_wb_stb = 0;
+        o_device3_wb_we = 0;
+        o_device3_wb_addr = 0;
+        o_device3_wb_data = 0;
+        o_device3_wb_sel = 0;
+
+        o_device4_wb_cyc = 0;
+        o_device4_wb_stb = 0;
+        o_device4_wb_we = 0;
+        o_device4_wb_addr = 0;
+        o_device4_wb_data = 0;
+        o_device4_wb_sel = 0;
+
         // Memory-mapped peripherals address has MSB set to 1
-        if(i_data_addr[31]) begin
-            if(i_data_addr[11:0] < 12'h50) begin //Device 1 Interface (CLINT) (20 words)
-                o_device1_data_addr = i_data_addr; 
-                o_device1_wdata = i_wdata;
-                o_rdata = i_device1_rdata;
-                o_device1_wr_en = i_wr_en;
-                o_device1_wr_mask = i_wr_mask;
-                o_device1_stb_data = i_stb_data;
-                o_ack_data = i_device1_ack_data;
+        if(i_wb_addr[31]) begin
+            if(i_wb_addr[11:0] < 12'h50) begin //Device 1 Interface (CLINT) (20 words)
+                o_device1_wb_cyc = i_wb_cyc;
+                o_device1_wb_stb = i_wb_stb;
+                o_device1_wb_we = i_wb_we;
+                o_device1_wb_addr = i_wb_addr; 
+                o_device1_wb_data = i_wb_data;
+                o_device1_wb_sel = i_wb_sel; 
+                o_wb_ack = i_device1_wb_ack;
+                o_wb_stall = i_device1_wb_stall;
+                o_wb_data = i_device1_wb_data;
             end
             
-            if(i_data_addr[11:0] >= 12'h50 && i_data_addr[11:0] < 12'hA0) begin //Device 2 Interface (UART) (20 words)
-                o_device2_data_addr = i_data_addr; 
-                o_device2_wdata = i_wdata;
-                o_rdata = i_device2_rdata;
-                o_device2_wr_en = i_wr_en;
-                o_device2_wr_mask = i_wr_mask;
-                o_device2_stb_data = i_stb_data;
-                o_ack_data = i_device2_ack_data;
+            if(i_wb_addr[11:0] >= 12'h50 && i_wb_addr[11:0] < 12'hA0) begin //Device 2 Interface (UART) (20 words)
+                o_device2_wb_cyc = i_wb_cyc;
+                o_device2_wb_stb = i_wb_stb;
+                o_device2_wb_we = i_wb_we;
+                o_device2_wb_addr = i_wb_addr; 
+                o_device2_wb_data = i_wb_data;
+                o_device2_wb_sel = i_wb_sel; 
+                o_wb_ack = i_device2_wb_ack;
+                o_wb_stall = i_device2_wb_stall;
+                o_wb_data = i_device2_wb_data;
             end
 
-            if(i_data_addr[11:0] >= 12'hA0 && i_data_addr[11:0] < 12'hF0) begin //Device 3 Interface (I2C) (20 words)
-                o_device3_data_addr = i_data_addr; 
-                o_device3_wdata = i_wdata;
-                o_rdata = i_device3_rdata;
-                o_device3_wr_en = i_wr_en;
-                o_device3_wr_mask = i_wr_mask;
-                o_device3_stb_data = i_stb_data;
-                o_ack_data = i_device3_ack_data;
+            if(i_wb_addr[11:0] >= 12'hA0 && i_wb_addr[11:0] < 12'hF0) begin //Device 3 Interface (I2C) (20 words)
+                o_device3_wb_cyc = i_wb_cyc;
+                o_device3_wb_stb = i_wb_stb;
+                o_device3_wb_we = i_wb_we;
+                o_device3_wb_addr = i_wb_addr; 
+                o_device3_wb_data = i_wb_data;
+                o_device3_wb_sel = i_wb_sel; 
+                o_wb_ack = i_device3_wb_ack;
+                o_wb_stall = i_device3_wb_stall;
+                o_wb_data = i_device3_wb_data;
             end
             
-            if(i_data_addr[11:0] >= 12'hF0 && i_data_addr[11:0] < 12'h140) begin //Device 4 Interface (GPIO) (20 words)
-                o_device4_data_addr = i_data_addr; 
-                o_device4_wdata = i_wdata;
-                o_rdata = i_device4_rdata;
-                o_device4_wr_en = i_wr_en;
-                o_device4_wr_mask = i_wr_mask;
-                o_device4_stb_data = i_stb_data;
-                o_ack_data = i_device4_ack_data;
+            if(i_wb_addr[11:0] >= 12'hF0 && i_wb_addr[11:0] < 12'h140) begin //Device 4 Interface (GPIO) (20 words)
+                o_device4_wb_cyc = i_wb_cyc;
+                o_device4_wb_stb = i_wb_stb;
+                o_device4_wb_we = i_wb_we;
+                o_device4_wb_addr = i_wb_addr; 
+                o_device4_wb_data = i_wb_data;
+                o_device4_wb_sel = i_wb_sel; 
+                o_wb_ack = i_device4_wb_ack;
+                o_wb_stall = i_device4_wb_stall;
+                o_wb_data = i_device4_wb_data;
             end
         end
         
         // Else access RAM
         else begin  //Device 0 Interface (RAM)
-            o_device0_data_addr = i_data_addr; 
-            o_device0_wdata = i_wdata;
-            o_rdata = i_device0_rdata;
-            o_device0_wr_en = i_wr_en;
-            o_device0_wr_mask = i_wr_mask;
-            o_device0_stb_data = i_stb_data;
-            o_ack_data = i_device0_ack_data;
+            o_device0_wb_cyc = i_wb_cyc;
+            o_device0_wb_stb = i_wb_stb;
+            o_device0_wb_we = i_wb_we;
+            o_device0_wb_addr = i_wb_addr; 
+            o_device0_wb_data = i_wb_data;
+            o_device0_wb_sel = i_wb_sel; 
+            o_wb_ack = i_device0_wb_ack;
+            o_wb_stall = i_device0_wb_stall;
+            o_wb_data = i_device0_wb_data;
         end
     end
  
 endmodule
-
-
-
 module main_memory #(parameter MEMORY_DEPTH=1024) ( //Instruction and Data memory (combined memory)
     input wire i_clk,
     // Instruction Memory
@@ -430,39 +501,42 @@ module main_memory #(parameter MEMORY_DEPTH=1024) ( //Instruction and Data memor
     input wire i_stb_inst, // request for instruction
     output reg o_ack_inst, //ack (high if new instruction is now on the bus)
     // Data Memory
-    input wire[$clog2(MEMORY_DEPTH)-1:0] i_data_addr,
-    input wire[31:0] i_data_in,
-    input wire[3:0] i_wr_mask,
-    input wire i_wr_en,
-    input wire i_stb_data,
-    output reg o_ack_data,
-    output reg[31:0] o_data_out
+    input wire i_wb_cyc,
+    input wire i_wb_stb,
+    input wire i_wb_we,
+    input wire[$clog2(MEMORY_DEPTH)-1:0] i_wb_addr,
+    input wire[31:0] i_wb_data,
+    input wire[3:0] i_wb_sel,
+    output reg o_wb_ack,
+    output wire o_wb_stall,
+    output reg[31:0] o_wb_data
 );
     reg[31:0] memory_regfile[MEMORY_DEPTH/4 - 1:0];
     integer i;
-    
+    assign o_wb_stall = 0; // never stall
+
     initial begin //initialize memory to zero
         $readmemh("memory.mem",memory_regfile); //initialize memory
         o_ack_inst <= 0;
-        o_ack_data <= 0;
+        o_wb_ack <= 0;
         o_inst_out <= 0;
     end
     
     //reading must be registered to be inferred as block ram
     always @(posedge i_clk) begin 
         o_ack_inst <= i_stb_inst; //go high next cycle after receiving request (data o_inst_out is also sent at next cycle)
-        o_ack_data <= i_stb_data;
+        o_wb_ack <= i_wb_stb && i_wb_cyc;
         o_inst_out <= memory_regfile[{i_inst_addr>>2}]; //read instruction 
-        o_data_out <= memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]]; //read data    
+        o_wb_data <= memory_regfile[i_wb_addr[$clog2(MEMORY_DEPTH)-1:2]]; //read data    
     end
 
     // write data
     always @(posedge i_clk) begin
-        if(i_wr_en) begin
-            if(i_wr_mask[0]) memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]][7:0] <= i_data_in[7:0]; 
-            if(i_wr_mask[1]) memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]][15:8] <= i_data_in[15:8];
-            if(i_wr_mask[2]) memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]][23:16] <= i_data_in[23:16];
-            if(i_wr_mask[3]) memory_regfile[i_data_addr[$clog2(MEMORY_DEPTH)-1:2]][31:24] <= i_data_in[31:24];
+        if(i_wb_we && i_wb_stb && i_wb_cyc) begin
+            if(i_wb_sel[0]) memory_regfile[i_wb_addr[$clog2(MEMORY_DEPTH)-1:2]][7:0] <= i_wb_data[7:0]; 
+            if(i_wb_sel[1]) memory_regfile[i_wb_addr[$clog2(MEMORY_DEPTH)-1:2]][15:8] <= i_wb_data[15:8];
+            if(i_wb_sel[2]) memory_regfile[i_wb_addr[$clog2(MEMORY_DEPTH)-1:2]][23:16] <= i_wb_data[23:16];
+            if(i_wb_sel[3]) memory_regfile[i_wb_addr[$clog2(MEMORY_DEPTH)-1:2]][31:24] <= i_wb_data[31:24];
         end      
         
     end
@@ -482,14 +556,17 @@ module uart #( //UART (TX only)
     )(
         input wire clk,
         input wire rst_n,
-        input wire[31:0] uart_rw_address, //read/write address (access the memory-mapped registers for controlling UART)
-        input wire[DBIT - 1:0 ] uart_wdata, //TX data
-        input wire uart_wr_en, //write-enable
+        input wire i_wb_cyc,
+        input wire i_wb_stb,
+        input wire i_wb_we,
+        input wire[31:0] i_wb_addr,
+        input wire[DBIT - 1:0 ] i_wb_data,
+        input wire[3:0] i_wb_sel,
+        output reg o_wb_ack,
+        output wire o_wb_stall,
+        output reg[DBIT - 1:0] o_wb_data,
         input wire uart_rx, //UART RX line
-        output wire uart_tx, //UART TX line
-        output reg[DBIT - 1:0] uart_rdata, //data read from memory-mapped register 
-        input wire i_stb_data, //request to access UART
-        output reg o_ack_data //acknowledge by UART
+        output wire uart_tx //UART TX line
     );
 
 
@@ -520,6 +597,7 @@ module uart #( //UART (TX only)
     reg rx_done_tick; //goes high if a read is done
     reg rx_buffer_full; //goes high if a read is done
 
+    assign o_wb_stall = 0;
 
     //baud tick generator
      reg[DVSR_WIDTH-1:0] counter=0;
@@ -540,20 +618,20 @@ module uart #( //UART (TX only)
      //Read memory-mapped registers
      always @(posedge clk, negedge rst_n) begin
         if(!rst_n) begin
-            uart_rdata <= 0;
-            o_ack_data <= 0;
+            o_wb_data <= 0;
+            o_wb_ack <= 0;
         end
         else begin
-            if(i_stb_data && !uart_wr_en && uart_rw_address == UART_TX_BUSY) begin //read request to UART_TX_BUSY_ADDR (check if there is an ongoing request)
-                uart_rdata <= uart_busy;
+            if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == UART_TX_BUSY) begin //read request to UART_TX_BUSY_ADDR (check if there is an ongoing request)
+                o_wb_data <= uart_busy;
             end
-            else if(i_stb_data && !uart_wr_en && uart_rw_address == UART_RX_BUFFER_FULL) begin //read request to UART_RX_BUFFER_FULL (check if a read is completed)
-                uart_rdata <= rx_buffer_full;
+            else if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == UART_RX_BUFFER_FULL) begin //read request to UART_RX_BUFFER_FULL (check if a read is completed)
+                o_wb_data <= rx_buffer_full;
             end
-            else if(i_stb_data && !uart_wr_en && uart_rw_address == UART_RX_DATA) begin //read request to UART_RX_DATA (read the data)
-                uart_rdata <= dout;
+            else if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == UART_RX_DATA) begin //read request to UART_RX_DATA (read the data)
+                o_wb_data <= dout;
             end
-            o_ack_data <= i_stb_data;
+            o_wb_ack <= i_wb_stb && i_wb_cyc;
         end
      end
      
@@ -593,8 +671,8 @@ module uart #( //UART (TX only)
                             tx_nxt=1;
                             uart_busy = 0;
                             //start transmit operation when there is a write request to UART_TX_DATA_ADDR and we are in idle
-                            if(uart_wr_en && i_stb_data && uart_rw_address == UART_TX_DATA && !uart_busy) begin 
-                                din_nxt=uart_wdata;
+                            if(i_wb_we && i_wb_stb && i_wb_cyc && i_wb_addr == UART_TX_DATA && !uart_busy) begin 
+                                din_nxt=i_wb_data;
                                 s_nxt=0;
                                 state_nxt=start;
                                 uart_busy = 1;
@@ -660,7 +738,7 @@ module uart #( //UART (TX only)
 			    dout <= b_reg; //memory-mapped register storing the completed read data	
 			    rx_buffer_full <= 1'b1; //memory-mapped register to check if a read is done
 			end
-			else if(i_stb_data && !uart_wr_en && uart_rw_address == UART_RX_DATA) begin //read request to UART_RX_DATA (read the data)
+			else if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == UART_RX_DATA) begin //read request to UART_RX_DATA (read the data)
                 rx_buffer_full <= 1'b0;
             end
 		end
@@ -724,15 +802,19 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
                 I2C_STOP=8124 //write-only memory-mapped address to stop i2c (this is persistent thus must be manually turned off after stopping i2c)
     ) 
     (
-        input   wire        clk,
-        input   wire        rst_n,
-        input   wire [31:0] i2c_rw_address, //read/write address (access the memory-mapped registers for controlling i2c)
-        input   wire [7:0 ] i2c_wdata, //data to be written to slave or to memory-mapped registers of i2c
-        output reg [7:0] i2c_rdata, //data retrieved from slave or from the memory-mapped registers of i2c
-        input   wire        i2c_wr_en, //write-enable
-        inout wire scl, sda, //i2c bidrectional clock and data line
-        output reg o_ack_data, //acknowledge by i2c
-        input wire i_stb_data //request to access i2c
+        input wire clk,
+        input wire rst_n,
+        // Wishbone Interface
+        input wire i_wb_cyc,
+        input wire i_wb_stb,
+        input wire i_wb_we,
+        input wire[31:0] i_wb_addr,
+        input wire[7:0] i_wb_data,
+        input wire[3:0] i_wb_sel,
+        output reg o_wb_ack,
+        output wire o_wb_stall,
+        output reg[7:0] o_wb_data,
+        inout wire scl, sda //i2c bidrectional clock and data line
     ); 
      
 
@@ -743,8 +825,8 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
     reg[7:0] i2c_stop; //write non-zero data here to stop current read/write transaction
 
     
-    wire start = i_stb_data;
-    wire[7:0] wr_data = i2c_wdata;
+    wire start = i_wb_stb && i_wb_cyc;
+    wire[7:0] wr_data = i_wb_data;
     reg ack;
     reg rd_tick;
 
@@ -775,20 +857,21 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
      wire scl_lo,scl_hi;
      wire sda_in, sda_out;
     
+    assign o_wb_stall = 0;
     //access memory-mapped register
     always @(posedge clk, negedge rst_n) begin
         if(!rst_n) begin
             i2c_stop <= 0;
-            o_ack_data <= 0;
+            o_wb_ack <= 0;
         end
         else begin
-            if(i_stb_data && i2c_wr_en && i2c_rw_address == I2C_STOP) i2c_stop <= i2c_wdata; //write to i2c_stop to stop transaction
-            if(i_stb_data && !i2c_wr_en && i2c_rw_address == I2C_ACK) i2c_rdata <= i2c_ack; //read i2c_ack to know if last access request has been ack by slave
-            if(i_stb_data && !i2c_wr_en && i2c_rw_address == I2C_READ_DATA_READY) i2c_rdata <= i2c_read_data_ready;//read this to know if data is ready to be read
-            if(i_stb_data && !i2c_wr_en && i2c_rw_address == I2C_BUSY) i2c_rdata <= i2c_busy; //read this to know if i2c is still busy
-            if(i_stb_data && !i2c_wr_en && i2c_rw_address == I2C_READ) i2c_rdata <= rd_data_q; //read this to know what has been read from slave (make sure I2C_READ_DATA_READY is already high) 
+            if(i_wb_stb && i_wb_cyc && i_wb_we && i_wb_addr == I2C_STOP) i2c_stop <= i_wb_data; //write to i2c_stop to stop transaction
+            if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == I2C_ACK) o_wb_data <= i2c_ack; //read i2c_ack to know if last access request has been ack by slave
+            if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == I2C_READ_DATA_READY) o_wb_data <= i2c_read_data_ready;//read this to know if data is ready to be read
+            if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == I2C_BUSY) o_wb_data <= i2c_busy; //read this to know if i2c is still busy
+            if(i_wb_stb && i_wb_cyc && !i_wb_we && i_wb_addr == I2C_READ) o_wb_data <= rd_data_q; //read this to know what has been read from slave (make sure I2C_READ_DATA_READY is already high) 
 
-            o_ack_data <= i_stb_data; 
+            o_wb_ack <= i_wb_stb && i_wb_cyc; 
         end
     end
 
@@ -847,7 +930,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
                     idle: begin //wait for user to start i2c by writing the slave address to I2C_START
                                 sda_d=1'b1;
                                 addr_bytes_d=addr_bytes; 
-                                if(start==1'b1 && i2c_wr_en && i2c_rw_address == I2C_START) begin //wait for a request
+                                if(start==1'b1 && i_wb_we && i_wb_addr == I2C_START) begin //wait for a request
                                     wr_data_d={wr_data,1'b1}; //the last 1'b1 is for the ACK coming from the servant("1" means high impedance or "reading")
                                     op_d= (wr_data[0])? 1:0; // if last bit(R/W bit) is one:read operation, else write operation
                                     idx_d=8; //index to be used on transmitting the wr_data serially(MSB first)
@@ -885,7 +968,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
                stop_or_write:  if(i2c_stop[0]) begin //wait until user explicitly say to either stop i2c or continue writing
                                 state_d = stop_1;
                             end
-                            else if(start && i2c_wr_en && i2c_rw_address == I2C_WRITE) begin//continue writing                   
+                            else if(start && i_wb_we && i_wb_addr == I2C_WRITE) begin//continue writing                   
                                     state_d = packet;
                                     wr_data_d={wr_data,1'b1}; 
                                     addr_bytes_d=addr_bytes_q-1;
@@ -909,7 +992,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
             stop_or_read: if(i2c_stop[0]) begin //wait until user explicitly say to either stop i2c or continue reading
                              state_d = stop_1;
                          end
-                         else if(start && !i2c_wr_en && i2c_rw_address == I2C_READ) begin //continue reading when current data is read
+                         else if(start && !i_wb_we && i_wb_addr == I2C_READ) begin //continue reading when current data is read
                              state_d = read;
                          end
 
@@ -938,7 +1021,7 @@ module i2c //SCCB mode(no pullups resistors needed) [REPEATED START NOT SUPPORTE
     
     //Vivado, use IOBUF primitive
     `ifndef ICARUS 
-     IOBUF sda_iobuf ( //Vivado IOBUF instantiation
+     IOBUF sda_iobuf ( //Vivado IOBUF instantiationGPIO_COUNT-1
             .IO(sda),
             .I(sda_out),//write SDA when is_reading low
             .T(is_reading), 
@@ -967,12 +1050,15 @@ module rv32i_clint #( //Core Logic Interrupt
 )(
         input wire clk,
         input wire rst_n,
-        input wire[31:0] clint_address, //read/write address (access the memory-mapped registers for controlling i2c)
-        input wire[31:0] clint_wdata, //data to be written to slave or to memory-mapped registers of i2c
-        output reg[31:0] clint_rdata, //data retrieved from slave or from the memory-mapped registers of i2c
-        input wire clint_wr_en, //write-enable
-        input wire i_stb, //request to access CLINT
-        output reg o_ack, //acknowledge by CLINT
+        input wire i_wb_cyc,
+        input wire i_wb_stb,
+        input wire i_wb_we,
+        input wire[31:0] i_wb_addr,
+        input wire[31:0] i_wb_data,
+        input wire[3:0] i_wb_sel,
+        output reg o_wb_ack,
+        output wire o_wb_stall,
+        output reg[31:0] o_wb_data,
         // Interrupts
         output wire o_timer_interrupt,
         output wire o_software_interrupt
@@ -988,23 +1074,23 @@ module rv32i_clint #( //Core Logic Interrupt
     reg[63:0] mtime = 0;
     reg[63:0] mtimecmp = {64{1'b1}};   
     reg msip = 0; //Inter-processor (or software) interrupts
-
+    assign o_wb_stall = 0;
 
    //READ memory-mapped registers 
     always @(posedge clk, negedge rst_n) begin
         if(!rst_n) begin
-            o_ack <= 0;
-            clint_rdata <= 0;
+            o_wb_ack <= 0;
+            o_wb_data <= 0;
         end
         else begin
-            if(i_stb && !clint_wr_en) begin //read the memory-mapped register
-                if(clint_address == MTIME_BASE_ADDRESS) clint_rdata <= mtime[31:0]; //first half 
-                else if(clint_address == MTIME_BASE_ADDRESS + 4) clint_rdata <= mtime[63:32]; //second half
-                if(clint_address == MTIMECMP_BASE_ADDRESS) clint_rdata <= mtimecmp[31:0]; //first half
-                else if(clint_address == MTIMECMP_BASE_ADDRESS + 4) clint_rdata <= mtimecmp[63:32]; //second half
-                if(clint_address == MSIP_BASE_ADDRESS) clint_rdata <= {31'b0, msip}; //machine software interrupt
+            if(i_wb_stb && i_wb_cyc && !i_wb_we) begin //read the memory-mapped register
+                if(i_wb_addr == MTIME_BASE_ADDRESS) o_wb_data <= mtime[31:0]; //first half 
+                else if(i_wb_addr == MTIME_BASE_ADDRESS + 4) o_wb_data <= mtime[63:32]; //second half
+                if(i_wb_addr == MTIMECMP_BASE_ADDRESS) o_wb_data <= mtimecmp[31:0]; //first half
+                else if(i_wb_addr == MTIMECMP_BASE_ADDRESS + 4) o_wb_data <= mtimecmp[63:32]; //second half
+                if(i_wb_addr == MSIP_BASE_ADDRESS) o_wb_data <= {31'b0, msip}; //machine software interrupt
             end
-            o_ack <= i_stb; //wishbone protocol stb-ack mechanism
+            o_wb_ack <= i_wb_stb && i_wb_cyc; //wishbone protocol stb-ack mechanism
         end
     end
 
@@ -1018,12 +1104,12 @@ module rv32i_clint #( //Core Logic Interrupt
             msip <= 0;
         end
         else begin
-            if(i_stb && clint_wr_en) begin //write to the memory-mapped registers
-                if(clint_address == MTIME_BASE_ADDRESS)  mtime[31:0] <= clint_wdata; //first half 
-                else if(clint_address == MTIME_BASE_ADDRESS + 4) mtime[63:32] <= clint_wdata; //second half
-                if(clint_address == MTIMECMP_BASE_ADDRESS) mtimecmp[31:0] <= clint_wdata; //first half
-                else if(clint_address == MTIMECMP_BASE_ADDRESS + 4) mtimecmp[63:32] <= clint_wdata; //second half
-                if(clint_address == MSIP_BASE_ADDRESS) msip <= clint_wdata[0]; //machine software interrupt
+            if(i_wb_stb && i_wb_cyc && i_wb_we) begin //write to the memory-mapped registers
+                if(i_wb_addr == MTIME_BASE_ADDRESS)  mtime[31:0] <= i_wb_data; //first half 
+                else if(i_wb_addr == MTIME_BASE_ADDRESS + 4) mtime[63:32] <= i_wb_data; //second half
+                if(i_wb_addr == MTIMECMP_BASE_ADDRESS) mtimecmp[31:0] <= i_wb_data; //first half
+                else if(i_wb_addr == MTIMECMP_BASE_ADDRESS + 4) mtimecmp[63:32] <= i_wb_data; //second half
+                if(i_wb_addr == MSIP_BASE_ADDRESS) msip <= i_wb_data[0]; //machine software interrupt
             end
             mtime <= mtime + 1'b1; //increment every clock tick (so timer freq is same as cpu clock freq)
         end
@@ -1052,13 +1138,16 @@ module gpio #( //UART (TX only)
     )(
         input wire clk,
         input wire rst_n,
-        input wire[31:0] gpio_rw_address, //read/write address of memory-mapped register
-        output reg[GPIO_COUNT-1:0] gpio_rdata, //read data from memory-mapped register 
-        input wire[GPIO_COUNT-1:0 ] gpio_wdata, //write data to memory-mapped register
-        input wire gpio_wr_en, //write-enable
-
-        input wire i_stb_data, //request to access UART
-        output reg o_ack_data, //acknowledge by UART
+        // Wishbone Interface
+        input wire i_wb_cyc,
+        input wire i_wb_stb,
+        input wire i_wb_we,
+        input wire[31:0] i_wb_addr,
+        input wire[GPIO_COUNT-1:0] i_wb_data,
+        input wire[3:0] i_wb_sel,
+        output reg o_wb_ack,
+        output wire o_wb_stall,
+        output reg[GPIO_COUNT-1:0] o_wb_data,
         //GPIO
         inout wire[11:0] gpio //gpio pins
     );
@@ -1068,6 +1157,8 @@ module gpio #( //UART (TX only)
     reg[GPIO_COUNT-1:0] gpio_write;
     wire[GPIO_COUNT-1:0] gpio_read;
     reg[GPIO_COUNT-1:0] gpio_mode;
+
+    assign o_wb_stall = 0;
     always @(posedge clk,negedge rst_n) begin
         if(!rst_n) begin
             gpio_write <= 0;
@@ -1075,13 +1166,13 @@ module gpio #( //UART (TX only)
             gpio_reg <= 0;
         end
         else begin
-            if(i_stb_data && gpio_wr_en && gpio_rw_address == GPIO_MODE) gpio_mode <= gpio_wdata; //set mode of the gpio (write(1) or low(0))
-            if(i_stb_data && !gpio_wr_en && gpio_rw_address == GPIO_MODE) gpio_rdata <= gpio_mode; //read gpio mode
-            if(i_stb_data && gpio_wr_en && gpio_rw_address == GPIO_WRITE) gpio_write <= gpio_wdata; //write to gpio
-            if(i_stb_data && !gpio_wr_en && gpio_rw_address == GPIO_WRITE) gpio_rdata <= gpio_write; //read write value to gpio
-            if(i_stb_data && !gpio_wr_en && gpio_rw_address == GPIO_READ) gpio_rdata <= gpio_read; //read from gpio
+            if(i_wb_stb && i_wb_we && i_wb_addr == GPIO_MODE) gpio_mode <= i_wb_data; //set mode of the gpio (write(1) or low(0))
+            if(i_wb_stb && !i_wb_we && i_wb_addr == GPIO_MODE) o_wb_data <= gpio_mode; //read gpio mode
+            if(i_wb_stb && i_wb_we && i_wb_addr == GPIO_WRITE) gpio_write <= i_wb_data; //write to gpio
+            if(i_wb_stb && !i_wb_we && i_wb_addr == GPIO_WRITE) o_wb_data <= gpio_write; //read write value to gpio
+            if(i_wb_stb && !i_wb_we && i_wb_addr == GPIO_READ) o_wb_data <= gpio_read; //read from gpio
             
-            o_ack_data <= i_stb_data; 
+            o_wb_ack <= i_wb_stb; 
         end
     end
     

@@ -117,8 +117,8 @@ module rv32i_soc_TB;
                         endcase
                      end
                  end
-                 if(uut.m1.i_wr_en) begin //data memory is written
-                    $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.i_data_addr,uut.m1.i_data_in,uut.m1.i_wr_mask); //display address of memory changed and its new value
+                 if(uut.m1.i_wb_we) begin //data memory is written
+                    $display("  [MEMORY] address:0x%h   value:0x%h [MASK:%b]",uut.m1.i_wb_addr,uut.m1.i_wb_data,uut.m1.i_wb_sel); //display address of memory changed and its new value
                 end
                 
                 if(uut.m0.m5.o_wr_rd && uut.m0.m5.o_rd_addr!=0) begin //base register is written
